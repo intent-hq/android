@@ -1,0 +1,10 @@
+{ "jsonrpc":"2.0","method":"subscription.push","params":{
+  "subscriptionId":"sub-7","kind":"snapshot","seq":0,
+  "snapshot":{
+    "agentId":"agent-123",
+    "messages":[
+      { "id":"0190a1b2-user","agentId":"agent-123","seq":0,"role":"user",
+        "contentBlocks":[ { "type":"text","id":"0190a1b2-user:0","text":"Run the tests" } ],
+        "timestamp":"2026-06-27T01:00:00.000Z" }
+    ],
+    "truncated":false,"totalMessages":1,"nextToken":null } } }

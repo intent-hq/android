@@ -1,0 +1,167 @@
+{
+  "_source": "Agent and edge-case examples authored from docs/protocol/methods/agents.md and 07-agent-streaming.md. chat-*.json are verbatim JSON examples from section 7.1.",
+  "agents": {
+    "agents": [
+      {
+        "id": "agent-one",
+        "name": "Review",
+        "workspaceId": "workspace",
+        "status": "future-status",
+        "parentAgentId": null,
+        "lastMessageRole": "user",
+        "lastUserMessage": "New request",
+        "lastAgentResponse": "Old reply",
+        "turnInFlight": true,
+        "notificationsMuted": true,
+        "metadata": {
+          "isBackground": true,
+          "specialist": "reviewer",
+          "pendingQuestionsMessageId": ""
+        },
+        "futureField": true
+      }
+    ],
+    "retiredCount": 1
+  },
+  "conversation": {
+    "agentId": "agent-one",
+    "messages": [
+      {
+        "id": "m",
+        "role": "assistant",
+        "seq": 7,
+        "timestamp": "2026-10-24T19:00:00Z",
+        "contentBlocks": [
+          {
+            "id": "m:0",
+            "type": "tool_use",
+            "name": "read",
+            "input": "preview",
+            "inputTruncated": true,
+            "inputBytes": 3000
+          },
+          {
+            "id": "m:1",
+            "type": "tool_result",
+            "tool_use_id": "call-1",
+            "output": {
+              "text": "preview"
+            },
+            "is_error": false,
+            "outputTruncated": true,
+            "outputBytes": 5000
+          },
+          {
+            "id": "m:2",
+            "type": "image",
+            "dataTruncated": true,
+            "dataBytes": 9000
+          },
+          {
+            "id": "m:3",
+            "type": "resource",
+            "resource": {
+              "mimeType": "application/vnd.intent.question+json",
+              "text": "{}"
+            }
+          },
+          {
+            "id": "m:4",
+            "type": "future-block",
+            "text": "Fallback"
+          }
+        ],
+        "metadata": {
+          "interrupted": true,
+          "interruptReason": "user_stop"
+        }
+      }
+    ],
+    "totalMessages": 8,
+    "truncated": true,
+    "nextToken": "older",
+    "prevToken": "newer",
+    "turnInFlight": false,
+    "lastStreamActivityAt": null
+  },
+  "incremental": {
+    "subscriptionId": "sub",
+    "seq": 2,
+    "kind": "delta",
+    "delta": {
+      "updated": [
+        {
+          "agentId": "agent-one",
+          "messageId": "m",
+          "role": "assistant",
+          "block": {
+            "id": "m:0",
+            "type": "text",
+            "textDelta": " fragment"
+          }
+        }
+      ]
+    }
+  },
+  "terminal": {
+    "subscriptionId": "sub",
+    "seq": 3,
+    "kind": "delta",
+    "delta": {
+      "updated": [
+        {
+          "agentId": "agent-one",
+          "messageId": "m",
+          "role": "assistant",
+          "messageSeq": 7,
+          "timestamp": "2026-10-24T19:00:00Z",
+          "streamingComplete": true,
+          "metadata": {
+            "finishReason": "max_tokens"
+          },
+          "block": {
+            "id": "m:0",
+            "type": "text",
+            "text": "Complete"
+          }
+        }
+      ],
+      "removedIds": [
+        "m:orphan"
+      ]
+    }
+  },
+  "end": {
+    "agentId": "agent-one",
+    "messageId": "m",
+    "stopReason": "interrupted",
+    "interruptReason": "preempted_by_message",
+    "interruptedBy": {
+      "kind": "agent",
+      "agentId": "agent-two",
+      "name": "Planner"
+    }
+  },
+  "status": {
+    "agentId": "agent-one",
+    "workspaceId": "workspace",
+    "phase": "stalled",
+    "level": "warning",
+    "message": "No activity",
+    "timestamp": 1792868400000,
+    "silentMs": 300000
+  },
+  "tool": {
+    "agentId": "agent-one",
+    "toolName": "read",
+    "toolCallId": "call-1",
+    "status": "completed",
+    "messageId": "m",
+    "blockIndex": 1,
+    "blockId": "m:1",
+    "resultBlockId": "m:2",
+    "resultBlockIndex": 2,
+    "input": {},
+    "output": "contents"
+  }
+}
