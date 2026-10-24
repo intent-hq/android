@@ -63,6 +63,7 @@ fun AgentListScreen(
 @Composable
 private fun AgentRow(agent: Agent, onClick: () -> Unit) {
     Column(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(12.dp)) {
+        AgentIdentityAvatar(agent)
         Text(agent.name, style = MaterialTheme.typography.titleMedium)
         Text(agent.status, style = MaterialTheme.typography.labelMedium)
         val preview = if (agent.lastMessageRole == "user") {

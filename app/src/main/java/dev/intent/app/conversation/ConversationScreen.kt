@@ -22,9 +22,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import dev.intent.app.agents.AgentIdentityAvatar
+import dev.intent.app.agents.LocalConversationAgent
 import dev.intent.app.attachments.MediaPreview
 import dev.intent.app.attachments.MediaReference
 import dev.intent.app.attachments.PhotoAttachmentStore
+import dev.intent.app.design.AgentAvatar
+import dev.intent.app.design.AgentAvatarState
 import dev.intent.app.markdown.MarkdownContent
 import dev.intent.core.protocol.attachments.messageBlock
 import dev.intent.core.protocol.models.ContentBlock
@@ -134,6 +138,26 @@ private fun TranscriptMessage(
     onHydrate: (String, String) -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        if (message.role == "assistant") {
+            val agent = LocalConversationAgent.current
+            if (agent != null && (message.agentId == null || message.agentId == agent.id)) {
+                AgentIdentityAvatar(agent)
+                Text(agent.name, style = MaterialTheme.typography.labelMedium)
+            } else {
+                message.agentId?.let {
+                    AgentAvatar(
+                        it,
+                        state = if (message.isStreaming ==
+                            true
+                        ) {
+                            AgentAvatarState.Running
+                        } else {
+                            AgentAvatarState.Idle
+                        }
+                    )
+                }
+            }
+        }
         Text(
             "${message.role} · ${message.timestamp}",
             style = MaterialTheme.typography.labelMedium

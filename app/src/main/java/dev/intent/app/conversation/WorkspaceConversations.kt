@@ -5,7 +5,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -13,6 +15,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import dev.intent.app.agents.AgentListRoute
 import dev.intent.app.agents.AgentStore
+import dev.intent.app.agents.LocalConversationAgent
 import dev.intent.app.agents.RpcAgentSession
 import dev.intent.app.attachments.AndroidPhotoSource
 import dev.intent.app.attachments.PhotoAttachmentStore
@@ -68,7 +71,14 @@ fun WorkspaceConversations(session: RpcSession, workspaceId: String, onBack: () 
                     photos.close()
                 }
             }
-            ConversationRoute(conversation, sends, photos = photos)
+            val agentState by agents.state.collectAsState()
+            CompositionLocalProvider(
+                LocalConversationAgent provides agentState.agents.firstOrNull {
+                    it.id == agentId
+                }
+            ) {
+                ConversationRoute(conversation, sends, photos = photos)
+            }
         }
     }
 }

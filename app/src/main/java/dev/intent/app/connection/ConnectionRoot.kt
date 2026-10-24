@@ -21,16 +21,33 @@ import dev.intent.app.attachments.LocalAttachmentMedia
 import dev.intent.app.cache.RoomOfflineCache
 import dev.intent.app.navigation.IntentNavigation
 import dev.intent.app.navigation.WorkspaceContent
+import dev.intent.app.notifications.LocalNotifications
+import dev.intent.app.settings.AppPreferences
 import dev.intent.core.protocol.attachments.RpcAttachmentClient
 import java.io.File
 
+@Suppress("LongMethod", "CyclomaticComplexMethod")
 @Composable
 fun ConnectionRoot(
     controller: ConnectionController,
     onScan: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    preferences: AppPreferences = rememberPreferences(),
+    notificationWorkspace: Pair<String, String>? = null
 ) {
     val state by controller.state.collectAsState()
+    val notifications by preferences.notifications.collectAsState()
+    val context = LocalContext.current.applicationContext
+    DisposableEffect(state.session, notifications) {
+        val lease = if (notifications) {
+            state.session?.let {
+                LocalNotifications(context).observe(it, state.activeId.orEmpty())
+            }
+        } else {
+            null
+        }
+        onDispose { lease?.close() }
+    }
     var showConnections by remember { mutableStateOf(false) }
     var showSettings by remember { mutableStateOf(false) }
     var showPairing by remember { mutableStateOf(false) }
@@ -55,7 +72,14 @@ fun ConnectionRoot(
             }
         }
         when {
-            showSettings -> ConnectionSettings(controller.diagnostics, Modifier.weight(1f))
+            showSettings -> ConnectionSettings(
+                controller.diagnostics,
+                Modifier.weight(1f),
+                preferences
+            ) {
+                showSettings = false
+                showConnections = true
+            }
             showPairing || state.connections.isEmpty() -> PairingScreen(
                 state.busy,
                 onScan,
@@ -72,7 +96,7 @@ fun ConnectionRoot(
                 onAdd = { showPairing = true },
                 modifier = Modifier.weight(1f)
             )
-            else -> ConnectedContent(state, Modifier.weight(1f))
+            else -> ConnectedContent(state, Modifier.weight(1f), notificationWorkspace)
         }
     }
     state.pending?.let { payload ->
@@ -85,14 +109,30 @@ fun ConnectionRoot(
 }
 
 @Composable
-private fun ConnectedContent(state: ConnectionState, modifier: Modifier) {
+private fun ConnectedContent(
+    state: ConnectionState,
+    modifier: Modifier,
+    notificationWorkspace: Pair<String, String>?
+) {
     val session = state.session ?: return
     val scope = state.cacheScope ?: return
     val context = LocalContext.current.applicationContext
     key(session, scope) {
         val cache = remember { RoomOfflineCache.open(context, scope) }
         DisposableEffect(cache) { onDispose { cache.close() } }
-        IntentNavigation(session = session, cache = cache, modifier = modifier) {
+        IntentNavigation(
+            session = session,
+            cache = cache,
+            modifier = modifier,
+            initialWorkspace = notificationWorkspace?.takeIf { it.first == state.activeId }?.second,
+            destinations = state.connections.filter {
+                it.id != state.activeId &&
+                    it.payload.certFingerprint !=
+                    state.connections.firstOrNull { row ->
+                        row.id == state.activeId
+                    }?.payload?.certFingerprint
+            }
+        ) {
                 workspaceId,
                 back
             ->
@@ -109,4 +149,10 @@ private fun ConnectedContent(state: ConnectionState, modifier: Modifier) {
             }
         }
     }
+}
+
+@Composable
+private fun rememberPreferences(): AppPreferences {
+    val context = LocalContext.current.applicationContext
+    return remember(context) { AppPreferences(context) }
 }

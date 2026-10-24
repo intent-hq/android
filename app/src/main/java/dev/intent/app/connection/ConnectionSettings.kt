@@ -1,25 +1,71 @@
 package dev.intent.app.connection
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
+import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import dev.intent.app.settings.AppPreferences
+import dev.intent.app.settings.Appearance
 
 @Composable
-fun ConnectionSettings(diagnostics: ConnectionDiagnostics, modifier: Modifier = Modifier) {
+fun ConnectionSettings(
+    diagnostics: ConnectionDiagnostics,
+    modifier: Modifier = Modifier,
+    preferences: AppPreferences,
+    onConnections: () -> Unit
+) {
     val context = LocalContext.current
+    val appearance by preferences.appearance.collectAsState()
+    val notifications by preferences.notifications.collectAsState()
+    val permission =
+        rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
+            preferences.setNotifications(it)
+        }
     var report by remember { mutableStateOf<String?>(null) }
     Column(modifier.verticalScroll(rememberScrollState())) {
         Text("Settings")
+        TextButton(onClick = onConnections) { Text("Manage connections") }
+        Text("Appearance: ${appearance.name}")
+        Appearance.entries.forEach { value ->
+            TextButton(onClick = { preferences.setAppearance(value) }) { Text(value.name) }
+        }
+        Text("Local notifications: ${if (notifications) "On" else "Off"}")
+        Text("Alerts require a connected session. Android may suspend the app in the background.")
+        TextButton(onClick = {
+            if (notifications) {
+                preferences.setNotifications(false)
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) !=
+                PackageManager.PERMISSION_GRANTED
+            ) {
+                permission.launch(Manifest.permission.POST_NOTIFICATIONS)
+            } else {
+                preferences.setNotifications(true)
+            }
+        }) { Text(if (notifications) "Disable notifications" else "Enable notifications") }
+        TextButton(onClick = {
+            context.startActivity(
+                Intent(
+                    Settings.ACTION_APP_NOTIFICATION_SETTINGS
+                ).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+            )
+        }) { Text("Android notification settings") }
         Text("Connection diagnostics — under development")
         TextButton(onClick = { report = diagnostics.report() }) { Text("View diagnostics") }
         report?.let { preview ->

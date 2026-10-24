@@ -5,9 +5,14 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.ViewModelProvider
 import com.journeyapps.barcodescanner.ScanContract
@@ -15,9 +20,13 @@ import com.journeyapps.barcodescanner.ScanOptions
 import dev.intent.app.connection.ConnectionRoot
 import dev.intent.app.connection.ConnectionViewModel
 import dev.intent.app.design.IntentTheme
+import dev.intent.app.settings.AppPreferences
+import dev.intent.app.settings.Appearance
 
 class MainActivity : ComponentActivity() {
     private val model by lazy { ViewModelProvider(this)[ConnectionViewModel::class.java] }
+    private var notificationWorkspace by mutableStateOf<Pair<String, String>?>(null)
+    private val preferences by lazy { AppPreferences(applicationContext) }
     private val scanner = registerForActivityResult(ScanContract()) { result ->
         result.contents?.let(model.controller::prepareLink)
     }
@@ -27,10 +36,19 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         if (savedInstanceState == null) acceptLink(intent)
         setContent {
-            IntentTheme {
+            val appearance by preferences.appearance.collectAsState()
+            IntentTheme(
+                darkTheme = when (appearance) {
+                    Appearance.System -> isSystemInDarkTheme()
+                    Appearance.Light -> false
+                    Appearance.Dark -> true
+                }
+            ) {
                 Scaffold { padding ->
                     ConnectionRoot(
                         model.controller,
+                        preferences = preferences,
+                        notificationWorkspace = notificationWorkspace,
                         onScan = {
                             scanner.launch(
                                 ScanOptions().setDesiredBarcodeFormats(ScanOptions.QR_CODE)
@@ -51,6 +69,14 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun acceptLink(intent: Intent) {
+        if (intent.action == "dev.intent.OPEN_NOTIFICATION") {
+            val connection = intent.getStringExtra("connectionId")
+            val workspace = intent.getStringExtra("workspaceId")
+            if (connection != null && workspace != null) {
+                notificationWorkspace = connection to workspace
+                // Stay on the selected backend; never interpret a workspace on another host.
+            }
+        }
         if (intent.action == Intent.ACTION_VIEW) {
             intent.dataString?.let(model.controller::prepareLink)
             intent.data = null
