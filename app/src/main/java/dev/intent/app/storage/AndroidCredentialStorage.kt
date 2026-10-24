@@ -15,10 +15,11 @@ import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 
 /** Create one store per application and call its disk operations from an IO dispatcher. */
-fun createCredentialStore(context: Context): CredentialStore = CredentialStore(
-    AtomicCredentialBytes(File(context.applicationContext.noBackupFilesDir, "pairing.enc")),
-    AndroidCredentialKey
-)
+fun createCredentialStore(context: Context, filename: String = "pairing.enc"): CredentialStore =
+    CredentialStore(
+        AtomicCredentialBytes(File(context.applicationContext.noBackupFilesDir, filename)),
+        AndroidCredentialKey
+    )
 
 private object AndroidCredentialKey : CredentialKey {
     private const val ALIAS = "dev.intent.pairing.v1"

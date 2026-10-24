@@ -1,6 +1,6 @@
 # Intent Android companion
 
-This native Kotlin and Jetpack Compose app is under development. It currently shows a placeholder screen. Pairing and daemon connections are not available.
+This native Kotlin and Jetpack Compose app is under development. Pair with a desktop through a QR code, an `intent://pair` link, or manual connection details. Review the host and certificate fingerprint before you connect. The app saves encrypted connections and opens the workspace list after authentication. Direct WSS connections are supported; Tailcat tunnels are not yet available.
 
 ## Architecture
 
@@ -48,7 +48,7 @@ Format Kotlin sources and Gradle scripts:
 
 The debug APK is `app/build/outputs/apk/debug/app-debug.apk`. Open this directory in Android Studio to run it on an emulator or device.
 
-The unit test checks the protocol test setup and JSON dependency. It does not check a daemon protocol implementation.
+Tests cover protocol fixtures, pinned transport, pairing, session bootstrap, stores, and the offline cache. Camera scanning and live desktop pairing still need device verification.
 
 ## Release status
 
