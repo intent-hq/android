@@ -2,6 +2,6 @@
   "iosRepo": "intent-hq/ios",
   "commit": "45a95ad99d5fa13f82cf149a80c99b96de61ee48",
   "appVersion": "1.1.8",
-  "updatedAt": "2026-10-24",
-  "notes": "Baseline for the initial port; no features ported yet."
+  "updatedAt": "2026-10-24T19:21:54.909920Z",
+  "notes": "Initial protocol foundations: JSON-RPC envelope and errors, pinned WSS transport with bearer authentication and heartbeat, pairing payload parsing, encrypted credential storage, and CI. Android UI integration, Tailcat, and remaining iOS features are not yet ported."
 }
