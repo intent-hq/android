@@ -36,11 +36,15 @@ fun connectionCacheScope(payload: PairingPayload, principalId: String): String {
 fun createConnectionSession(
     connection: SavedConnection,
     onState: (SessionState) -> Unit,
-    transport: (WssTransport.Listener) -> SessionTransport = pinnedSessionTransport(
-        connectionEndpoint(connection.payload),
-        connection.payload.token,
-        requireNotNull(connection.payload.certFingerprint)
-    )
+    latestPayload: () -> PairingPayload = { connection.payload },
+    transport: (WssTransport.Listener) -> SessionTransport = { listener ->
+        val routes = latestPayload()
+        pinnedSessionTransport(
+            connectionEndpoint(routes),
+            connection.payload.token,
+            requireNotNull(connection.payload.certFingerprint)
+        )(listener)
+    }
 ): RpcSession = RpcSession(
     transport,
     buildJsonObject {

@@ -6,7 +6,6 @@ import dev.intent.core.protocol.WssTransport
 import dev.intent.core.protocol.browser.BrowserTunnel
 import dev.intent.core.protocol.browser.TunnelFrame
 import dev.intent.core.protocol.browser.TunnelTransport
-import dev.intent.core.protocol.reconnectDelayMillis
 import java.io.Closeable
 import java.io.IOException
 import java.util.concurrent.CompletableFuture
@@ -36,11 +35,12 @@ class RpcSession(
     private val transportFactory: (WssTransport.Listener) -> SessionTransport,
     private val helloParams: JsonObject,
     private val requestTimeoutMillis: Long = 30_000,
-    private val reconnectDelay: (Int) -> Long = ::reconnectDelayMillis,
+    private val reconnectDelay: (Int) -> Long = ::recoveryDelayMillis,
     private val onState: (SessionState) -> Unit = {},
     private val verifyPrincipal: Boolean = false,
     private val executor: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor(),
-    private val browserTransportFactory: ((TunnelTransport.Listener) -> TunnelTransport)? = null
+    private val browserTransportFactory: ((TunnelTransport.Listener) -> TunnelTransport)? = null,
+    private val nanoTime: () -> Long = System::nanoTime
 ) : Closeable {
     private val responseJson = Json { ignoreUnknownKeys = true }
 
@@ -53,6 +53,7 @@ class RpcSession(
     private var generation = 0L
     private var nextId = 0L
     private var reconnectAttempt = 0
+    private var readyAt: Long? = null
     private val browsers = mutableSetOf<BrowserTunnel>()
     private val pending = mutableMapOf<JsonElement, CompletableFuture<JsonElement>>()
     private val subscriptions = mutableSetOf<SubscriptionEntry>()
@@ -217,7 +218,7 @@ class RpcSession(
     }
 
     private fun ready() {
-        reconnectAttempt = 0
+        readyAt = nanoTime()
         changeState(SessionState.READY)
         subscriptions.toList().forEach { admit(it) }
     }
@@ -280,6 +281,9 @@ class RpcSession(
     }
 
     private fun disconnected() {
+        val lifetime = readyAt?.let { TimeUnit.NANOSECONDS.toMillis(nanoTime() - it) }
+        reconnectAttempt = recoveryAttempt(lifetime, reconnectAttempt)
+        readyAt = null
         generation++
         browsers.forEach { it.close() }
         browsers.clear()

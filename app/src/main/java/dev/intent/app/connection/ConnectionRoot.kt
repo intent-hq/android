@@ -32,15 +32,18 @@ fun ConnectionRoot(
 ) {
     val state by controller.state.collectAsState()
     var showConnections by remember { mutableStateOf(false) }
+    var showSettings by remember { mutableStateOf(false) }
     var showPairing by remember { mutableStateOf(false) }
-    BackHandler(showConnections || showPairing) {
+    BackHandler(showConnections || showPairing || showSettings) {
         showPairing = false
         showConnections = false
+        showSettings = false
     }
     Column(modifier) {
         Text(state.status)
         state.error?.let { Text(it) }
         Row {
+            TextButton(onClick = { showSettings = !showSettings }) { Text("Settings") }
             TextButton(onClick = {
                 showConnections = !showConnections
                 showPairing = false
@@ -52,6 +55,7 @@ fun ConnectionRoot(
             }
         }
         when {
+            showSettings -> ConnectionSettings(controller.diagnostics, Modifier.weight(1f))
             showPairing || state.connections.isEmpty() -> PairingScreen(
                 state.busy,
                 onScan,

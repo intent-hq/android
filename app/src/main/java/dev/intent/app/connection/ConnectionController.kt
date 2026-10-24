@@ -29,7 +29,12 @@ data class ConnectionState(
 class ConnectionController(
     private val repository: ConnectionRepository,
     private val sessionFactory: (SavedConnection, (SessionState) -> Unit) -> RpcSession =
-        { connection, callback -> createConnectionSession(connection, callback) },
+        { connection, callback ->
+            createConnectionSession(connection, callback, latestPayload = {
+                repository.list().firstOrNull { it.id == connection.id }?.payload
+                    ?: connection.payload
+            })
+        },
     private val probe: (
         String,
         Int
@@ -41,6 +46,8 @@ class ConnectionController(
     val state: StateFlow<ConnectionState> = mutableState.asStateFlow()
     private var current: RpcSession? = null
     private var generation = 0L
+    private var admission = 0L
+    val diagnostics = ConnectionDiagnostics()
 
     fun restore() = submit {
         val rows = repository.list()
@@ -118,6 +125,8 @@ class ConnectionController(
 
     private fun sessionChanged(connection: SavedConnection, status: SessionState, ticket: Long) {
         if (ticket != generation) return
+        admission++
+        diagnostics.record(ConnectionEvent.valueOf(status.name))
         if (status == SessionState.CLOSED) {
             stopSession()
             mutableState.value = state.value.copy(
@@ -144,6 +153,24 @@ class ConnectionController(
                     cacheScope = connectionCacheScope(connection.payload, principal),
                     error = null
                 )
+                refreshHosts(connection.id, ticket, admission)
+            }
+        }
+    }
+
+    private fun refreshHosts(id: String, ticket: Long, admitted: Long) {
+        val session = current ?: return
+        val saved = repository.list().firstOrNull { it.id == id } ?: return
+        session.request("system.status").whenComplete { result, error ->
+            submit {
+                if (ticket == generation && admitted == admission && current === session) {
+                    if (error != null) {
+                        diagnostics.record(ConnectionEvent.HOST_REFRESH_FAILED)
+                    } else if (repository.refresh(saved, refreshedPayload(saved.payload, result))) {
+                        mutableState.value = state.value.copy(connections = repository.list())
+                        diagnostics.record(ConnectionEvent.HOSTS_REFRESHED)
+                    }
+                }
             }
         }
     }

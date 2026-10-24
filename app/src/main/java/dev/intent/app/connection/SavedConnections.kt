@@ -19,6 +19,7 @@ interface ConnectionRepository {
     fun select(id: String?)
     fun add(payload: PairingPayload): SavedConnection
     fun remove(id: String)
+    fun refresh(expected: SavedConnection, payload: PairingPayload): Boolean = false
 }
 
 class SavedConnections(
@@ -38,6 +39,17 @@ class SavedConnections(
         val id = UUID.randomUUID().toString()
         store(id).save(payload)
         return SavedConnection(id, payload)
+    }
+
+    override fun refresh(expected: SavedConnection, payload: PairingPayload): Boolean {
+        if (activeId() != expected.id || store(expected.id).load() != expected.payload) return false
+        require(
+            payload.token == expected.payload.token &&
+                payload.certFingerprint == expected.payload.certFingerprint &&
+                payload.port == expected.payload.port
+        )
+        store(expected.id).save(payload)
+        return true
     }
 
     override fun remove(id: String) {

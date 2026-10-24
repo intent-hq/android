@@ -242,6 +242,43 @@ class ConnectionControllerTest {
         }
     }
 
+    @Test
+    fun `route persistence rejects a stale snapshot or a different active connection`() {
+        val repository = repository()
+        val first = repository.add(payload())
+        val second = repository.add(payload().copy(hosts = listOf("other.local")))
+        repository.select(first.id)
+        val updated = first.payload.copy(hosts = listOf("desktop.local", "10.0.0.2"))
+        assertTrue(repository.refresh(first, updated))
+        assertFalse(repository.refresh(first, first.payload))
+        repository.select(second.id)
+        assertFalse(repository.refresh(first.copy(payload = updated), first.payload))
+        assertEquals(updated, repository.list().first { it.id == first.id }.payload)
+        assertEquals(2, repository.list().size)
+    }
+
+    @Test
+    fun `admitted session refreshes saved routes without replacing the session`() {
+        val repository = repository()
+        val saved = repository.add(payload())
+        val transports = LinkedBlockingQueue<FakeTransport>()
+        val status = kotlinx.serialization.json.Json.parseToJsonElement(
+            """{"localIps":["10.0.0.2"],"tcAddress":"tunnel"}"""
+        ) as JsonObject
+        controller(repository, transports, status).use { controller ->
+            controller.select(saved.id)
+            val server = transports.poll(2, TimeUnit.SECONDS)!!
+            assertFalse(server.methods.contains("system.status"))
+            admit(server, "person-a")
+            await { repository.list().single().payload.hosts.size == 2 }
+            assertEquals(saved.id, repository.activeId())
+            assertEquals("tunnel", repository.list().single().payload.tcAddress)
+            assertEquals("secret", repository.list().single().payload.token)
+            assertEquals(1, repository.list().size)
+            assertTrue(controller.state.value.session != null)
+        }
+    }
+
     private fun serveConversation(server: FakeTransport, appId: String? = null) {
         repeat(4) {
             val request = server.requests.poll(2, TimeUnit.SECONDS)!!
@@ -270,10 +307,11 @@ class ConnectionControllerTest {
 
     private fun controller(
         repository: ConnectionRepository,
-        transports: LinkedBlockingQueue<FakeTransport>
+        transports: LinkedBlockingQueue<FakeTransport>,
+        hostStatus: JsonObject = JsonObject(emptyMap())
     ) = ConnectionController(repository, { saved, callback ->
         createConnectionSession(saved, callback) { listener ->
-            FakeTransport(listener).also(transports::add)
+            FakeTransport(listener, hostStatus).also(transports::add)
         }
     })
 
@@ -313,13 +351,20 @@ class ConnectionControllerTest {
         }
     }
 
-    private class FakeTransport(val listener: WssTransport.Listener) : SessionTransport {
+    private class FakeTransport(
+        val listener: WssTransport.Listener,
+        val hostStatus: JsonObject = JsonObject(emptyMap())
+    ) : SessionTransport {
         val requests = LinkedBlockingQueue<JsonRpcMessage.Request>()
         val methods = LinkedBlockingQueue<String>()
         override fun connect() = listener.onOpen()
         override fun send(message: JsonRpcMessage): Boolean {
             methods.add((message as JsonRpcMessage.Request).method)
-            requests.add(message)
+            if (message.method == "system.status") {
+                reply(message, hostStatus)
+            } else {
+                requests.add(message)
+            }
             return true
         }
         fun reply(request: JsonRpcMessage.Request, result: JsonObject) =
