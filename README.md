@@ -51,9 +51,70 @@ The debug APK is `app/build/outputs/apk/debug/app-debug.apk`. Open this director
 
 Tests cover protocol fixtures, pinned transport, pairing, session bootstrap, stores, and the offline cache. Camera scanning and live desktop pairing still need device verification.
 
-## Release status
+## Release artifacts (under development)
 
-This repository has no release pipeline. Do not use this skeleton as a production companion app.
+The tag workflow produces unsigned AAB and APK files plus a git-cliff changelog.
+The app is under development. These artifacts do not establish production readiness.
+The workflow uses direct connections only (`-Ptailcat.enabled=false`). It does not include the private Tailcat library.
+It does not publish a GitHub Release, upload to Play, sign files, or join the desktop alpha release chain.
+
+Set `appVersion` in `gradle.properties` before each release commit.
+Use `MAJOR.MINOR.PATCH`, with each number between 0 and 999 and no leading zeros.
+Gradle uses this value as `versionName`.
+The `versionCode` is `MAJOR * 1000000 + MINOR * 1000 + PATCH + 1` (0.1.0 gives 1001).
+Each release must increase the version. Prerelease suffixes and build metadata are not supported.
+Do not reuse a version code for a different published build.
+
+After review and approval, push a tag that matches the committed version, such as `v0.1.0`.
+The workflow rejects a tag that differs from `appVersion`.
+Download `intent-android-v<version>-unsigned` from the completed Actions run within 30 days.
+The archive contains `app-release.aab`, `app-release-unsigned.apk`, and `release-notes.md`.
+
+For a local build and changelog preview, run:
+
+```sh
+./gradlew :app:bundleRelease :app:assembleRelease -Ptailcat.enabled=false
+git-cliff --config cliff.toml --output /tmp/android-changelog.md
+```
+
+Install git-cliff 2.10.1 for the same changelog engine as CI.
+The configuration groups conventional commits with the monorepo conventions.
+The CI changelog covers the latest tag; the local command includes all history.
+
+See the [Android command-line build guide](https://developer.android.com/build/building-cmdline) for the signing tools.
+
+### Manual signing procedure
+
+Signing remains a manual release-owner step. Keep the keystore outside the repository and use interactive password prompts.
+The organization must choose the key owner, secure backup, upload key, and Play App Signing policy before distribution.
+CI has no signing secrets. Secret provisioning and alpha-channel integration need separate approval.
+
+1. Obtain the approved keystore and alias from the release owner.
+2. Set `ANDROID_KEYSTORE` to its absolute path and `ANDROID_KEY_ALIAS` to its alias.
+3. Copy the unsigned AAB before signing it:
+
+```sh
+cp app/build/outputs/bundle/release/app-release.aab /tmp/intent-signed.aab
+jarsigner -keystore "$ANDROID_KEYSTORE" /tmp/intent-signed.aab "$ANDROID_KEY_ALIAS"
+jarsigner -verify -verbose -certs /tmp/intent-signed.aab
+```
+
+4. Align the unsigned APK, then sign and verify the aligned file:
+
+```sh
+"$ANDROID_HOME/build-tools/36.0.0/zipalign" -P 16 -f -v 4 \
+  app/build/outputs/apk/release/app-release-unsigned.apk /tmp/intent-aligned.apk
+"$ANDROID_HOME/build-tools/36.0.0/apksigner" sign \
+  --ks "$ANDROID_KEYSTORE" --ks-key-alias "$ANDROID_KEY_ALIAS" \
+  --out /tmp/intent-signed.apk /tmp/intent-aligned.apk
+"$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs /tmp/intent-signed.apk
+```
+
+5. Compare the reported certificate fingerprint with the approved release certificate.
+6. Install the signed APK on a test device and complete the release checks before distribution.
+
+An AAB needs Play or bundletool to produce installable APKs. Do not use `apksigner` to sign an AAB.
+Do not put passwords in commands, Gradle properties, logs, or Git.
 
 ## Tailcat library (under development)
 
