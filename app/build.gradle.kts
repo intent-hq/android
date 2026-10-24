@@ -1,4 +1,5 @@
 plugins {
+    alias(libs.plugins.ksp)
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ktlint)
@@ -16,6 +17,8 @@ android {
         versionCode = 1
         versionName = "0.1.0"
     }
+
+    testOptions.unitTests.isIncludeAndroidResources = true
 
     buildFeatures {
         compose = true
@@ -37,7 +40,14 @@ detekt {
     config.setFrom(rootProject.file("config/detekt.yml"))
 }
 
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
+}
+
 dependencies {
+    implementation(libs.androidx.room.runtime)
+    ksp(libs.androidx.room.compiler)
+    testImplementation(libs.robolectric)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.androidx.compose.ui.tooling.preview)
     debugImplementation(libs.androidx.compose.ui.tooling)
