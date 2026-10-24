@@ -22,6 +22,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import dev.intent.app.attachments.MediaPreview
+import dev.intent.app.attachments.MediaReference
+import dev.intent.app.attachments.PhotoAttachmentStore
+import dev.intent.core.protocol.attachments.messageBlock
 import dev.intent.core.protocol.models.ContentBlock
 import dev.intent.core.protocol.models.ConversationMessage
 
@@ -29,7 +33,8 @@ import dev.intent.core.protocol.models.ConversationMessage
 fun ConversationRoute(
     store: ConversationStore,
     sends: ConversationSendStore,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    photos: PhotoAttachmentStore? = null
 ) {
     val state by store.state.collectAsState()
     val sending by sends.state.collectAsState()
@@ -46,10 +51,24 @@ fun ConversationRoute(
         store.refresh()
         sends.refresh()
     }, modifier) {
-        ConversationComposer(sending, { sends.send(it) }, sends::retract, sends::answer, {
+        ConversationComposer(sending, { text ->
+            val ready = photos?.state?.value
+            if (ready?.ready == false) {
+                false
+            } else {
+                val accepted = sends.send(
+                    text,
+                    images = ready?.photos.orEmpty().mapNotNull {
+                        it.placed?.messageBlock(true)
+                    }
+                )
+                if (accepted) photos?.consume()
+                accepted
+            }
+        }, sends::retract, sends::answer, {
             store.refresh()
             sends.refresh()
-        })
+        }, photos)
     }
 }
 
@@ -169,6 +188,15 @@ private fun BlockContent(block: ContentBlock) {
         "text", "thinking" -> Text(block.text.orEmpty())
         "tool_use" -> Text(block.input?.toString().orEmpty())
         "tool_result" -> Text(block.output?.toString() ?: block.text.orEmpty())
+        "image", "file" -> MediaPreview(
+            MediaReference(
+                block.fileName ?: if (block.type == "image") "Image" else "Attachment",
+                block.type == "image",
+                block.attachmentId,
+                data = block.data,
+                mimeType = block.mimeType
+            )
+        )
         "resource" -> Text(block.resource?.text ?: "Resource")
         else -> Text("${block.type}: ${block.fileName ?: "Content preview unavailable"}")
     }

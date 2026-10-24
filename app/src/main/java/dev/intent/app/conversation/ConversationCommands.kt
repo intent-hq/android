@@ -10,6 +10,7 @@ import dev.intent.core.protocol.session.RpcSession
 import dev.intent.core.protocol.session.SubscriptionSpec
 import java.io.Closeable
 import java.util.concurrent.CompletableFuture
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonObjectBuilder
 import kotlinx.serialization.json.JsonPrimitive
@@ -19,6 +20,16 @@ import kotlinx.serialization.json.put
 
 interface ConversationCommands {
     fun send(id: String, content: String, metadata: JsonObject?): CompletableFuture<SendResult>
+    fun sendAttachments(
+        id: String,
+        content: String,
+        metadata: JsonObject?,
+        images: List<JsonObject>,
+        files: List<JsonObject>
+    ): CompletableFuture<SendResult> {
+        require(images.isEmpty() && files.isEmpty())
+        return send(id, content, metadata)
+    }
     fun queue(): CompletableFuture<QueueResult>
     fun retract(id: String): CompletableFuture<CommandResult>
     fun agent(): CompletableFuture<Agent>
@@ -37,12 +48,23 @@ class RpcConversationCommands(
         extra()
     }
 
-    override fun send(id: String, content: String, metadata: JsonObject?) = session.request(
+    override fun send(id: String, content: String, metadata: JsonObject?) =
+        sendAttachments(id, content, metadata, emptyList(), emptyList())
+
+    override fun sendAttachments(
+        id: String,
+        content: String,
+        metadata: JsonObject?,
+        images: List<JsonObject>,
+        files: List<JsonObject>
+    ) = session.request(
         "agent.sendMessage",
         params {
             put("messageId", id)
             put("userAppMessageId", id)
             put("content", content)
+            if (images.isNotEmpty()) put("imageBlocks", JsonArray(images))
+            if (files.isNotEmpty()) put("fileBlocks", JsonArray(files))
             metadata?.let { put("messageMetadata", it) }
         },
         SendResult.serializer()

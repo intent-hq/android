@@ -25,6 +25,7 @@ import androidx.compose.ui.text.withLink
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import dev.intent.app.attachments.MediaPreview
 import dev.intent.core.protocol.models.Note
 import dev.intent.core.protocol.models.NoteTaskRow
 
@@ -101,7 +102,17 @@ private fun MarkdownParagraph(block: MarkdownBlock) {
             Text(block.text, Modifier.padding(12.dp), fontFamily = FontFamily.Monospace)
         }
     } else {
-        Text(markdownInline(block.text), style = style)
+        val parts = noteMediaParts(block.text)
+        parts.forEach { part ->
+            val media = part.reference
+            if (media ==
+                null
+            ) {
+                Text(markdownInline(part.text), style = style)
+            } else {
+                MediaPreview(media)
+            }
+        }
     }
 }
 

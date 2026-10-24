@@ -159,6 +159,20 @@ class ConversationSendStoreTest {
         assertEquals(before, store.state.value)
     }
 
+    @Test
+    fun attachmentOnlySendKeepsReferencesAcrossUnconfirmedDelivery() {
+        val image = buildJsonObject {
+            put("type", "image")
+            put("attachmentId", "photo")
+        }
+        assertTrue(store.send("", images = listOf(image)))
+        assertEquals(listOf(image), commands.images)
+        commands.sent.single().result.completeExceptionally(IllegalStateException("lost"))
+        assertEquals(listOf(image), store.state.value.attempts.single().images)
+        store.refresh()
+        assertEquals(1, commands.sent.size)
+    }
+
     private fun questionRow() = ConversationMessage(
         "questions",
         "assistant",
@@ -185,6 +199,17 @@ private data class SentCommand(
 )
 
 private class FakeCommands : ConversationCommands {
+    var images = emptyList<JsonObject>()
+    override fun sendAttachments(
+        id: String,
+        content: String,
+        metadata: JsonObject?,
+        images: List<JsonObject>,
+        files: List<JsonObject>
+    ): CompletableFuture<SendResult> {
+        this.images = images
+        return send(id, content, metadata)
+    }
     val sent = mutableListOf<SentCommand>()
     val removals = mutableListOf<CompletableFuture<CommandResult>>()
     var rows = emptyList<ConversationMessage>()

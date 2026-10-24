@@ -12,6 +12,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -19,34 +20,27 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import dev.intent.app.attachments.PhotoAttachmentStore
+import dev.intent.app.attachments.PhotoPicker
 import dev.intent.core.protocol.models.Question
 import dev.intent.core.protocol.models.QuestionOption
 
+@Suppress("LongParameterList") // Composer actions and its photo store.
 @Composable
 fun ConversationComposer(
     state: ConversationSendState,
     onSend: (String) -> Boolean,
     onRetract: (String) -> Unit,
     onAnswer: (String, Map<String, QuestionAnswer>) -> Boolean,
-    onCheck: () -> Unit
+    onCheck: () -> Unit,
+    photos: PhotoAttachmentStore? = null
 ) {
+    val photoState = photos?.state?.collectAsState()?.value
     var draft by remember { mutableStateOf("") }
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Column(Modifier.heightIn(max = 240.dp).verticalScroll(rememberScrollState())) {
             state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-            state.attempts.filter { attempt ->
-                state.queue.none { it.id == attempt.confirmedId }
-            }.forEach { attempt ->
-                Text(attempt.content)
-                Text(
-                    when (attempt.status) {
-                        SendStatus.SENDING -> "Sending…"
-                        SendStatus.UNCONFIRMED -> "Delivery unconfirmed. Check status."
-                        SendStatus.ACCEPTED -> "Accepted. Waiting for the transcript."
-                        SendStatus.QUEUED -> "Queued. Check status for the latest queue."
-                    }
-                )
-            }
+            SendAttempts(state)
             state.queue.forEach { message ->
                 Row {
                     Text("Queued: ${message.content}", Modifier.weight(1f))
@@ -61,17 +55,48 @@ fun ConversationComposer(
             }
             state.questions?.let { QuestionComposer(it, onAnswer) }
         }
+        photos?.let { PhotoPicker(it) }
         Row {
             OutlinedTextField(draft, {
                 draft = it
             }, Modifier.weight(1f), label = { Text("Message") }, maxLines = 4)
-            TextButton(onClick = {
-                if (onSend(draft)) draft = ""
-            }, enabled = draft.isNotBlank()) { Text("Send") }
+            TextButton(
+                onClick = {
+                    if (onSend(draft)) draft = ""
+                },
+                enabled =
+                (photoState?.ready != false) &&
+                    (draft.isNotBlank() || photoState?.photos?.isNotEmpty() == true)
+            ) {
+                Text("Send")
+            }
         }
         TextButton(onClick = onCheck, enabled = !state.checking) {
             Text(if (state.checking) "Checking status…" else "Check status")
         }
+    }
+}
+
+@Composable
+private fun SendAttempts(state: ConversationSendState) {
+    state.attempts.filter { attempt ->
+        state.queue.none { it.id == attempt.confirmedId }
+    }.forEach { attempt ->
+        Text(attempt.content)
+        Text(
+            "${attempt.images.size + attempt.files.size} attachments".takeIf {
+                attempt.images.isNotEmpty() ||
+                    attempt.files.isNotEmpty()
+            }.orEmpty()
+        )
+        Text(
+            when (attempt.status) {
+                SendStatus.SENDING -> "Sending…"
+                SendStatus.UNCONFIRMED -> "Delivery unconfirmed. Check status."
+                SendStatus.ACCEPTED -> "Accepted. Waiting for the transcript."
+                SendStatus.QUEUED -> "Queued. Check status for the latest queue."
+            }
+        )
     }
 }
 

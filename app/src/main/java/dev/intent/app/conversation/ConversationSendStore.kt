@@ -18,7 +18,9 @@ data class SendAttempt(
     val content: String,
     val metadata: JsonObject? = null,
     val status: SendStatus = SendStatus.SENDING,
-    val confirmedId: String? = null
+    val confirmedId: String? = null,
+    val images: List<JsonObject> = emptyList(),
+    val files: List<JsonObject> = emptyList()
 )
 
 data class ConversationSendState(
@@ -172,13 +174,35 @@ class ConversationSendStore(
     }
 
     @Synchronized
-    fun send(content: String, metadata: JsonObject? = null): Boolean {
-        if (closed || content.isBlank()) return false
-        val attempt = SendAttempt(UUID.randomUUID().toString(), content.trim(), metadata)
+    fun send(
+        content: String,
+        metadata: JsonObject? = null,
+        images: List<JsonObject> = emptyList(),
+        files: List<JsonObject> = emptyList()
+    ): Boolean {
+        val empty = content.isBlank() && images.isEmpty() && files.isEmpty()
+        if (closed || empty) return false
+        val attempt =
+            SendAttempt(
+                UUID.randomUUID().toString(),
+                content.trim(),
+                metadata,
+                images = images.toList(),
+                files = files.toList()
+            )
         mutableState.value =
             state.value.copy(attempts = state.value.attempts + attempt, error = null)
         updateQuestions()
-        commands.send(attempt.id, attempt.content, metadata).whenComplete { result, error ->
+        commands.sendAttachments(
+            attempt.id,
+            attempt.content,
+            metadata,
+            attempt.images,
+            attempt.files
+        ).whenComplete {
+                result,
+                error
+            ->
             synchronized(this) {
                 if (!closed) {
                     mutableState.value =

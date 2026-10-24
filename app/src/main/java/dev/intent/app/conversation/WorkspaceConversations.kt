@@ -10,9 +10,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
 import dev.intent.app.agents.AgentListRoute
 import dev.intent.app.agents.AgentStore
 import dev.intent.app.agents.RpcAgentSession
+import dev.intent.app.attachments.AndroidPhotoSource
+import dev.intent.app.attachments.PhotoAttachmentStore
+import dev.intent.core.protocol.attachments.AttachmentUploadService
+import dev.intent.core.protocol.attachments.RpcAttachmentClient
 import dev.intent.core.protocol.session.RpcSession
 
 @Composable
@@ -47,13 +52,23 @@ fun WorkspaceConversations(session: RpcSession, workspaceId: String, onBack: () 
                     agentId
                 )
             }
-            DisposableEffect(conversation, sends) {
+            val context = LocalContext.current.applicationContext
+            val photos = remember(session, workspaceId, agentId) {
+                PhotoAttachmentStore(
+                    AndroidPhotoSource(
+                        context,
+                        AttachmentUploadService(RpcAttachmentClient(session), workspaceId)
+                    )
+                )
+            }
+            DisposableEffect(conversation, sends, photos) {
                 onDispose {
                     conversation.close()
                     sends.close()
+                    photos.close()
                 }
             }
-            ConversationRoute(conversation, sends)
+            ConversationRoute(conversation, sends, photos = photos)
         }
     }
 }
