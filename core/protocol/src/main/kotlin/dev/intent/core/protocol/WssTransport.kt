@@ -10,6 +10,7 @@ import okhttp3.Response
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
 import okio.ByteString
+import okio.ByteString.Companion.toByteString
 
 /** One pinned endpoint. Reconnect callers must authenticate and restore subscriptions each time. */
 class WssTransport(
@@ -17,11 +18,13 @@ class WssTransport(
     token: String,
     expectedFingerprint: String,
     private val listener: Listener,
-    heartbeatMillis: Long = 30_000
+    heartbeatMillis: Long = 30_000,
+    private val binary: Boolean = false
 ) : Closeable {
     interface Listener {
         fun onOpen() {}
         fun onMessage(message: JsonRpcMessage) {}
+        fun onBinary(bytes: ByteArray) {}
         fun onClosed(code: Int, reason: String) {}
         fun onFailure(error: Throwable) {}
     }
@@ -74,6 +77,12 @@ class WssTransport(
     fun send(message: JsonRpcMessage): Boolean = socket?.send(JsonRpc.encode(message)) ?: false
 
     @Synchronized
+    fun sendBinary(bytes: ByteArray): Boolean {
+        check(binary)
+        return socket?.send(bytes.toByteString()) ?: false
+    }
+
+    @Synchronized
     fun disconnect() {
         generation++
         socket?.cancel()
@@ -93,6 +102,10 @@ class WssTransport(
             active(current) { listener.onOpen() }
 
         override fun onMessage(webSocket: WebSocket, text: String) = active(current) {
+            if (binary) {
+                fail(IllegalArgumentException("Tunnel requires a binary frame"))
+                return@active
+            }
             val message = try {
                 JsonRpc.decode(text)
             } catch (error: kotlinx.serialization.SerializationException) {
@@ -103,7 +116,11 @@ class WssTransport(
         }
 
         override fun onMessage(webSocket: WebSocket, bytes: ByteString) = active(current) {
-            fail(IllegalArgumentException("JSON-RPC requires a text frame"))
+            if (binary) {
+                listener.onBinary(bytes.toByteArray())
+            } else {
+                fail(IllegalArgumentException("JSON-RPC requires a text frame"))
+            }
         }
 
         override fun onClosing(webSocket: WebSocket, code: Int, reason: String) = active(current) {

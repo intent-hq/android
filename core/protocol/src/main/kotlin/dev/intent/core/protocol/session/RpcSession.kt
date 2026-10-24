@@ -3,6 +3,9 @@ package dev.intent.core.protocol.session
 import dev.intent.core.protocol.JsonRpcMessage
 import dev.intent.core.protocol.RpcError
 import dev.intent.core.protocol.WssTransport
+import dev.intent.core.protocol.browser.BrowserTunnel
+import dev.intent.core.protocol.browser.TunnelFrame
+import dev.intent.core.protocol.browser.TunnelTransport
 import dev.intent.core.protocol.reconnectDelayMillis
 import java.io.Closeable
 import java.io.IOException
@@ -36,7 +39,8 @@ class RpcSession(
     private val reconnectDelay: (Int) -> Long = ::reconnectDelayMillis,
     private val onState: (SessionState) -> Unit = {},
     private val verifyPrincipal: Boolean = false,
-    private val executor: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor()
+    private val executor: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor(),
+    private val browserTransportFactory: ((TunnelTransport.Listener) -> TunnelTransport)? = null
 ) : Closeable {
     private val responseJson = Json { ignoreUnknownKeys = true }
 
@@ -49,6 +53,7 @@ class RpcSession(
     private var generation = 0L
     private var nextId = 0L
     private var reconnectAttempt = 0
+    private val browsers = mutableSetOf<BrowserTunnel>()
     private val pending = mutableMapOf<JsonElement, CompletableFuture<JsonElement>>()
     private val subscriptions = mutableSetOf<SubscriptionEntry>()
 
@@ -80,6 +85,48 @@ class RpcSession(
             }
         }
         return result
+    }
+
+    /** Resolve browser access against this session generation, never stored credentials from another session. */
+    @Synchronized
+    fun openBrowser(): CompletableFuture<BrowserTunnel> {
+        val result = CompletableFuture<BrowserTunnel>()
+        if (closed.get()) {
+            result.completeExceptionally(SessionDisconnectedException())
+        } else {
+            execute {
+                val factory = browserTransportFactory
+                if (state != SessionState.READY || factory == null) {
+                    result.completeExceptionally(SessionDisconnectedException())
+                } else {
+                    val current = generation
+                    request("system.status").whenComplete { status, error ->
+                        val available =
+                            current == generation && state == SessionState.READY && !closed.get()
+                        if (error != null || !available) {
+                            result.completeExceptionally(error ?: SessionDisconnectedException())
+                        } else {
+                            val browser =
+                                BrowserTunnel(
+                                    factory,
+                                    TunnelFrame.creditSupported(status.string("protocolVersion"))
+                                )
+                            browsers.add(browser)
+                            if (!result.complete(browser)) {
+                                browsers.remove(browser)
+                                browser.close()
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return result
+    }
+
+    fun closeBrowser(browser: BrowserTunnel) {
+        browser.close()
+        execute { browsers.remove(browser) }
     }
 
     fun <T> request(
@@ -114,6 +161,8 @@ class RpcSession(
         if (!closed.compareAndSet(false, true)) return
         executor.execute {
             generation++
+            browsers.forEach { it.close() }
+            browsers.clear()
             transport?.close()
             transport = null
             failPending(SessionDisconnectedException())
@@ -232,6 +281,8 @@ class RpcSession(
 
     private fun disconnected() {
         generation++
+        browsers.forEach { it.close() }
+        browsers.clear()
         transport?.close()
         transport = null
         subscriptions.forEach {

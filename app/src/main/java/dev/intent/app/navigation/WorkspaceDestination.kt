@@ -1,6 +1,7 @@
 package dev.intent.app.navigation
 
 sealed interface WorkspaceDestination {
+    data object Browser : WorkspaceDestination
     data object Home : WorkspaceDestination
     data object Conversations : WorkspaceDestination
     data object Git : WorkspaceDestination

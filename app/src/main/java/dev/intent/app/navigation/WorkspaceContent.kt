@@ -11,6 +11,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import dev.intent.app.browser.WorkspaceBrowser
 import dev.intent.app.cache.OfflineCache
 import dev.intent.app.conversation.WorkspaceConversations
 import dev.intent.app.git.WorkspaceGitRoute
@@ -37,6 +38,7 @@ fun WorkspaceContent(
     }
     BackHandler { back() }
     when (val current = destination) {
+        WorkspaceDestination.Browser -> WorkspaceBrowser(session, workspaceId, back)
         WorkspaceDestination.Git -> WorkspaceGitRoute(session, workspaceId, back)
         WorkspaceDestination.Terminals -> WorkspaceTerminals(session, workspaceId, back)
         WorkspaceDestination.Conversations -> WorkspaceConversations(session, workspaceId, back)
@@ -45,6 +47,9 @@ fun WorkspaceContent(
             when (current) {
                 WorkspaceDestination.Home -> {
                     Text("Workspace")
+                    TextButton(onClick = {
+                        destination = WorkspaceDestination.Browser
+                    }) { Text("Browser preview") }
                     TextButton(onClick = { destination = WorkspaceDestination.Terminals }) {
                         Text("Terminals")
                     }

@@ -2,6 +2,7 @@ package dev.intent.app.connection
 
 import dev.intent.core.protocol.CertificateFingerprint
 import dev.intent.core.protocol.WssTransport
+import dev.intent.core.protocol.browser.pinnedTunnelTransport
 import dev.intent.core.protocol.pairing.PairingPayload
 import dev.intent.core.protocol.session.RpcSession
 import dev.intent.core.protocol.session.SessionState
@@ -48,5 +49,10 @@ fun createConnectionSession(
         put("deviceKind", "phone")
     },
     onState = onState,
-    verifyPrincipal = true
+    verifyPrincipal = true,
+    browserTransportFactory = pinnedTunnelTransport(
+        connectionEndpoint(connection.payload).removeSuffix("/ws") + "/tunnel",
+        connection.payload.token,
+        requireNotNull(connection.payload.certFingerprint)
+    )
 )

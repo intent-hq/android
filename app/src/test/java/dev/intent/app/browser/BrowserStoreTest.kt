@@ -1,0 +1,63 @@
+package dev.intent.app.browser
+
+import dev.intent.core.protocol.browser.BrowserTunnel
+import dev.intent.core.protocol.browser.TunnelTransport
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.TimeUnit
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+class BrowserStoreTest {
+    @Test
+    fun `stale session result closes its tunnel without publishing a URL`() {
+        val pending = CompletableFuture<BrowserTunnel>()
+        val released = LinkedBlockingQueue<BrowserTunnel>()
+        val store = BrowserStore({ pending }, {
+            it.close()
+            released.add(it)
+        })
+        store.open("http://daemon.localhost:3000")
+        store.close()
+        val tunnel = tunnel()
+        pending.complete(tunnel)
+        assertEquals(tunnel, released.poll(5, TimeUnit.SECONDS))
+        assertNull(store.state.value.url)
+    }
+
+    @Test
+    fun `invalid URL never opens a tunnel and shows retry state`() {
+        var opened = false
+        BrowserStore({
+            opened = true
+            CompletableFuture()
+        }, { it.close() }).use { store ->
+            store.open("javascript:alert(1)")
+            assertTrue(!opened)
+            assertNotNull(store.state.value.error)
+            assertTrue(!store.state.value.loading)
+        }
+    }
+
+    @Test
+    fun `stale WebView callbacks cannot clear a newer failure`() {
+        BrowserStore({ CompletableFuture() }, { it.close() }).use { store ->
+            store.open("http://daemon.localhost:3000")
+            val old = store.state.value.revision
+            store.open("file:///private")
+            store.loaded(old)
+            assertNotNull(store.state.value.error)
+        }
+    }
+
+    private fun tunnel() = BrowserTunnel({ listener ->
+        object : TunnelTransport {
+            override fun connect() = listener.opened()
+            override fun send(bytes: ByteArray) = true
+            override fun close() = Unit
+        }
+    }, false)
+}
