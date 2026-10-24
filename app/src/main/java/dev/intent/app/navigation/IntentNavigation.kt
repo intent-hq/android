@@ -11,6 +11,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import dev.intent.app.cache.OfflineCache
 import dev.intent.app.workspaces.RpcWorkspaceSession
 import dev.intent.app.workspaces.WorkspaceListRoute
 import dev.intent.app.workspaces.WorkspaceStore
@@ -21,6 +22,7 @@ import dev.intent.core.protocol.session.RpcSession
 fun IntentNavigation(
     session: RpcSession? = null,
     modifier: Modifier = Modifier,
+    cache: OfflineCache? = null,
     workspaceContent: @Composable (String, () -> Unit) -> Unit = { _, back ->
         Column {
             Button(onClick = back) { Text("Back to workspaces") }
@@ -37,7 +39,7 @@ fun IntentNavigation(
         }
         return
     }
-    val store = remember(session) { WorkspaceStore(RpcWorkspaceSession(session)) }
+    val store = remember(session, cache) { WorkspaceStore(RpcWorkspaceSession(session), cache) }
     var selectedWorkspace by remember(session) { mutableStateOf<String?>(null) }
     DisposableEffect(store) { onDispose { store.close() } }
     val selected = selectedWorkspace

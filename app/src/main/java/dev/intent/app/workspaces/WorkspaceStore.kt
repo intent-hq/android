@@ -1,5 +1,6 @@
 package dev.intent.app.workspaces
 
+import dev.intent.app.cache.OfflineCache
 import dev.intent.core.protocol.models.SubscriptionPush
 import dev.intent.core.protocol.models.Workspace
 import java.io.Closeable
@@ -14,11 +15,15 @@ data class WorkspaceListState(
 )
 
 /** One store belongs to one daemon session. Closing it does not close that session. */
-class WorkspaceStore(private val session: WorkspaceSession) : Closeable {
+class WorkspaceStore(
+    private val session: WorkspaceSession,
+    private val cache: OfflineCache? = null
+) : Closeable {
     private val mutableState = MutableStateFlow(WorkspaceListState())
     val state: StateFlow<WorkspaceListState> = mutableState.asStateFlow()
     private var lease: Closeable? = null
     private var closed = false
+    private var dataVersion = 0L
     private var revision = 0L
     private var subscriptionGeneration = 0L
 
@@ -26,6 +31,19 @@ class WorkspaceStore(private val session: WorkspaceSession) : Closeable {
     fun start() {
         if (closed || lease != null) return
         val generation = ++subscriptionGeneration
+        val cachedVersion = dataVersion
+        cache?.workspaces()?.whenComplete { rows, error ->
+            ifCurrent(generation) {
+                if (cachedVersion == dataVersion) {
+                    if (error == null) {
+                        publish(rows, fromCache = true)
+                    } else {
+                        mutableState.value =
+                            state.value.copy(isLoading = false, error = "Cannot read offline cache")
+                    }
+                }
+            }
+        }
         lease = session.subscribe(
             { push -> ifCurrent(generation) { applyPush(push) } },
             { ifCurrent(generation) { refresh() } },
@@ -71,7 +89,8 @@ class WorkspaceStore(private val session: WorkspaceSession) : Closeable {
         }
     }
 
-    private fun publish(rows: List<Workspace>) {
+    private fun publish(rows: List<Workspace>, fromCache: Boolean = false) {
+        if (!fromCache) dataVersion++
         mutableState.value = WorkspaceListState(
             workspaces = rows.distinctBy { it.id }.filter {
                 it.status != "Deleted" &&
@@ -82,8 +101,10 @@ class WorkspaceStore(private val session: WorkspaceSession) : Closeable {
                         it.lastActivity ?: it.updatedAt
                     }.thenBy { it.id }
                 ),
-            isLoading = false
+            isLoading = false,
+            error = if (fromCache) state.value.error else null
         )
+        if (!fromCache) cache?.replaceWorkspaces(state.value.workspaces)
     }
 
     @Synchronized

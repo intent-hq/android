@@ -9,6 +9,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import dev.intent.app.cache.OfflineCache
 
 /** Route entry point; the caller owns the shared session, this route owns its note subscription. */
 @Composable
@@ -16,9 +17,10 @@ fun NoteReaderRoute(
     source: NoteSource,
     workspaceId: String,
     noteId: String,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    cache: OfflineCache? = null
 ) {
-    val store = remember(source, workspaceId, noteId) { NoteStore(source) }
+    val store = remember(source, workspaceId, noteId, cache) { NoteStore(source, cache) }
     var state by remember(store) { mutableStateOf(store.state) }
     DisposableEffect(store) {
         val handler = Handler(Looper.getMainLooper())
