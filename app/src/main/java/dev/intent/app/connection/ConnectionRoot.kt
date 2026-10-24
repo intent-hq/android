@@ -19,8 +19,8 @@ import androidx.compose.ui.platform.LocalContext
 import dev.intent.app.attachments.AttachmentMedia
 import dev.intent.app.attachments.LocalAttachmentMedia
 import dev.intent.app.cache.RoomOfflineCache
-import dev.intent.app.conversation.WorkspaceConversations
 import dev.intent.app.navigation.IntentNavigation
+import dev.intent.app.navigation.WorkspaceContent
 import dev.intent.core.protocol.attachments.RpcAttachmentClient
 import java.io.File
 
@@ -101,7 +101,7 @@ private fun ConnectedContent(state: ConnectionState, modifier: Modifier) {
                 )
             }
             CompositionLocalProvider(LocalAttachmentMedia provides media) {
-                WorkspaceConversations(session, workspaceId, back)
+                WorkspaceContent(session, workspaceId, cache, back)
             }
         }
     }
