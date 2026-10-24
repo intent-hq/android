@@ -45,6 +45,9 @@ ksp {
 }
 
 dependencies {
+    implementation(libs.commonmark)
+    implementation(libs.commonmark.tables)
+    implementation(libs.commonmark.tasks)
     implementation(libs.zxing)
     implementation(libs.androidx.room.runtime)
     ksp(libs.androidx.room.compiler)
