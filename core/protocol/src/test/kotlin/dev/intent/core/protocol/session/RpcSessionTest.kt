@@ -12,6 +12,7 @@ import java.util.concurrent.TimeoutException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.jsonObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
@@ -26,8 +27,8 @@ class RpcSessionTest {
         val b = server.request()
         server.reply(b, "{\"value\":2}")
         server.reply(a, "{\"value\":1}")
-        assertEquals(JsonPrimitive(1), first.get(2, TimeUnit.SECONDS)["value"])
-        assertEquals(JsonPrimitive(2), second.get(2, TimeUnit.SECONDS)["value"])
+        assertEquals(JsonPrimitive(1), first.get(2, TimeUnit.SECONDS).jsonObject["value"])
+        assertEquals(JsonPrimitive(2), second.get(2, TimeUnit.SECONDS).jsonObject["value"])
         val failure = session.request("missing")
         val request = server.request()
         val error = RpcError(-32602, "Missing", json("{\"code\":\"not-found\"}"))

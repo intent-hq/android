@@ -126,8 +126,6 @@ class JsonRpcMessageTest {
             """{"jsonrpc":"2.0","method":"test","result":{}}""",
             """{"jsonrpc":"2.0","result":{}}""",
             """{"jsonrpc":"2.0","id":1}""",
-            """{"jsonrpc":"2.0","id":1,"result":[]}""",
-            """{"jsonrpc":"2.0","id":1,"result":null}""",
             """{"jsonrpc":"2.0","id":1,"result":{},"error":{}}""",
             """{"jsonrpc":"2.0","id":1,"error":{"code":"-32603","message":"oops"}}""",
             """{"jsonrpc":"2.0","id":1,"error":{"code":-32603.5,"message":"oops"}}""",

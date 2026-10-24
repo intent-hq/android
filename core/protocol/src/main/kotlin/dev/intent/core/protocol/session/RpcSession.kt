@@ -49,7 +49,7 @@ class RpcSession(
     private var generation = 0L
     private var nextId = 0L
     private var reconnectAttempt = 0
-    private val pending = mutableMapOf<JsonElement, CompletableFuture<JsonObject>>()
+    private val pending = mutableMapOf<JsonElement, CompletableFuture<JsonElement>>()
     private val subscriptions = mutableSetOf<SubscriptionEntry>()
 
     init {
@@ -65,9 +65,9 @@ class RpcSession(
         method: String,
         params: JsonElement? = null,
         timeoutMillis: Long = requestTimeoutMillis
-    ): CompletableFuture<JsonObject> {
+    ): CompletableFuture<JsonElement> {
         require(timeoutMillis > 0)
-        val result = CompletableFuture<JsonObject>()
+        val result = CompletableFuture<JsonElement>()
         if (closed.get()) {
             result.completeExceptionally(SessionDisconnectedException())
         } else {
@@ -152,7 +152,7 @@ class RpcSession(
 
     private fun handshake() {
         changeState(SessionState.HANDSHAKING)
-        val reply = CompletableFuture<JsonObject>()
+        val reply = CompletableFuture<JsonElement>()
         val current = generation
         reply.whenComplete { _, error ->
             if (current == generation) {
@@ -175,7 +175,7 @@ class RpcSession(
 
     /** Check identity before replaying subscriptions or exposing a retained cache. */
     private fun verifyIdentity(current: Long) {
-        val reply = CompletableFuture<JsonObject>()
+        val reply = CompletableFuture<JsonElement>()
         reply.whenComplete { result, error ->
             if (current == generation) {
                 val id = result?.string("id")?.takeIf { it.isNotBlank() }
@@ -195,7 +195,7 @@ class RpcSession(
         method: String,
         params: JsonElement?,
         timeoutMillis: Long,
-        result: CompletableFuture<JsonObject>
+        result: CompletableFuture<JsonElement>
     ) {
         val id = JsonPrimitive((++nextId).toString())
         val message = try {
@@ -254,7 +254,7 @@ class RpcSession(
 
     private fun admit(entry: SubscriptionEntry) {
         val current = generation
-        val reply = CompletableFuture<JsonObject>()
+        val reply = CompletableFuture<JsonElement>()
         reply.whenComplete { result, error ->
             if (current == generation) {
                 if (error != null) {
@@ -344,5 +344,8 @@ class RpcSession(
     }
 }
 
-private fun JsonObject.string(key: String): String? =
-    (get(key) as? JsonPrimitive)?.takeIf { it.isString && it.content.isNotEmpty() }?.content
+private fun JsonElement.string(key: String): String? =
+    ((this as? JsonObject)?.get(key) as? JsonPrimitive)?.takeIf {
+        it.isString &&
+            it.content.isNotEmpty()
+    }?.content

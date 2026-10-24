@@ -7,6 +7,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonObjectBuilder
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.put
 
 fun interface AttachmentRpc {
@@ -15,7 +16,9 @@ fun interface AttachmentRpc {
 
 class RpcAttachmentClient(private val session: RpcSession) : AttachmentRpc {
     override fun request(method: String, params: JsonObject) =
-        session.request(method, params, timeoutMillis = TRANSFER_TIMEOUT_MILLIS)
+        session.request(method, params, timeoutMillis = TRANSFER_TIMEOUT_MILLIS).thenApply {
+            it.jsonObject
+        }
 }
 
 internal class AttachmentCalls(val rpc: AttachmentRpc, val workspaceId: String) {

@@ -24,7 +24,7 @@ sealed interface JsonRpcMessage {
         }
     }
 
-    data class Success(val id: JsonElement, val result: JsonObject) : JsonRpcMessage {
+    data class Success(val id: JsonElement, val result: JsonElement) : JsonRpcMessage {
         init {
             validateId(id)
         }
