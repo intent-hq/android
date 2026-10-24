@@ -173,7 +173,7 @@ class ConnectionControllerTest {
         )
         assertEquals(
             "wss://[::1]:443/ws",
-            connectionEndpoint(payload().copy(hosts = listOf("::1")))
+            connectionEndpoint("::1", payload().port)
         )
     }
 

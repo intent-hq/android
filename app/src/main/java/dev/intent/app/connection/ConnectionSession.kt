@@ -7,17 +7,20 @@ import dev.intent.core.protocol.pairing.PairingPayload
 import dev.intent.core.protocol.session.RpcSession
 import dev.intent.core.protocol.session.SessionState
 import dev.intent.core.protocol.session.SessionTransport
-import dev.intent.core.protocol.session.pinnedSessionTransport
+import dev.intent.tailcat.Tailcat
+import dev.intent.tailcat.TunnelClientFactory
+import java.io.IOException
 import java.net.URI
 import java.security.MessageDigest
+import java.util.concurrent.atomic.AtomicReference
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
-fun connectionEndpoint(payload: PairingPayload): String = URI(
+internal fun connectionEndpoint(host: String, port: Int): String = URI(
     "wss",
     null,
-    payload.hosts.first().removeSurrounding("[", "]"),
-    payload.port,
+    host.removeSurrounding("[", "]"),
+    port,
     "/ws",
     null,
     null
@@ -37,26 +40,32 @@ fun createConnectionSession(
     connection: SavedConnection,
     onState: (SessionState) -> Unit,
     latestPayload: () -> PairingPayload = { connection.payload },
-    transport: (WssTransport.Listener) -> SessionTransport = { listener ->
-        val routes = latestPayload()
-        pinnedSessionTransport(
-            connectionEndpoint(routes),
-            connection.payload.token,
-            requireNotNull(connection.payload.certFingerprint)
-        )(listener)
-    }
-): RpcSession = RpcSession(
-    transport,
-    buildJsonObject {
-        put("clientId", "android-${connection.id}")
-        put("name", "Intent Android")
-        put("deviceKind", "phone")
-    },
-    onState = onState,
-    verifyPrincipal = true,
-    browserTransportFactory = pinnedTunnelTransport(
-        connectionEndpoint(connection.payload).removeSuffix("/ws") + "/tunnel",
-        connection.payload.token,
-        requireNotNull(connection.payload.certFingerprint)
+    tunnels: TunnelClientFactory = Tailcat,
+    transport: ((WssTransport.Listener) -> SessionTransport)? = null
+): RpcSession {
+    val active = AtomicReference<HostRacingTransport>()
+    return RpcSession(
+        transport ?: { listener ->
+            val routes = latestPayload().copy(
+                token = connection.payload.token,
+                certFingerprint = connection.payload.certFingerprint
+            )
+            HostRacingTransport(routes, listener, tunnels).also { active.set(it) }
+        },
+        buildJsonObject {
+            put("clientId", "android-${connection.id}")
+            put("name", "Intent Android")
+            put("deviceKind", "phone")
+        },
+        onState = onState,
+        verifyPrincipal = true,
+        browserTransportFactory = { listener ->
+            val endpoint = active.get()?.endpoint ?: throw IOException("No active connection route")
+            pinnedTunnelTransport(
+                endpoint.removeSuffix("/ws") + "/tunnel",
+                connection.payload.token,
+                requireNotNull(connection.payload.certFingerprint)
+            )(listener)
+        }
     )
-)
+}

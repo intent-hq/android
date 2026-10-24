@@ -1,6 +1,6 @@
 # Intent Android companion
 
-This native Kotlin and Jetpack Compose app is under development. Pair with a desktop through a QR code, an `intent://pair` link, or manual connection details. Review the host and certificate fingerprint before you connect. The app saves encrypted connections and opens the workspace list after authentication. Direct WSS connections are supported; Tailcat tunnels are not yet available.
+This native Kotlin and Jetpack Compose app is under development. Pair with a desktop through a QR code, an `intent://pair` link, or manual connection details. Review the host and certificate fingerprint before you connect. The app saves encrypted connections and opens the workspace list after authentication. Direct hosts race the optional Tailcat tunnel. All routes use pinned TLS and bearer authentication. Builds without the Tailcat AAR use direct hosts only.
 
 ## Architecture
 
@@ -57,7 +57,7 @@ This repository has no release pipeline. Do not use this skeleton as a productio
 
 ## Tailcat library (under development)
 
-The library builds the shared `packages/ios/TailcatKit` Go wrapper. App connection integration is a separate step.
+The library builds the shared `packages/ios/TailcatKit` Go wrapper. The connection manager races direct hosts against the tunnel and closes losing routes. Browser traffic uses the winning route with the same pinned TLS and bearer authentication.
 The generated AAR contains `arm64-v8a`, `armeabi-v7a`, and `x86_64` libraries. The AAR and license copy stay in gitignored `tailcat/libs/`.
 
 1. Initialize the private iOS submodule from the monorepo with `make ensure-ios-submodule`.

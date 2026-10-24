@@ -43,7 +43,7 @@ fun PairingScreen(
     ) {
         Text("Pair with Intent", style = MaterialTheme.typography.headlineSmall)
         Text("Open pairing on your desktop. Scan its QR code or enter the connection details.")
-        Text("The Android companion is under development. A direct network connection is required.")
+        Text("The Android companion is under development.")
         Button(onClick = onScan, enabled = !busy) { Text("Scan QR code") }
         OutlinedTextField(host, { host = it }, label = { Text("Host") }, singleLine = true)
         OutlinedTextField(
