@@ -1,0 +1,431 @@
+{
+  "Workspace": {
+    "id": "example",
+    "title": "example",
+    "status": "Retired",
+    "waiting": true,
+    "scriptsRunning": true,
+    "taskStats": {
+      "total": 3,
+      "completed": 1,
+      "inProgress": 1
+    },
+    "memberCount": 2
+  },
+  "WorkspaceTaskStats": {
+    "total": 1,
+    "completed": 1,
+    "inProgress": 1
+  },
+  "WorkspaceAgentSummary": {
+    "count": 1
+  },
+  "WorkspaceAgentInfo": {
+    "id": "example",
+    "name": "example",
+    "status": "example"
+  },
+  "WorkspaceListParams": {},
+  "WorkspaceParams": {
+    "workspaceId": "example"
+  },
+  "WorkspaceListResult": {
+    "workspaces": [
+      {
+        "id": "example",
+        "title": "example"
+      }
+    ]
+  },
+  "WorkspaceResult": {
+    "workspace": {
+      "id": "example",
+      "title": "example"
+    }
+  },
+  "WorkspaceDeleteParams": {
+    "workspaceId": "example"
+  },
+  "WorkspaceCancelDeleteResult": {
+    "cancelled": true
+  },
+  "SuccessResult": {
+    "success": true
+  },
+  "WorkspaceCreateParams": {},
+  "WorkspaceUpdateParams": {
+    "workspaceId": "example"
+  },
+  "Comment": {
+    "id": "example",
+    "threadId": "example",
+    "type": "example",
+    "content": "example",
+    "author": "example",
+    "authorType": "example",
+    "status": "example",
+    "createdAt": "example",
+    "updatedAt": "example"
+  },
+  "CommentThreadSummary": {
+    "threadId": "example",
+    "noteId": "example",
+    "status": "example",
+    "createdAt": "example",
+    "lastActivity": "example",
+    "latestCommentAuthor": "example",
+    "latestCommentAuthorType": "example",
+    "latestCommentAt": "example",
+    "commentCount": 1
+  },
+  "CommentListParams": {
+    "workspaceId": "example",
+    "noteId": "example"
+  },
+  "CommentListResult": {
+    "threads": [
+      {
+        "threadId": "example",
+        "noteId": "example",
+        "status": "example",
+        "createdAt": "example",
+        "lastActivity": "example",
+        "latestCommentAuthor": "example",
+        "latestCommentAuthorType": "example",
+        "latestCommentAt": "example",
+        "commentCount": 1
+      }
+    ],
+    "totalThreads": 1,
+    "totalComments": 1
+  },
+  "CommentGetThreadParams": {
+    "workspaceId": "example",
+    "noteId": "example"
+  },
+  "CommentThreadResult": {
+    "threadId": "example",
+    "noteId": "example",
+    "rootComment": {
+      "id": "example",
+      "threadId": "example",
+      "type": "example",
+      "content": "example",
+      "author": "example",
+      "authorType": "example",
+      "status": "example",
+      "createdAt": "example",
+      "updatedAt": "example"
+    },
+    "replies": [
+      {
+        "id": "example",
+        "threadId": "example",
+        "type": "example",
+        "content": "example",
+        "author": "example",
+        "authorType": "example",
+        "status": "example",
+        "createdAt": "example",
+        "updatedAt": "example"
+      }
+    ],
+    "totalComments": 1,
+    "status": "example"
+  },
+  "NoteChangedData": {
+    "noteId": "example",
+    "title": "example",
+    "action": "example"
+  },
+  "WorkspaceCreatedData": {
+    "workspaceId": "example",
+    "workspace": {
+      "id": "example",
+      "title": "example"
+    }
+  },
+  "WorkspaceUpdatedData": {
+    "workspaceId": "example",
+    "changes": {
+      "futureField": "preserved"
+    }
+  },
+  "WorkspaceDeletedData": {
+    "workspaceId": "example"
+  },
+  "WorkspaceDeleteScheduledData": {
+    "workspaceId": "example",
+    "deleteAt": "example"
+  },
+  "WorkspaceActivityData": {
+    "workspaceId": "example",
+    "activity": "example"
+  },
+  "WorkspaceAttentionData": {
+    "workspaceId": "example",
+    "attention": "example"
+  },
+  "WorkspaceDisplayStatusData": {
+    "workspaceId": "example",
+    "displayStatus": "example"
+  },
+  "WorkspaceWaitingData": {
+    "workspaceId": "example",
+    "waiting": true
+  },
+  "WorkspaceScriptsRunningData": {
+    "workspaceId": "example",
+    "scriptsRunning": true
+  },
+  "WorkspaceTaskStatsData": {
+    "workspaceId": "example",
+    "taskStats": {
+      "total": 1,
+      "completed": 1,
+      "inProgress": 1
+    }
+  },
+  "WorkspaceContextData": {
+    "workspaceId": "example",
+    "items": [
+      {
+        "futureField": "preserved"
+      }
+    ]
+  },
+  "WorkspaceSetupCompletedData": {
+    "workspaceId": "example",
+    "ranScript": true
+  },
+  "TaskCreatedData": {
+    "noteId": "example",
+    "noteTitle": "example",
+    "status": "example",
+    "createdAt": "example"
+  },
+  "TaskStatusChangedData": {
+    "noteId": "example",
+    "previousStatus": "example",
+    "newStatus": "example",
+    "noteTitle": "Task",
+    "changedAt": "2026-10-24T19:00:00Z"
+  },
+  "TaskReadyData": {
+    "readyTaskIds": [
+      "example"
+    ],
+    "triggeredBy": {
+      "noteId": "task",
+      "reason": "note-deleted"
+    },
+    "computedAt": "example"
+  },
+  "TaskReadyTrigger": {
+    "noteId": "example"
+  },
+  "TasksUpdatedData": {
+    "workspaceId": "example",
+    "tasks": [
+      {
+        "id": "example",
+        "title": "example",
+        "status": "example",
+        "updatedAt": "example"
+      }
+    ],
+    "removedIds": [
+      "example"
+    ]
+  },
+  "TaskAgentLinkData": {
+    "workspaceId": "example",
+    "noteId": "example",
+    "taskKey": "example"
+  },
+  "CommentAddedData": {
+    "noteId": "example",
+    "commentId": "example"
+  },
+  "CommentDeletedData": {
+    "noteId": "example",
+    "commentId": "example",
+    "threadId": "example"
+  },
+  "CommentResolvedData": {
+    "noteId": "example",
+    "threadId": "example",
+    "resolved": true
+  },
+  "EventsSubscribeParams": {
+    "eventTypes": [
+      "example"
+    ]
+  },
+  "SubscriptionResult": {
+    "subscriptionId": "example"
+  },
+  "UnsubscribeParams": {
+    "subscriptionId": "example"
+  },
+  "WorkspaceSubscribeParams": {},
+  "NoteSubscribeParams": {
+    "workspaceId": "example"
+  },
+  "CommentSubscribeParams": {
+    "workspaceId": "example"
+  },
+  "EventNotification": {
+    "subscriptionId": "example",
+    "event": {
+      "type": "example",
+      "workspaceId": "example",
+      "id": "example",
+      "timestamp": "example",
+      "actor": {
+        "type": "example"
+      },
+      "data": {
+        "futureField": "preserved"
+      }
+    }
+  },
+  "DomainEvent": {
+    "type": "example",
+    "workspaceId": "example",
+    "id": "example",
+    "timestamp": "example",
+    "actor": {
+      "type": "example"
+    },
+    "data": {
+      "futureField": "preserved"
+    }
+  },
+  "EventActor": {
+    "type": "example"
+  },
+  "Note": {
+    "id": "example",
+    "title": "example",
+    "content": "Hello\n",
+    "rev": 9223372036854775806,
+    "metadata": {
+      "task": {
+        "status": "future_status",
+        "dependsOn": [
+          "dep"
+        ],
+        "unmetDependsOn": [
+          "dep"
+        ]
+      }
+    },
+    "parentId": null
+  },
+  "NoteMetadata": {},
+  "TaskMetadata": {
+    "status": "example"
+  },
+  "NoteListParams": {
+    "workspaceId": "example"
+  },
+  "NoteGetParams": {
+    "workspaceId": "example",
+    "noteId": "example"
+  },
+  "NoteParams": {
+    "workspaceId": "example",
+    "noteId": "example"
+  },
+  "NoteListResult": {
+    "notes": [
+      {
+        "id": "example",
+        "title": "example"
+      }
+    ]
+  },
+  "NoteResult": {
+    "note": {
+      "id": "example",
+      "title": "example"
+    }
+  },
+  "NoteTaskRow": {
+    "lineNumber": 1,
+    "text": "example",
+    "status": "example"
+  },
+  "NoteTasksResult": {
+    "tasks": [
+      {
+        "lineNumber": 1,
+        "text": "example",
+        "status": "example"
+      }
+    ]
+  },
+  "WorkspaceTask": {
+    "id": "example",
+    "title": "example",
+    "status": "example",
+    "updatedAt": "example"
+  },
+  "TaskListParams": {
+    "workspaceId": "example"
+  },
+  "TaskGetParams": {
+    "workspaceId": "example",
+    "taskNoteId": "example"
+  },
+  "TaskListResult": {
+    "tasks": [
+      {
+        "id": "example",
+        "title": "example",
+        "status": "example",
+        "updatedAt": "example"
+      }
+    ],
+    "stats": {
+      "total": 1,
+      "completed": 1,
+      "inProgress": 1
+    }
+  },
+  "TaskResult": {
+    "task": {
+      "id": "example",
+      "title": "example",
+      "status": "example",
+      "updatedAt": "example"
+    }
+  },
+  "TaskUpdateNoteStatusParams": {
+    "workspaceId": "example",
+    "noteId": "example",
+    "status": "example"
+  },
+  "TaskUpdateNoteStatusResult": {
+    "ok": true,
+    "noteId": "example",
+    "status": "example",
+    "note": {
+      "id": "example",
+      "title": "example"
+    }
+  },
+  "TaskUpdateStatusParams": {
+    "workspaceId": "example",
+    "noteId": "example",
+    "taskText": "example",
+    "status": "example"
+  },
+  "TaskUpdateStatusResult": {
+    "ok": true,
+    "noteId": "example",
+    "taskText": "example",
+    "status": "example"
+  }
+}
