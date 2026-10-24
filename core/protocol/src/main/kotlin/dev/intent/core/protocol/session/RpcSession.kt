@@ -28,16 +28,21 @@ enum class SessionState { DISCONNECTED, CONNECTING, HANDSHAKING, READY, CLOSED }
  * All state and callbacks run on one owned executor. Callbacks must not block or wait on requests.
  * Mutations are never replayed. Reconnect restores subscriptions only after a successful hello.
  */
-@Suppress("TooManyFunctions")
+@Suppress("TooManyFunctions", "LongParameterList")
 class RpcSession(
     private val transportFactory: (WssTransport.Listener) -> SessionTransport,
     private val helloParams: JsonObject,
     private val requestTimeoutMillis: Long = 30_000,
     private val reconnectDelay: (Int) -> Long = ::reconnectDelayMillis,
     private val onState: (SessionState) -> Unit = {},
+    private val verifyPrincipal: Boolean = false,
     private val executor: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor()
 ) : Closeable {
     private val responseJson = Json { ignoreUnknownKeys = true }
+
+    @Volatile
+    var principalId: String? = null
+        private set
     private val closed = AtomicBoolean()
     private var state = SessionState.DISCONNECTED
     private var transport: SessionTransport? = null
@@ -155,13 +160,35 @@ class RpcSession(
                     // Includes startup-not-ready: never hydrate or replay while hello is gated.
                     disconnected()
                 } else {
-                    reconnectAttempt = 0
-                    changeState(SessionState.READY)
-                    subscriptions.toList().forEach { admit(it) }
+                    if (verifyPrincipal) verifyIdentity(current) else ready()
                 }
             }
         }
         send("client.hello", helloParams, requestTimeoutMillis, reply)
+    }
+
+    private fun ready() {
+        reconnectAttempt = 0
+        changeState(SessionState.READY)
+        subscriptions.toList().forEach { admit(it) }
+    }
+
+    /** Check identity before replaying subscriptions or exposing a retained cache. */
+    private fun verifyIdentity(current: Long) {
+        val reply = CompletableFuture<JsonObject>()
+        reply.whenComplete { result, error ->
+            if (current == generation) {
+                val id = result?.string("id")?.takeIf { it.isNotBlank() }
+                val samePrincipal = principalId == null || principalId == id
+                if (error != null || id == null || !samePrincipal) {
+                    close()
+                } else {
+                    principalId = id
+                    ready()
+                }
+            }
+        }
+        send("principal.me", null, requestTimeoutMillis, reply)
     }
 
     private fun send(

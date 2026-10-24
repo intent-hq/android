@@ -47,5 +47,6 @@ fun createConnectionSession(
         put("name", "Intent Android")
         put("deviceKind", "phone")
     },
-    onState = onState
+    onState = onState,
+    verifyPrincipal = true
 )

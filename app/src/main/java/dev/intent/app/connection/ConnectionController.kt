@@ -11,7 +11,6 @@ import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.serialization.json.JsonPrimitive
 
 /** UI snapshots never expose a bearer token as a label or error. */
 data class ConnectionState(
@@ -42,7 +41,6 @@ class ConnectionController(
     val state: StateFlow<ConnectionState> = mutableState.asStateFlow()
     private var current: RpcSession? = null
     private var generation = 0L
-    private var admission = 0L
 
     fun restore() = submit {
         val rows = repository.list()
@@ -119,47 +117,39 @@ class ConnectionController(
     }
 
     private fun sessionChanged(connection: SavedConnection, status: SessionState, ticket: Long) {
-        val revision = ++admission
+        if (ticket != generation) return
+        if (status == SessionState.CLOSED) {
+            stopSession()
+            mutableState.value = state.value.copy(
+                error = "Cannot verify identity. Reconnect to try again."
+            )
+            return
+        }
+        // Preserve the admitted session and Compose ownership during a transport retry.
+        // RpcSession validates the same principal before restoring subscriptions.
         mutableState.value = state.value.copy(
             status = when (status) {
-                SessionState.READY -> "Checking server identity"
+                SessionState.READY -> "Connected"
                 SessionState.CONNECTING, SessionState.HANDSHAKING -> "Connecting"
-                SessionState.DISCONNECTED -> "Connection lost. Retrying."
-                SessionState.CLOSED -> "Not connected"
-            },
-            session = null,
-            cacheScope = null
+                else -> "Connection lost. Retrying."
+            }
         )
         if (status == SessionState.READY) {
-            current?.request("principal.me")?.whenComplete { result, error ->
-                submit {
-                    if (ticket == generation && revision == admission) {
-                        val principal = (result?.get("id") as? JsonPrimitive)?.takeIf {
-                            it.isString
-                        }?.content
-                        if (error != null || principal.isNullOrBlank()) {
-                            stopSession()
-                            mutableState.value =
-                                state.value.copy(
-                                    error = "Cannot verify identity. Reconnect to try again."
-                                )
-                        } else {
-                            mutableState.value = state.value.copy(
-                                status = "Connected",
-                                session = current,
-                                cacheScope = connectionCacheScope(connection.payload, principal),
-                                error = null
-                            )
-                        }
-                    }
-                }
+            val principal = current?.principalId
+            if (principal.isNullOrBlank()) {
+                stopSession()
+            } else {
+                mutableState.value = state.value.copy(
+                    session = current,
+                    cacheScope = connectionCacheScope(connection.payload, principal),
+                    error = null
+                )
             }
         }
     }
 
     private fun stopSession() {
         generation++
-        admission++
         current?.close()
         current = null
         mutableState.value = state.value.copy(

@@ -1,5 +1,8 @@
 package dev.intent.app.connection
 
+import dev.intent.app.conversation.ConversationSendStore
+import dev.intent.app.conversation.RpcConversationCommands
+import dev.intent.app.conversation.SendStatus
 import dev.intent.core.protocol.JsonRpcMessage
 import dev.intent.core.protocol.WssTransport
 import dev.intent.core.protocol.pairing.CredentialBytes
@@ -15,6 +18,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -173,6 +177,95 @@ class ConnectionControllerTest {
         )
     }
 
+    @Test
+    fun `transport reconnect retains conversation owner and pending send without replay`() {
+        val repository = repository()
+        val saved = repository.add(payload())
+        val transports = LinkedBlockingQueue<FakeTransport>()
+        controller(repository, transports).use { controller ->
+            controller.select(saved.id)
+            val first = transports.poll(2, TimeUnit.SECONDS)!!
+            admit(first, "person-a")
+            await { controller.state.value.session != null }
+            val admitted = controller.state.value
+            val session = requireNotNull(admitted.session)
+            ConversationSendStore(RpcConversationCommands(session, "workspace", "agent"), "agent")
+                .use { sends ->
+                    sends.start()
+                    serveConversation(first)
+                    await { !sends.state.value.checking }
+                    sends.send("Hello")
+                    val send = first.requests.poll(2, TimeUnit.SECONDS)!!
+                    assertEquals("agent.sendMessage", send.method)
+                    val id = (send.params as JsonObject)["messageId"] as JsonPrimitive
+                    first.listener.onClosed(1006, "lost")
+                    await { sends.state.value.attempts.single().status == SendStatus.UNCONFIRMED }
+                    // These are the exact keys used by ConnectedContent and remember(session).
+                    assertSame(session, controller.state.value.session)
+                    assertEquals(admitted.cacheScope, controller.state.value.cacheScope)
+                    assertEquals(id.content, sends.state.value.attempts.single().id)
+                    val next = transports.poll(2, TimeUnit.SECONDS)!!
+                    admit(next, "person-a")
+                    serveConversation(next, id.content)
+                    await { sends.state.value.attempts.isEmpty() }
+                    assertSame(session, controller.state.value.session)
+                    assertEquals(admitted.cacheScope, controller.state.value.cacheScope)
+                    assertEquals(1, first.methods.count { it == "agent.sendMessage" })
+                    assertFalse(next.methods.contains("agent.sendMessage"))
+                }
+        }
+    }
+
+    @Test
+    fun `changed principal closes retained session before restoring subscriptions`() {
+        val repository = repository()
+        val saved = repository.add(payload())
+        val transports = LinkedBlockingQueue<FakeTransport>()
+        controller(repository, transports).use { controller ->
+            controller.select(saved.id)
+            val first = transports.poll(2, TimeUnit.SECONDS)!!
+            admit(first, "person-a")
+            await { controller.state.value.session != null }
+            val session = requireNotNull(controller.state.value.session)
+            ConversationSendStore(RpcConversationCommands(session, "workspace", "agent"), "agent")
+                .use { sends ->
+                    sends.start()
+                    serveConversation(first)
+                    first.listener.onClosed(1006, "lost")
+                    val next = transports.poll(2, TimeUnit.SECONDS)!!
+                    admit(next, "person-b")
+                    await { controller.state.value.error != null }
+                    assertNull(controller.state.value.session)
+                    assertNull(controller.state.value.cacheScope)
+                    assertEquals(listOf("client.hello", "principal.me"), next.methods.toList())
+                }
+        }
+    }
+
+    private fun serveConversation(server: FakeTransport, appId: String? = null) {
+        repeat(4) {
+            val request = server.requests.poll(2, TimeUnit.SECONDS)!!
+            val text = when (request.method) {
+                "events.subscribe" -> """{"subscriptionId":"events"}"""
+                "agent.getQueue" -> """{"success":true,"queue":[]}"""
+                "agent.get" -> """{"agent":{"id":"agent","name":"Agent"}}"""
+                "agent.getConversation" -> {
+                    val rows = if (appId == null) {
+                        "[]"
+                    } else {
+                        """[{"id":"canonical","role":"user","appMessageId":"$appId"}]"""
+                    }
+                    """{"agentId":"agent","messages":$rows}"""
+                }
+                else -> error("Unexpected request: ${request.method}")
+            }
+            server.reply(
+                request,
+                kotlinx.serialization.json.Json.parseToJsonElement(text) as JsonObject
+            )
+        }
+    }
+
     private fun payload() = PairingPayload(listOf("desktop.local"), 443, "secret", "AB".repeat(32))
 
     private fun controller(
@@ -222,9 +315,11 @@ class ConnectionControllerTest {
 
     private class FakeTransport(val listener: WssTransport.Listener) : SessionTransport {
         val requests = LinkedBlockingQueue<JsonRpcMessage.Request>()
+        val methods = LinkedBlockingQueue<String>()
         override fun connect() = listener.onOpen()
         override fun send(message: JsonRpcMessage): Boolean {
-            requests.add(message as JsonRpcMessage.Request)
+            methods.add((message as JsonRpcMessage.Request).method)
+            requests.add(message)
             return true
         }
         fun reply(request: JsonRpcMessage.Request, result: JsonObject) =
