@@ -55,6 +55,7 @@ dependencies {
     implementation(libs.androidx.datastore.preferences)
     testImplementation(libs.junit)
     implementation(project(":core:protocol"))
+    implementation(project(":tailcat"))
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.activity.compose)
