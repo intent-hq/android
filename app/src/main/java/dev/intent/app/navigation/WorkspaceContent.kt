@@ -13,6 +13,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import dev.intent.app.cache.OfflineCache
 import dev.intent.app.conversation.WorkspaceConversations
+import dev.intent.app.git.WorkspaceGitRoute
 import dev.intent.app.notes.NoteListRoute
 import dev.intent.app.notes.NoteReaderRoute
 import dev.intent.app.notes.SessionNoteSource
@@ -35,12 +36,16 @@ fun WorkspaceContent(
     }
     BackHandler { back() }
     when (val current = destination) {
+        WorkspaceDestination.Git -> WorkspaceGitRoute(session, workspaceId, back)
         WorkspaceDestination.Conversations -> WorkspaceConversations(session, workspaceId, back)
         else -> Column(Modifier.fillMaxSize()) {
             TextButton(onClick = back) { Text("Back") }
             when (current) {
                 WorkspaceDestination.Home -> {
                     Text("Workspace")
+                    TextButton(onClick = { destination = WorkspaceDestination.Git }) {
+                        Text("Git changes")
+                    }
                     TextButton(onClick = { destination = WorkspaceDestination.Conversations }) {
                         Text("Conversations")
                     }
