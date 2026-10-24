@@ -5,7 +5,8 @@ This native Kotlin and Jetpack Compose app is under development. Pair with a des
 ## Architecture
 
 - `app`: Android application with one Compose activity. Minimum Android API: 26. Compile and target API: 37 (Android 17).
-- `core/protocol`: pure Kotlin/JVM module for future protocol code. It declares kotlinx-serialization and OkHttp dependencies.
+- `core/protocol`: pure Kotlin/JVM module for protocol models, sessions, and pinned transport.
+- `tailcat`: optional native tunnel adapter with an unavailable implementation for builds without the AAR.
 - `gradle/libs.versions.toml`: pinned library and plugin versions.
 
 The protocol source of truth is [docs/protocol](https://github.com/intent-hq/intent/tree/main/docs/protocol). The [iOS companion](https://github.com/intent-hq/ios) is the feature reference.
@@ -53,3 +54,48 @@ Tests cover protocol fixtures, pinned transport, pairing, session bootstrap, sto
 ## Release status
 
 This repository has no release pipeline. Do not use this skeleton as a production companion app.
+
+## Tailcat library (under development)
+
+The library builds the shared `packages/ios/TailcatKit` Go wrapper. App connection integration is a separate step.
+The generated AAR contains `arm64-v8a`, `armeabi-v7a`, and `x86_64` libraries. The AAR and license copy stay in gitignored `tailcat/libs/`.
+
+1. Initialize the private iOS submodule from the monorepo with `make ensure-ios-submodule`.
+2. Install Go and JDK 21. Add `go` and `javac` to `PATH`.
+3. Set `ANDROID_HOME` as described above.
+4. Install the NDK:
+
+```sh
+"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;28.2.13676358"
+```
+
+5. Run the build from this repository:
+
+```sh
+./scripts/build-tailcat.sh
+./gradlew build ktlintCheck detekt test -Ptailcat.enabled=true
+```
+
+The script reads the Go and `golang.org/x/mobile` versions from `TailcatKit/go.mod`.
+Go downloads the required toolchain through `GOTOOLCHAIN` (currently Go 1.27.0).
+The script installs pinned gomobile/gobind tools in a temporary directory and builds a temporary source copy.
+The original Go source and module files stay unchanged.
+For a standalone Android checkout, set `TAILCAT_SOURCE_DIR` to an existing `TailcatKit` directory.
+`ANDROID_NDK_HOME` and `GOTOOLCHAIN` can override the defaults.
+The [gomobile documentation](https://pkg.go.dev/golang.org/x/mobile/cmd/gomobile) describes the Android archive and architecture targets.
+
+Gradle selects the native adapter when `tailcat/libs/tailcatkit.aar` exists.
+Without that file, normal builds use the stub. `-Ptailcat.enabled=true` fails early when the file is missing.
+To test the stub with an AAR present, run:
+
+```sh
+./gradlew build ktlintCheck detekt test -Ptailcat.enabled=false
+```
+
+The Kotlin entry point is `dev.intent.tailcat.Tailcat`, which implements `TunnelClientFactory`.
+`available` reports build support. `createClient(token)` throws `TunnelUnavailableException` in stub builds.
+`TunnelClient.ping(timeoutMs)` and `forward(remotePort)` are blocking calls for a worker thread.
+The forwarder exposes `localPort` on `127.0.0.1`. Close the forwarder, then the client, after use or cancellation.
+Closing a forwarder stops new connections. Closing its client also stops the tunnel.
+The adapter forwards raw TCP. Callers must verify the pinned TLS certificate before they send bearer credentials through it.
+Host unit tests cover adapter selection and unavailable errors. Native tunnel traffic still needs Android device verification.
