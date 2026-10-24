@@ -27,6 +27,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import dev.intent.app.mermaid.MermaidFence
 import org.commonmark.ext.gfm.tables.TableBlock
 import org.commonmark.ext.gfm.tables.TableCell
 import org.commonmark.ext.task.list.items.TaskListItemMarker
@@ -45,7 +46,9 @@ import org.commonmark.node.ThematicBreak
 /** Return true after rendering a recognized fence, false to use the plain code fallback. */
 typealias MarkdownFenceRenderer = @Composable (language: String, code: String) -> Boolean
 val LocalMarkdownFenceRenderer =
-    staticCompositionLocalOf<MarkdownFenceRenderer> { { _, _ -> false } }
+    staticCompositionLocalOf<MarkdownFenceRenderer> {
+        { language, code -> MermaidFence(language, code) }
+    }
 
 @Composable
 fun MarkdownContent(content: String, modifier: Modifier = Modifier) {

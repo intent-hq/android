@@ -1,0 +1,88 @@
+/* Intent Brand / Brand System / Color and Foundations. */
+:root {
+  color-scheme: light;
+  --canvas: #ffffff;
+  --font: system-ui, sans-serif;
+  --pele-bg: var(--canvas);
+  --pele-fg: #080808;
+  --pele-muted: #525250;
+  --pele-line: #8c8c89;
+  --pele-surface: #f0f0eb;
+  --pele-surface-alt: #e1e1de;
+  --pele-border: #cfcfcd;
+  --pele-accent: #ddec61;
+  --pele-critical: #e87f39;
+  --pele-error: #e87f39;
+  --pele-font: var(--font);
+  --pele-font-mono: ui-monospace, monospace;
+  --pele-title-weight: 500;
+  --pele-heading-weight: 500;
+  --pele-bold-weight: 500;
+  --pele-radius: 10px;
+  --pele-series-1: #ddec61;
+  --pele-series-2: #979a73;
+  --pele-series-3: #c2d4f2;
+  --pele-series-4: #c0a8ed;
+  --pele-series-5: #faa755;
+  --pele-series-6: #6fa356;
+  --pele-series-7: #e87f39;
+  --pele-series-8: #babab7;
+  font: 13px/1.5 var(--font);
+  -webkit-text-size-adjust: 100%;
+  background: var(--canvas);
+  color: var(--pele-fg);
+}
+
+:root.dark {
+  color-scheme: dark;
+  --canvas: #1a1a1a;
+  --pele-fg: #f0f0eb;
+  --pele-muted: #babab7;
+  --pele-line: #8c8c89;
+  --pele-surface: #272727;
+  --pele-surface-alt: #3d3d3c;
+  --pele-border: #525250;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+}
+
+body {
+  width: max-content;
+  min-width: 100%;
+}
+
+#diagram {
+  box-sizing: border-box;
+  width: max-content;
+  min-width: 100vw;
+  padding: 12px;
+  touch-action: pan-x pan-y pinch-zoom;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+#staging {
+  position: absolute;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+#diagram > svg {
+  display: block;
+  margin: 0 auto;
+  flex-shrink: 0;
+}
+
+.pele-slice-labels,
+.pele-task > .pele-label[fill='var(--_bg)'],
+.pele-branch > .pele-label[fill='var(--_bg)'] {
+  fill: #080808;
+}
+
+svg a {
+  pointer-events: none;
+}

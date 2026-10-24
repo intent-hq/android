@@ -99,3 +99,27 @@ The forwarder exposes `localPort` on `127.0.0.1`. Close the forwarder, then the 
 Closing a forwarder stops new connections. Closing its client also stops the tunnel.
 The adapter forwards raw TCP. Callers must verify the pinned TLS certificate before they send bearer credentials through it.
 Host unit tests cover adapter selection and unavailable errors. Native tunnel traffic still needs Android device verification.
+
+## Mermaid diagrams (under development)
+
+Notes and transcripts render Mermaid fences in an offline WebView using Pele 1.8.0.
+The app bundles all scripts. It does not need Node, a CDN, or a network connection for diagrams.
+The renderer follows the app theme. Invalid, incomplete, or oversized diagrams show their original code.
+Diagrams support scrolling and pinch zoom; editing is not supported.
+Links, images, file access, and network requests are disabled inside diagram views.
+
+To rebuild the pinned assets and run the browser fixtures:
+
+```sh
+cd scripts/vendor-mermaid
+npm ci
+npm run build
+npx playwright install chromium
+npm test
+```
+
+Commit the generated `app/src/main/assets/mermaid` files with changes to the vendor lockfile.
+`vendor.json` records the package versions and SHA-256 hashes. `NOTICE.txt` contains the bundled licenses.
+Browser fixtures cover themes, parse failures, limits, hostile source, and offline rendering.
+Android unit tests cover source encoding, local asset selection, and raw-code fallback decisions.
+Native WebView gestures still need device verification.
