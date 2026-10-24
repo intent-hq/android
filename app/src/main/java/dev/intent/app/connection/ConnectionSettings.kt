@@ -1,9 +1,6 @@
 package dev.intent.app.connection
 
-import android.Manifest
 import android.content.Intent
-import android.content.pm.PackageManager
-import android.os.Build
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -20,6 +17,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import dev.intent.app.notifications.NotificationPermissionFlow
 import dev.intent.app.settings.AppPreferences
 import dev.intent.app.settings.Appearance
 
@@ -33,9 +31,12 @@ fun ConnectionSettings(
     val context = LocalContext.current
     val appearance by preferences.appearance.collectAsState()
     val notifications by preferences.notifications.collectAsState()
+    val permissionFlow = remember(context, preferences) {
+        NotificationPermissionFlow(context, preferences)
+    }
     val permission =
         rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
-            preferences.setNotifications(it)
+            permissionFlow.onPermissionResult(it)
         }
     var report by remember { mutableStateOf<String?>(null) }
     Column(modifier.verticalScroll(rememberScrollState())) {
@@ -48,16 +49,7 @@ fun ConnectionSettings(
         Text("Local notifications: ${if (notifications) "On" else "Off"}")
         Text("Alerts require a connected session. Android may suspend the app in the background.")
         TextButton(onClick = {
-            if (notifications) {
-                preferences.setNotifications(false)
-            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-                context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) !=
-                PackageManager.PERMISSION_GRANTED
-            ) {
-                permission.launch(Manifest.permission.POST_NOTIFICATIONS)
-            } else {
-                preferences.setNotifications(true)
-            }
+            permissionFlow.toggle { permission.launch(it) }
         }) { Text(if (notifications) "Disable notifications" else "Enable notifications") }
         TextButton(onClick = {
             context.startActivity(
