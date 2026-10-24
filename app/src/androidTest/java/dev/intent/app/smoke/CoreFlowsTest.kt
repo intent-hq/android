@@ -83,7 +83,7 @@ class CoreFlowsTest {
             compose.waitUntil(TIMEOUT) { controller.state.value.session != null }
             compose.waitUntil(TIMEOUT) {
                 compose.onAllNodes(androidx.compose.ui.test.hasText("Android smoke workspace"))
-                    .fetchSemanticsNodes().isNotEmpty()
+                    .fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty()
             }
             compose.onNodeWithText("Android smoke workspace").assertIsDisplayed()
             assertEquals("smoke-token", repository.list().single().payload.token)
