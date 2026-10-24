@@ -21,10 +21,10 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     sourceSets {
-        getByName("main").java.directories.add(
+        getByName("main").kotlin.srcDir(
             if (nativeEnabled) "src/native/kotlin" else "src/stub/kotlin"
         )
-        getByName("test").java.directories.add(
+        getByName("test").kotlin.srcDir(
             if (nativeEnabled) "src/testNative/kotlin" else "src/testStub/kotlin"
         )
     }
