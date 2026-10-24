@@ -1,0 +1,7 @@
+{
+  "iosRepo": "intent-hq/ios",
+  "commit": "45a95ad99d5fa13f82cf149a80c99b96de61ee48",
+  "appVersion": "1.1.8",
+  "updatedAt": "2026-10-24",
+  "notes": "Baseline for the initial port; no features ported yet."
+}
