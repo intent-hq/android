@@ -54,6 +54,8 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.tooling)
     implementation(libs.androidx.datastore.preferences)
     testImplementation(libs.junit)
+    testImplementation(libs.okhttp.mockwebserver)
+    testImplementation(libs.okhttp.tls)
     implementation(project(":core:protocol"))
     implementation(project(":tailcat"))
     implementation(platform(libs.androidx.compose.bom))
