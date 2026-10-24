@@ -7,7 +7,6 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.ViewModelProvider
@@ -15,6 +14,7 @@ import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
 import dev.intent.app.connection.ConnectionRoot
 import dev.intent.app.connection.ConnectionViewModel
+import dev.intent.app.design.IntentTheme
 
 class MainActivity : ComponentActivity() {
     private val model by lazy { ViewModelProvider(this)[ConnectionViewModel::class.java] }
@@ -27,7 +27,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         if (savedInstanceState == null) acceptLink(intent)
         setContent {
-            MaterialTheme {
+            IntentTheme {
                 Scaffold { padding ->
                     ConnectionRoot(
                         model.controller,
