@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -15,12 +16,14 @@ import dev.intent.app.browser.WorkspaceBrowser
 import dev.intent.app.cache.OfflineCache
 import dev.intent.app.conversation.WorkspaceConversations
 import dev.intent.app.git.WorkspaceGitRoute
+import dev.intent.app.markdown.LocalMarkdownNoteLink
 import dev.intent.app.notes.NoteListRoute
 import dev.intent.app.notes.NoteReaderRoute
 import dev.intent.app.notes.SessionNoteSource
 import dev.intent.app.terminals.WorkspaceTerminals
 import dev.intent.core.protocol.session.RpcSession
 
+@Suppress("LongMethod") // Workspace destinations share the session and Markdown link handler.
 @Composable
 fun WorkspaceContent(
     session: RpcSession,
@@ -37,46 +40,52 @@ fun WorkspaceContent(
         if (parent == null) onBack() else destination = parent
     }
     BackHandler { back() }
-    when (val current = destination) {
-        WorkspaceDestination.Browser -> WorkspaceBrowser(session, workspaceId, back)
-        WorkspaceDestination.Git -> WorkspaceGitRoute(session, workspaceId, back)
-        WorkspaceDestination.Terminals -> WorkspaceTerminals(session, workspaceId, back)
-        WorkspaceDestination.Conversations -> WorkspaceConversations(session, workspaceId, back)
-        else -> Column(Modifier.fillMaxSize()) {
-            TextButton(onClick = back) { Text("Back") }
-            when (current) {
-                WorkspaceDestination.Home -> {
-                    Text("Workspace")
-                    TextButton(onClick = {
-                        destination = WorkspaceDestination.Browser
-                    }) { Text("Browser preview") }
-                    TextButton(onClick = { destination = WorkspaceDestination.Terminals }) {
-                        Text("Terminals")
+    CompositionLocalProvider(
+        LocalMarkdownNoteLink provides { id ->
+            destination = WorkspaceDestination.Note(id)
+        }
+    ) {
+        when (val current = destination) {
+            WorkspaceDestination.Browser -> WorkspaceBrowser(session, workspaceId, back)
+            WorkspaceDestination.Git -> WorkspaceGitRoute(session, workspaceId, back)
+            WorkspaceDestination.Terminals -> WorkspaceTerminals(session, workspaceId, back)
+            WorkspaceDestination.Conversations -> WorkspaceConversations(session, workspaceId, back)
+            else -> Column(Modifier.fillMaxSize()) {
+                TextButton(onClick = back) { Text("Back") }
+                when (current) {
+                    WorkspaceDestination.Home -> {
+                        Text("Workspace")
+                        TextButton(onClick = {
+                            destination = WorkspaceDestination.Browser
+                        }) { Text("Browser preview") }
+                        TextButton(onClick = { destination = WorkspaceDestination.Terminals }) {
+                            Text("Terminals")
+                        }
+                        TextButton(onClick = { destination = WorkspaceDestination.Git }) {
+                            Text("Git changes")
+                        }
+                        TextButton(onClick = { destination = WorkspaceDestination.Conversations }) {
+                            Text("Conversations")
+                        }
+                        TextButton(onClick = { destination = WorkspaceDestination.Notes }) {
+                            Text("Notes")
+                        }
                     }
-                    TextButton(onClick = { destination = WorkspaceDestination.Git }) {
-                        Text("Git changes")
-                    }
-                    TextButton(onClick = { destination = WorkspaceDestination.Conversations }) {
-                        Text("Conversations")
-                    }
-                    TextButton(onClick = { destination = WorkspaceDestination.Notes }) {
-                        Text("Notes")
-                    }
+                    WorkspaceDestination.Notes -> NoteListRoute(
+                        session,
+                        workspaceId,
+                        { destination = WorkspaceDestination.Note(it) },
+                        Modifier.weight(1f)
+                    )
+                    is WorkspaceDestination.Note -> NoteReaderRoute(
+                        source,
+                        workspaceId,
+                        current.id,
+                        Modifier.weight(1f),
+                        cache
+                    )
+                    else -> Unit
                 }
-                WorkspaceDestination.Notes -> NoteListRoute(
-                    session,
-                    workspaceId,
-                    { destination = WorkspaceDestination.Note(it) },
-                    Modifier.weight(1f)
-                )
-                is WorkspaceDestination.Note -> NoteReaderRoute(
-                    source,
-                    workspaceId,
-                    current.id,
-                    Modifier.weight(1f),
-                    cache
-                )
-                else -> Unit
             }
         }
     }

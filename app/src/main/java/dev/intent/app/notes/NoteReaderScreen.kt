@@ -11,21 +11,16 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.LinkAnnotation
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.withLink
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import dev.intent.app.attachments.MediaPreview
+import dev.intent.app.markdown.MarkdownNode
+import dev.intent.app.markdown.children
+import dev.intent.app.markdown.markdownFixture
+import dev.intent.app.markdown.parseMarkdown
 import dev.intent.core.protocol.models.Note
 import dev.intent.core.protocol.models.NoteTaskRow
 
@@ -39,7 +34,7 @@ fun NoteReaderScreen(
     onNoteStatus: (String) -> Unit = {}
 ) {
     val body = state.note?.content
-    val blocks = remember(body) { markdownBlocks(body.orEmpty()) }
+    val document = remember(body) { parseMarkdown(body.orEmpty()) }
     LazyColumn(modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         item { Text(state.note?.title ?: "Note", style = MaterialTheme.typography.headlineMedium) }
         if (state.loading || state.saving) item { CircularProgressIndicator() }
@@ -72,7 +67,7 @@ fun NoteReaderScreen(
             item { Text("This note shows only part of its content.") }
         }
         if (body == "") item { Text("This note is empty.") }
-        items(blocks) { MarkdownParagraph(it) }
+        items(document.children()) { MarkdownNode(it) }
         if (state.tasks.isNotEmpty()) {
             item { Text("Tasks", style = MaterialTheme.typography.titleLarge) }
             items(state.tasks) { task ->
@@ -80,68 +75,6 @@ fun NoteReaderScreen(
             }
         }
     }
-}
-
-@Composable
-private fun MarkdownParagraph(block: MarkdownBlock) {
-    val style = when (block.kind) {
-        "heading" -> if (block.level ==
-            1
-        ) {
-            MaterialTheme.typography.headlineSmall
-        } else {
-            MaterialTheme.typography.titleLarge
-        }
-        else -> MaterialTheme.typography.bodyLarge
-    }
-    if (block.kind == "code") {
-        Surface(
-            color = MaterialTheme.colorScheme.surfaceVariant,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text(block.text, Modifier.padding(12.dp), fontFamily = FontFamily.Monospace)
-        }
-    } else {
-        val parts = noteMediaParts(block.text)
-        parts.forEach { part ->
-            val media = part.reference
-            if (media ==
-                null
-            ) {
-                Text(markdownInline(part.text), style = style)
-            } else {
-                MediaPreview(media)
-            }
-        }
-    }
-}
-
-private val inlinePattern =
-    Regex("\\[([^]\\n]+)]\\((https?://[^\\s)]+)\\)|`([^`]+)`|\\*\\*([^*]+)\\*\\*")
-
-@Suppress("MagicNumber") // Regex capture indices.
-private fun markdownInline(text: String) = buildAnnotatedString {
-    var start = 0
-    inlinePattern.findAll(text).forEach { match ->
-        append(text.substring(start, match.range.first))
-        when {
-            match.groupValues[2].isNotEmpty() -> withLink(
-                LinkAnnotation.Url(match.groupValues[2])
-            ) {
-                append(match.groupValues[1])
-            }
-            match.groupValues[3].isNotEmpty() -> withStyle(
-                SpanStyle(fontFamily = FontFamily.Monospace)
-            ) {
-                append(match.groupValues[3])
-            }
-            else -> withStyle(SpanStyle(fontWeight = FontWeight.Bold)) {
-                append(match.groupValues[4])
-            }
-        }
-        start = match.range.last + 1
-    }
-    append(text.substring(start))
 }
 
 @Composable
@@ -167,10 +100,7 @@ private fun NoteReaderPreview() {
                 note = Note(
                     id = "spec",
                     title = "Project plan",
-                    content =
-                    "# Read path\nRead **notes** and `tasks`.\n" +
-                        "- Load the note\n1. Check the result\n" +
-                        "[Project](https://intentapp.dev)\n```kotlin\nval ready = true\n```"
+                    content = markdownFixture
                 ),
                 tasks = listOf(
                     NoteTaskRow(2, "Load the note", "done"),

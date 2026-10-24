@@ -106,17 +106,6 @@ class NoteStoreTest {
         assertEquals("Second", store.state.note?.content)
         assertFalse(store.state.deleted)
     }
-
-    @Test
-    fun `Markdown parses headings lists and code without parsing code content`() {
-        val blocks =
-            markdownBlocks(
-                "# Title\n- Item\n1. Ordered\n```\n# code\n```\n[Link](https://example.com)"
-            )
-        assertEquals(listOf("heading", "list", "list", "code", "text"), blocks.map { it.kind })
-        assertEquals("# code", blocks[3].text)
-        assertEquals("code", markdownBlocks("~~~\nunfinished").single().kind)
-    }
 }
 
 private class FakeNoteSource : NoteSource {

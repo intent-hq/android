@@ -1,6 +1,7 @@
 package dev.intent.app.attachments
 
-import dev.intent.app.notes.noteMediaParts
+import dev.intent.app.markdown.markdownRuns
+import dev.intent.app.markdown.parseMarkdown
 import dev.intent.core.protocol.attachments.PlacedAttachment
 import dev.intent.core.protocol.attachments.TransferProgress
 import java.io.File
@@ -84,12 +85,14 @@ class AttachmentUiStoreTest {
     @Test
     fun noteLinksDecodePathsAndRejectTraversalOrForeignHosts() {
         val parts =
-            noteMediaParts(
-                "Before ![Photo](intent://local/file/.intent/attachments/a%20b.jpg) after"
+            markdownRuns(
+                parseMarkdown(
+                    "Before ![Photo](intent://local/file/.intent/attachments/a%20b.jpg) after"
+                )
             )
         assertEquals(3, parts.size)
-        assertEquals(".intent/attachments/a b.jpg", parts[1].reference?.path)
-        assertTrue(parts[1].reference?.image == true)
+        assertEquals(".intent/attachments/a b.jpg", parts[1].media?.path)
+        assertTrue(parts[1].media?.image == true)
         assertNull(noteMediaReference("intent://local/file/%2e%2e/private", "bad", true))
         assertNull(noteMediaReference("https://example.com/image.jpg", "remote", true))
         assertNull(noteMediaReference("intent://other/file/a", "bad", true))

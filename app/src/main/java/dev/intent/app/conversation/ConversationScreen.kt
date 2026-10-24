@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import dev.intent.app.attachments.MediaPreview
 import dev.intent.app.attachments.MediaReference
 import dev.intent.app.attachments.PhotoAttachmentStore
+import dev.intent.app.markdown.MarkdownContent
 import dev.intent.core.protocol.attachments.messageBlock
 import dev.intent.core.protocol.models.ContentBlock
 import dev.intent.core.protocol.models.ConversationMessage
@@ -185,7 +186,7 @@ private fun TranscriptBlock(block: ContentBlock, hydrating: Boolean, onHydrate: 
 @Composable
 private fun BlockContent(block: ContentBlock) {
     when (block.type) {
-        "text", "thinking" -> Text(block.text.orEmpty())
+        "text", "thinking" -> MarkdownContent(block.text.orEmpty())
         "tool_use" -> Text(block.input?.toString().orEmpty())
         "tool_result" -> Text(block.output?.toString() ?: block.text.orEmpty())
         "image", "file" -> MediaPreview(
@@ -197,7 +198,7 @@ private fun BlockContent(block: ContentBlock) {
                 mimeType = block.mimeType
             )
         )
-        "resource" -> Text(block.resource?.text ?: "Resource")
+        "resource" -> MarkdownContent(block.resource?.text ?: "Resource")
         else -> Text("${block.type}: ${block.fileName ?: "Content preview unavailable"}")
     }
 }
