@@ -174,7 +174,7 @@ class HostRacingTransportTest {
         payload(),
         events,
         tunnel,
-        { endpoint, listener -> FakeSocket(endpoint, listener).also { sockets.add(it) } },
+        { endpoint, listener -> FakeSocket(endpoint, listener, sockets) },
         timeoutMillis
     )
 
@@ -186,11 +186,17 @@ class HostRacingTransportTest {
         "tc-capability"
     )
 
-    private class FakeSocket(val endpoint: String, val listener: WssTransport.Listener) :
-        SessionTransport {
+    private class FakeSocket(
+        val endpoint: String,
+        val listener: WssTransport.Listener,
+        private val connected: LinkedBlockingQueue<FakeSocket>
+    ) : SessionTransport {
         val closed = CountDownLatch(1)
         val sent = LinkedBlockingQueue<JsonRpcMessage>()
-        override fun connect() = Unit
+        override fun connect() {
+            // Publish only after the owner installs the socket and its endpoint.
+            connected.add(this)
+        }
         override fun send(message: JsonRpcMessage): Boolean = sent.add(message)
         override fun close() = closed.countDown()
     }
