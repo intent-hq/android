@@ -1,0 +1,293 @@
+[
+  {
+    "jsonrpc": "2.0",
+    "id": 60,
+    "method": "events.subscribe",
+    "params": {
+      "eventTypes": [
+        "file:*"
+      ],
+      "workspaceId": "ws-a",
+      "replaceGroup": "file-events",
+      "lossRecovery": 1
+    }
+  },
+  {
+    "jsonrpc": "2.0",
+    "id": 60,
+    "result": {
+      "subscriptionId": "ws-sub-1",
+      "lossRecovery": 1
+    }
+  },
+  {
+    "jsonrpc": "2.0",
+    "id": 61,
+    "method": "events.subscribe",
+    "params": {
+      "eventTypes": [
+        "file:*"
+      ],
+      "workspaceId": "ws-a"
+    }
+  },
+  {
+    "jsonrpc": "2.0",
+    "id": 61,
+    "result": {
+      "subscriptionId": "ws-sub-legacy"
+    }
+  },
+  {
+    "jsonrpc": "2.0",
+    "id": 62,
+    "method": "events.fence",
+    "params": {
+      "subscriptionIds": [
+        "ws-sub-1",
+        "ws-sub-global"
+      ]
+    }
+  },
+  {
+    "jsonrpc": "2.0",
+    "id": 62,
+    "result": {
+      "subscriptionIds": [
+        "ws-sub-1",
+        "ws-sub-global"
+      ]
+    }
+  },
+  {
+    "jsonrpc": "2.0",
+    "method": "events.lost",
+    "params": {
+      "subscriptionId": "ws-sub-1",
+      "generation": "1",
+      "scope": {
+        "workspaceId": "ws-a"
+      }
+    }
+  },
+  {
+    "jsonrpc": "2.0",
+    "method": "events.lost",
+    "params": {
+      "subscriptionId": "ws-sub-global",
+      "generation": "1",
+      "scope": {
+        "workspaceId": null
+      }
+    }
+  },
+  {
+    "jsonrpc": "2.0",
+    "method": "events.lost",
+    "params": {
+      "subscriptionId": "ws-sub-1",
+      "generation": "2",
+      "scope": {
+        "workspaceId": "ws-a"
+      }
+    }
+  },
+  {
+    "jsonrpc": "2.0",
+    "method": "events.lost",
+    "params": {
+      "subscriptionId": "ws-sub-1",
+      "generation": "1",
+      "scope": {
+        "workspaceId": "ws-a"
+      }
+    }
+  },
+  {
+    "jsonrpc": "2.0",
+    "method": "events.lost",
+    "params": {
+      "subscriptionId": "ws-sub-1",
+      "generation": "5",
+      "scope": {
+        "workspaceId": "ws-a"
+      }
+    }
+  },
+  {
+    "jsonrpc": "2.0",
+    "method": "events.lost",
+    "params": {
+      "subscriptionId": "ws-sub-1",
+      "generation": "9007199254740993",
+      "scope": {
+        "workspaceId": "ws-a"
+      }
+    }
+  },
+  {
+    "jsonrpc": "2.0",
+    "method": "events.lost",
+    "params": {
+      "subscriptionId": "ws-sub-1",
+      "generation": "18446744073709551615",
+      "scope": {
+        "workspaceId": "ws-a"
+      }
+    }
+  },
+  {
+    "jsonrpc": "2.0",
+    "method": "events.lost",
+    "params": {
+      "subscriptionId": "ws-sub-1",
+      "generation": "0",
+      "scope": {
+        "workspaceId": "ws-a"
+      }
+    }
+  },
+  {
+    "jsonrpc": "2.0",
+    "method": "events.lost",
+    "params": {
+      "subscriptionId": "ws-sub-1",
+      "generation": "01",
+      "scope": {
+        "workspaceId": "ws-a"
+      }
+    }
+  },
+  {
+    "jsonrpc": "2.0",
+    "method": "events.lost",
+    "params": {
+      "subscriptionId": "ws-sub-1",
+      "generation": 1,
+      "scope": {
+        "workspaceId": "ws-a"
+      }
+    }
+  },
+  {
+    "jsonrpc": "2.0",
+    "method": "events.lost",
+    "params": {
+      "subscriptionId": "ws-sub-1",
+      "generation": "18446744073709551616",
+      "scope": {
+        "workspaceId": "ws-a"
+      }
+    }
+  },
+  {
+    "jsonrpc": "2.0",
+    "method": "events.lost",
+    "params": {
+      "subscriptionId": "ws-sub-1",
+      "generation": "-1",
+      "scope": {
+        "workspaceId": "ws-a"
+      }
+    }
+  },
+  {
+    "jsonrpc": "2.0",
+    "method": "events.lost",
+    "params": {
+      "subscriptionId": "ws-sub-1",
+      "generation": "1.0",
+      "scope": {
+        "workspaceId": "ws-a"
+      }
+    }
+  },
+  {
+    "jsonrpc": "2.0",
+    "method": "events.lost",
+    "params": {
+      "subscriptionId": "foreign",
+      "generation": "1",
+      "scope": {
+        "workspaceId": "ws-a"
+      }
+    }
+  },
+  {
+    "jsonrpc": "2.0",
+    "method": "events.lost",
+    "params": {
+      "subscriptionId": "ws-sub-1",
+      "generation": "1",
+      "scope": {
+        "workspaceId": "ws-b"
+      }
+    }
+  },
+  {
+    "jsonrpc": "2.0",
+    "method": "events.lost",
+    "params": {
+      "subscriptionId": "ws-sub-1",
+      "generation": "1",
+      "scope": {
+        "workspaceId": null
+      }
+    }
+  },
+  {
+    "jsonrpc": "2.0",
+    "method": "events.lost",
+    "params": {
+      "subscriptionId": "ws-sub-1",
+      "generation": "1",
+      "scope": {
+        "workspaceId": "ws-a"
+      }
+    }
+  },
+  {
+    "jsonrpc": "2.0",
+    "method": "events.lost",
+    "params": {
+      "subscriptionId": "ws-sub-1",
+      "generation": "1",
+      "scope": {
+        "workspaceId": "ws-a"
+      }
+    }
+  },
+  {
+    "jsonrpc": "2.0",
+    "method": "events.lost",
+    "params": {
+      "subscriptionId": "ws-sub-1",
+      "generation": "1",
+      "scope": {
+        "workspaceId": "ws-a"
+      }
+    }
+  },
+  {
+    "jsonrpc": "2.0",
+    "method": "events.lost",
+    "params": {
+      "subscriptionId": "ws-sub-1",
+      "generation": "1",
+      "scope": {
+        "workspaceId": "ws-a"
+      }
+    }
+  },
+  {
+    "jsonrpc": "2.0",
+    "method": "events.lost",
+    "params": {
+      "subscriptionId": "ws-sub-1",
+      "generation": "1",
+      "scope": {
+        "workspaceId": "ws-a"
+      }
+    }
+  }
+]
