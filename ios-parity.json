@@ -2,6 +2,6 @@
   "iosRepo": "intent-hq/ios",
   "commit": "45a95ad99d5fa13f82cf149a80c99b96de61ee48",
   "appVersion": "1.1.8",
-  "updatedAt": "2026-10-24T19:43:45.716508Z",
-  "notes": "Batch 2 adds workspace, note, task, comment, and event wire models; the RPC session layer; workspace list and note/task read paths; and a Room offline cache with write-through updates and reconnect snapshots. Earlier protocol, pairing, and secure storage foundations remain. Pairing UI, live app integration, Tailcat, conversations, and remaining iOS features are under development."
+  "updatedAt": "2026-10-24T20:01:50.975987Z",
+  "notes": "Adds pairing and onboarding, saved connections and scoped session bootstrap, agent lists, conversation history and streaming, message sending, queue retraction, structured question answers, and read-only send recovery. Earlier workspace, note, protocol, and cache features remain. Android is unreleased; device verification, attachments, model selection, Tailcat, rich rendering, and remaining iOS features are under development."
 }

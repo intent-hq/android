@@ -41,8 +41,19 @@ fun WorkspaceConversations(session: RpcSession, workspaceId: String, onBack: () 
             val conversation = remember(session, workspaceId, agentId) {
                 ConversationStore(RpcConversationSession(session, workspaceId, agentId), agentId)
             }
-            DisposableEffect(conversation) { onDispose { conversation.close() } }
-            ConversationRoute(conversation)
+            val sends = remember(session, workspaceId, agentId) {
+                ConversationSendStore(
+                    RpcConversationCommands(session, workspaceId, agentId),
+                    agentId
+                )
+            }
+            DisposableEffect(conversation, sends) {
+                onDispose {
+                    conversation.close()
+                    sends.close()
+                }
+            }
+            ConversationRoute(conversation, sends)
         }
     }
 }

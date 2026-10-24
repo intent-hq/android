@@ -34,6 +34,7 @@ internal fun reduceConversation(
         if (index < 0) blocks.add(block) else blocks[index] = block
         rows[row.id] = row.copy(
             role = entity.role,
+            appMessageId = entity.appMessageId ?: row.appMessageId,
             contentBlocks = blocks,
             seq = entity.messageSeq ?: row.seq,
             timestamp = entity.timestamp ?: row.timestamp,

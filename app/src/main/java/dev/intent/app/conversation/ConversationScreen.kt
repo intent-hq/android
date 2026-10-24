@@ -26,22 +26,42 @@ import dev.intent.core.protocol.models.ContentBlock
 import dev.intent.core.protocol.models.ConversationMessage
 
 @Composable
-fun ConversationRoute(store: ConversationStore, modifier: Modifier = Modifier) {
+fun ConversationRoute(
+    store: ConversationStore,
+    sends: ConversationSendStore,
+    modifier: Modifier = Modifier
+) {
     val state by store.state.collectAsState()
+    val sending by sends.state.collectAsState()
+    LaunchedEffect(state.messages) { sends.observe(state.messages) }
     DisposableEffect(store) {
         store.start()
-        onDispose { store.stop() }
+        sends.start()
+        onDispose {
+            store.stop()
+            sends.stop()
+        }
     }
-    ConversationScreen(state, store::loadOlder, store::hydrate, store::refresh, modifier)
+    ConversationScreen(state, store::loadOlder, store::hydrate, {
+        store.refresh()
+        sends.refresh()
+    }, modifier) {
+        ConversationComposer(sending, { sends.send(it) }, sends::retract, sends::answer, {
+            store.refresh()
+            sends.refresh()
+        })
+    }
 }
 
+@Suppress("LongParameterList")
 @Composable
 fun ConversationScreen(
     state: ConversationState,
     onLoadOlder: () -> Unit,
     onHydrate: (String, String) -> Unit,
     onRefresh: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    composer: @Composable () -> Unit = {}
 ) {
     val list = rememberLazyListState()
     var followTail by remember { mutableStateOf(true) }
@@ -83,6 +103,7 @@ fun ConversationScreen(
                 TranscriptMessage(message, state.hydrating, onHydrate)
             }
         }
+        composer()
     }
 }
 
@@ -113,6 +134,7 @@ private fun TranscriptMessage(
 
 @Composable
 private fun TranscriptBlock(block: ContentBlock, hydrating: Boolean, onHydrate: () -> Unit) {
+    if (block.isQuestion()) return
     var expanded by remember { mutableStateOf(false) }
     val truncated = block.needsHydration()
     val details = block.type in setOf("tool_use", "tool_result", "thinking")

@@ -44,6 +44,7 @@ data class ChatEntity(
     val role: String,
     val block: ContentBlock,
     val messageSeq: Long? = null,
+    val appMessageId: String? = null,
     val timestamp: String? = null,
     val streamingComplete: Boolean? = null,
     val metadata: JsonObject? = null
