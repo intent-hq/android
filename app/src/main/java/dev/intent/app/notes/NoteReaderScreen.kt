@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -27,13 +28,33 @@ import androidx.compose.ui.unit.dp
 import dev.intent.core.protocol.models.Note
 import dev.intent.core.protocol.models.NoteTaskRow
 
+@Suppress("CyclomaticComplexMethod") // Independent loading, note, task, and error UI states.
 @Composable
-fun NoteReaderScreen(state: NoteReaderState, onRetry: () -> Unit, modifier: Modifier = Modifier) {
+fun NoteReaderScreen(
+    state: NoteReaderState,
+    onRetry: () -> Unit,
+    modifier: Modifier = Modifier,
+    onTaskStatus: (NoteTaskRow, String) -> Unit = { _, _ -> },
+    onNoteStatus: (String) -> Unit = {}
+) {
     val body = state.note?.content
     val blocks = remember(body) { markdownBlocks(body.orEmpty()) }
     LazyColumn(modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         item { Text(state.note?.title ?: "Note", style = MaterialTheme.typography.headlineMedium) }
-        if (state.loading) item { CircularProgressIndicator() }
+        if (state.loading || state.saving) item { CircularProgressIndicator() }
+        state.mutationError?.let { message ->
+            item { Text(message, color = MaterialTheme.colorScheme.error) }
+        }
+        state.note?.metadata?.task?.let { task ->
+            item {
+                TaskStatusMenu(
+                    task.status,
+                    taskNoteStatuses,
+                    !state.saving && !state.loading,
+                    onNoteStatus
+                )
+            }
+        }
         state.error?.let { message ->
             item {
                 Column {
@@ -53,7 +74,9 @@ fun NoteReaderScreen(state: NoteReaderState, onRetry: () -> Unit, modifier: Modi
         items(blocks) { MarkdownParagraph(it) }
         if (state.tasks.isNotEmpty()) {
             item { Text("Tasks", style = MaterialTheme.typography.titleLarge) }
-            items(state.tasks) { NoteTaskRowView(it) }
+            items(state.tasks) { task ->
+                NoteTaskRowView(task, !state.saving && !state.loading) { onTaskStatus(task, it) }
+            }
         }
     }
 }
@@ -111,20 +134,15 @@ private fun markdownInline(text: String) = buildAnnotatedString {
 }
 
 @Composable
-fun NoteTaskRowView(task: NoteTaskRow) {
+fun NoteTaskRowView(task: NoteTaskRow, enabled: Boolean = true, onStatus: (String) -> Unit = {}) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(if (task.status == "done") "☑" else "☐")
+        Checkbox(
+            checked = task.status == "done",
+            onCheckedChange = { onStatus(if (it) "done" else "todo") },
+            enabled = enabled
+        )
         Text(task.text, Modifier.weight(1f))
-        Surface(
-            shape = MaterialTheme.shapes.small,
-            color = MaterialTheme.colorScheme.secondaryContainer
-        ) {
-            Text(
-                task.status,
-                Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                style = MaterialTheme.typography.labelMedium
-            )
-        }
+        TaskStatusMenu(task.status, checkboxStatuses, enabled, onStatus)
     }
 }
 
