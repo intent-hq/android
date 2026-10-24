@@ -1,0 +1,6 @@
+# Exact AndroidJUnitRunner class#method selectors. Keep in sync with CoreFlowsTest.
+dev.intent.app.smoke.CoreFlowsTest#manualPairingConnectsToWorkspaceList
+dev.intent.app.smoke.CoreFlowsTest#workspaceListSelectsWorkspace
+dev.intent.app.smoke.CoreFlowsTest#noteReaderDisplaysBodyAndUpdatesTask
+dev.intent.app.smoke.CoreFlowsTest#commentThreadOpensAndAcceptsReply
+dev.intent.app.smoke.CoreFlowsTest#conversationSendsMessageThroughSession

@@ -51,6 +51,25 @@ The debug APK is `app/build/outputs/apk/debug/app-debug.apk`. Open this director
 
 Tests cover protocol fixtures, pinned transport, pairing, session bootstrap, stores, and the offline cache. Camera scanning and live desktop pairing still need device verification.
 
+## Emulator UI smoke tests
+
+The smoke suite uses an in-process fake transport. It covers manual pairing, workspace selection,
+note tasks, comment threads, and conversation sending. It captures light and dark screenshots;
+these are review artifacts, not pixel comparison tests.
+
+Run the same managed Pixel 8 API 34 suite as CI:
+
+```sh
+./gradlew :app:pixel8Api34DebugAndroidTest -Ptailcat.enabled=false
+python3 scripts/check-ui-screenshots.py
+```
+
+Gradle downloads the emulator image for the host architecture. The first run can take several minutes.
+CI uses `scripts/ui-smoke-tests.txt` for exact method selection; `scripts/ui-smoke-tests.py` rejects stale selectors.
+Reports are in `app/build/reports/androidTests/`. Screenshots are in
+`app/build/outputs/managed_device_android_test_additional_output/`.
+The separate CI instrumentation job retains both for 14 days, including failed runs.
+
 ## Release artifacts (under development)
 
 The tag workflow produces unsigned AAB and APK files plus a git-cliff changelog.
