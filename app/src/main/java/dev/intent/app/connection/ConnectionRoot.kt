@@ -16,6 +16,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import dev.intent.app.cache.RoomOfflineCache
+import dev.intent.app.conversation.WorkspaceConversations
 import dev.intent.app.navigation.IntentNavigation
 
 @Composable
@@ -82,6 +83,11 @@ private fun ConnectedContent(state: ConnectionState, modifier: Modifier) {
     key(session, scope) {
         val cache = remember { RoomOfflineCache.open(context, scope) }
         DisposableEffect(cache) { onDispose { cache.close() } }
-        IntentNavigation(session = session, cache = cache, modifier = modifier)
+        IntentNavigation(session = session, cache = cache, modifier = modifier) {
+                workspaceId,
+                back
+            ->
+            WorkspaceConversations(session, workspaceId, back)
+        }
     }
 }
