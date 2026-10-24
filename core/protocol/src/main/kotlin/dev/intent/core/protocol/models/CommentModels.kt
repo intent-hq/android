@@ -78,3 +78,14 @@ data class CommentThreadResult(
     val totalComments: Int,
     val status: String
 )
+
+@Serializable
+data class CommentReplyResult(
+    val success: Boolean,
+    val message: String,
+    val comment: Comment,
+    val thread: CommentReplyThread
+)
+
+@Serializable
+data class CommentReplyThread(val threadId: String, val totalComments: Int)
