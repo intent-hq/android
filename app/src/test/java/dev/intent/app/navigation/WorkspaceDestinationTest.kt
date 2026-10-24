@@ -19,6 +19,7 @@ class WorkspaceDestinationTest {
         assertEquals(WorkspaceDestination.Notes, selected.parent())
         assertEquals(WorkspaceDestination.Home, selected.parent()?.parent())
         assertNull(WorkspaceDestination.Home.parent())
+        assertEquals(WorkspaceDestination.Home, WorkspaceDestination.Terminals.parent())
         assertEquals(WorkspaceDestination.Home, WorkspaceDestination.Git.parent())
         assertEquals(WorkspaceDestination.Home, WorkspaceDestination.Conversations.parent())
     }

@@ -17,6 +17,7 @@ import dev.intent.app.git.WorkspaceGitRoute
 import dev.intent.app.notes.NoteListRoute
 import dev.intent.app.notes.NoteReaderRoute
 import dev.intent.app.notes.SessionNoteSource
+import dev.intent.app.terminals.WorkspaceTerminals
 import dev.intent.core.protocol.session.RpcSession
 
 @Composable
@@ -37,12 +38,16 @@ fun WorkspaceContent(
     BackHandler { back() }
     when (val current = destination) {
         WorkspaceDestination.Git -> WorkspaceGitRoute(session, workspaceId, back)
+        WorkspaceDestination.Terminals -> WorkspaceTerminals(session, workspaceId, back)
         WorkspaceDestination.Conversations -> WorkspaceConversations(session, workspaceId, back)
         else -> Column(Modifier.fillMaxSize()) {
             TextButton(onClick = back) { Text("Back") }
             when (current) {
                 WorkspaceDestination.Home -> {
                     Text("Workspace")
+                    TextButton(onClick = { destination = WorkspaceDestination.Terminals }) {
+                        Text("Terminals")
+                    }
                     TextButton(onClick = { destination = WorkspaceDestination.Git }) {
                         Text("Git changes")
                     }
