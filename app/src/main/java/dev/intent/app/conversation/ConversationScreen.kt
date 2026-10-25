@@ -2,12 +2,7 @@ package dev.intent.app.conversation
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -70,10 +65,7 @@ fun ConversationRoute(
                 if (accepted) photos?.consume()
                 accepted
             }
-        }, sends::retract, sends::answer, {
-            store.refresh()
-            sends.refresh()
-        }, photos)
+        }, sends::retract, sends::answer, photos)
     }
 }
 
@@ -87,52 +79,14 @@ fun ConversationScreen(
     modifier: Modifier = Modifier,
     composer: @Composable () -> Unit = {}
 ) {
-    val list = rememberLazyListState()
-    var followTail by remember { mutableStateOf(true) }
-    LaunchedEffect(state.messages.lastOrNull()) {
-        if (followTail && state.messages.isNotEmpty()) list.scrollToItem(state.messages.lastIndex)
-    }
     Column(modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Conversation", style = MaterialTheme.typography.headlineSmall)
-        Row {
-            TextButton(onClick = onRefresh) { Text("Refresh") }
-            TextButton(onClick = { followTail = !followTail }) {
-                Text(if (followTail) "Pause auto-scroll" else "Follow latest")
-            }
-        }
-        LaunchedEffect(followTail) {
-            if (followTail &&
-                state.messages.isNotEmpty()
-            ) {
-                list.scrollToItem(state.messages.lastIndex)
-            }
-        }
-        state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-        if (state.isLoading) CircularProgressIndicator()
-        if (state.nextToken != null) {
-            TextButton(onClick = {
-                followTail = false
-                onLoadOlder()
-            }, enabled = !state.loadingOlder) {
-                Text(if (state.loadingOlder) "Load in progress…" else "Load older messages")
-            }
-        }
-        if (!state.isLoading && state.messages.isEmpty()) Text("No messages yet")
-        LazyColumn(
-            state = list,
-            modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            items(state.messages, key = { it.id }) { message ->
-                TranscriptMessage(message, state.hydrating, onHydrate)
-            }
-        }
+        ConversationTranscript(state, onLoadOlder, onHydrate, onRefresh, Modifier.weight(1f))
         composer()
     }
 }
 
 @Composable
-private fun TranscriptMessage(
+internal fun TranscriptMessage(
     message: ConversationMessage,
     hydrating: Set<String>,
     onHydrate: (String, String) -> Unit
@@ -188,7 +142,7 @@ private fun TranscriptBlock(block: ContentBlock, hydrating: Boolean, onHydrate: 
             if (expanded && truncated) onHydrate()
         }) {
             Text(
-                "${if (expanded) "Hide" else "Show"} ${block.name ?: block.type.replace('_', ' ')}"
+                "${if (expanded) "▾" else "▸"} ${block.name ?: block.type.replace('_', ' ')}"
             )
         }
     }

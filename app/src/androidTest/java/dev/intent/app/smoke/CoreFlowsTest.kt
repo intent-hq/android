@@ -185,7 +185,7 @@ class CoreFlowsTest {
                 content {
                     val state by sends.state.collectAsState()
                     ConversationScreen(ConversationState(isLoading = false), {}, { _, _ -> }, {}) {
-                        ConversationComposer(state, { sends.send(it) }, {}, { _, _ -> false }, {})
+                        ConversationComposer(state, { sends.send(it) }, {}, { _, _ -> false })
                     }
                 }
                 compose.onNodeWithText("Send").assertIsNotEnabled()

@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -24,8 +26,10 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import dev.intent.app.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -41,7 +45,7 @@ fun PhotoPicker(store: PhotoAttachmentStore) {
             store.add(uris.map { it.toString() })
         }
     Column {
-        TextButton(
+        IconButton(
             onClick = {
                 picker.launch(
                     PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
@@ -50,7 +54,10 @@ fun PhotoPicker(store: PhotoAttachmentStore) {
             enabled =
             state.photos.size < MAX_PHOTOS
         ) {
-            Text("Add photos (${state.photos.size}/$MAX_PHOTOS)")
+            Icon(
+                painterResource(R.drawable.ic_attach),
+                "Attach photos (${state.photos.size}/$MAX_PHOTOS)"
+            )
         }
         state.photos.forEach { photo ->
             androidx.compose.runtime.key(photo.key) {
@@ -67,16 +74,7 @@ fun PhotoPicker(store: PhotoAttachmentStore) {
                         )
                     }
                     Column(Modifier.weight(1f)) {
-                        Text(
-                            photo.error
-                                ?: if (photo.placed !=
-                                    null
-                                ) {
-                                    "Photo ready"
-                                } else {
-                                    "${photo.progress.stage.name.lowercase()}: ${photo.progress.transferred} bytes"
-                                }
-                        )
+                        Text(photoStatus(photo))
                         if (photo.error !=
                             null
                         ) {
@@ -90,6 +88,12 @@ fun PhotoPicker(store: PhotoAttachmentStore) {
             }
         }
     }
+}
+
+private fun photoStatus(photo: PendingPhoto): String = photo.error ?: if (photo.placed != null) {
+    "Photo ready"
+} else {
+    "${photo.progress.stage.name.lowercase()}: ${photo.progress.transferred} bytes"
 }
 
 @Suppress("CyclomaticComplexMethod") // Independent load, decode, retry, and external-open states.

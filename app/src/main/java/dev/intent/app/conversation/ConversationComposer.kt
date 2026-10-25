@@ -32,7 +32,6 @@ fun ConversationComposer(
     onSend: (String) -> Boolean,
     onRetract: (String) -> Unit,
     onAnswer: (String, Map<String, QuestionAnswer>) -> Boolean,
-    onCheck: () -> Unit,
     photos: PhotoAttachmentStore? = null
 ) {
     val photoState = photos?.state?.collectAsState()?.value
@@ -71,9 +70,6 @@ fun ConversationComposer(
                 Text("Send")
             }
         }
-        TextButton(onClick = onCheck, enabled = !state.checking) {
-            Text(if (state.checking) "Checking status…" else "Check status")
-        }
     }
 }
 
@@ -92,9 +88,9 @@ private fun SendAttempts(state: ConversationSendState) {
         Text(
             when (attempt.status) {
                 SendStatus.SENDING -> "Sending…"
-                SendStatus.UNCONFIRMED -> "Delivery unconfirmed. Check status."
+                SendStatus.UNCONFIRMED -> "Delivery unconfirmed. Pull down to refresh."
                 SendStatus.ACCEPTED -> "Accepted. Waiting for the transcript."
-                SendStatus.QUEUED -> "Queued. Check status for the latest queue."
+                SendStatus.QUEUED -> "Queued. Pull down to refresh."
             }
         )
     }
@@ -171,8 +167,7 @@ private fun ComposerPreview() {
             ),
             { true },
             {},
-            { _, _ -> true },
-            {}
+            { _, _ -> true }
         )
     }
 }
