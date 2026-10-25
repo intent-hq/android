@@ -33,6 +33,8 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import dev.intent.app.navigation.ChromeAction
+import dev.intent.app.navigation.CompactAppBar
 import dev.intent.core.protocol.session.RpcSession
 
 @Composable
@@ -47,11 +49,7 @@ fun WorkspaceTerminals(session: RpcSession, workspaceId: String, onBack: () -> U
     val back = { if (state.selected != null) store.select(null) else onBack() }
     BackHandler(onBack = back)
     Column(Modifier.fillMaxSize().padding(12.dp)) {
-        Row {
-            TextButton(onClick = back) { Text("Back") }
-            TextButton(onClick = store::refresh) { Text("Refresh") }
-        }
-        Text("Terminals", style = MaterialTheme.typography.titleLarge)
+        CompactAppBar("Terminals", back, listOf(ChromeAction("Refresh", run = store::refresh)))
         state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         state.notice?.let { Text(it) }
         if (state.loading) Text("Loading terminals…")

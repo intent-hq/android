@@ -9,13 +9,14 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import dev.intent.app.navigation.ChromeAction
+import dev.intent.app.navigation.CompactAppBar
 import dev.intent.core.protocol.models.GitDiffLine
 import dev.intent.core.protocol.models.GitFileStatus
 
@@ -23,11 +24,13 @@ import dev.intent.core.protocol.models.GitFileStatus
 fun GitDiffScreen(state: GitState, onRetry: () -> Unit) {
     LazyColumn(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         item {
-            Text(state.selected?.path.orEmpty(), style = MaterialTheme.typography.titleMedium)
+            CompactAppBar(
+                state.selected?.path.orEmpty(),
+                actions = listOf(ChromeAction("Refresh diff", run = onRetry))
+            )
             Text(if (state.selected?.staged == true) "Staged diff" else "Unstaged diff")
             if (state.diffLoading) CircularProgressIndicator()
             state.diffError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-            TextButton(onClick = onRetry) { Text("Refresh diff") }
         }
         val hunks = state.diffs.flatMap { it.hunks }
         if (!state.diffLoading && state.diffError == null && hunks.isEmpty()) {

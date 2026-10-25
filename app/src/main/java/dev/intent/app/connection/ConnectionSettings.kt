@@ -40,7 +40,6 @@ fun ConnectionSettings(
         }
     var report by remember { mutableStateOf<String?>(null) }
     Column(modifier.verticalScroll(rememberScrollState())) {
-        Text("Settings")
         TextButton(onClick = onConnections) { Text("Manage connections") }
         Text("Appearance: ${appearance.name}")
         Appearance.entries.forEach { value ->

@@ -1,10 +1,15 @@
 package dev.intent.app.navigation
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Card
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
@@ -12,6 +17,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import dev.intent.app.browser.WorkspaceBrowser
 import dev.intent.app.cache.OfflineCache
 import dev.intent.app.conversation.WorkspaceConversations
@@ -41,6 +47,13 @@ fun WorkspaceContent(
     }
     BackHandler { back() }
     CompositionLocalProvider(
+        LocalChromeBack provides back,
+        LocalChromeActions provides (
+            listOf(
+                ChromeAction("Browser preview") { destination = WorkspaceDestination.Browser },
+                ChromeAction("Terminals") { destination = WorkspaceDestination.Terminals }
+            ) + LocalChromeActions.current
+            ),
         LocalMarkdownNoteLink provides { id ->
             destination = WorkspaceDestination.Note(id)
         }
@@ -51,24 +64,22 @@ fun WorkspaceContent(
             WorkspaceDestination.Terminals -> WorkspaceTerminals(session, workspaceId, back)
             WorkspaceDestination.Conversations -> WorkspaceConversations(session, workspaceId, back)
             else -> Column(Modifier.fillMaxSize()) {
-                TextButton(onClick = back) { Text("Back") }
                 when (current) {
                     WorkspaceDestination.Home -> {
-                        Text("Workspace")
-                        TextButton(onClick = {
-                            destination = WorkspaceDestination.Browser
-                        }) { Text("Browser preview") }
-                        TextButton(onClick = { destination = WorkspaceDestination.Terminals }) {
-                            Text("Terminals")
-                        }
-                        TextButton(onClick = { destination = WorkspaceDestination.Git }) {
-                            Text("Git changes")
-                        }
-                        TextButton(onClick = { destination = WorkspaceDestination.Conversations }) {
-                            Text("Conversations")
-                        }
-                        TextButton(onClick = { destination = WorkspaceDestination.Notes }) {
-                            Text("Notes")
+                        CompactAppBar(LocalWorkspaceTitle.current)
+                        Column(
+                            Modifier.padding(24.dp),
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            WorkspaceGroup("Agents", "Conversations") {
+                                destination = WorkspaceDestination.Conversations
+                            }
+                            WorkspaceGroup("Context", "Notes and tasks") {
+                                destination = WorkspaceDestination.Notes
+                            }
+                            WorkspaceGroup("Changes", "Files and commit history") {
+                                destination = WorkspaceDestination.Git
+                            }
                         }
                     }
                     WorkspaceDestination.Notes -> NoteListRoute(
@@ -87,6 +98,19 @@ fun WorkspaceContent(
                     else -> Unit
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun WorkspaceGroup(title: String, description: String, open: () -> Unit) {
+    Card(Modifier.clickable(onClick = open)) {
+        Column(
+            Modifier.fillMaxWidth().padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(title, style = MaterialTheme.typography.titleMedium)
+            Text(description, style = MaterialTheme.typography.bodyMedium)
         }
     }
 }

@@ -12,6 +12,8 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import dev.intent.app.navigation.ChromeAction
+import dev.intent.app.navigation.CompactAppBar
 import dev.intent.core.protocol.models.NoteListResult
 import dev.intent.core.protocol.session.RpcSession
 import kotlinx.serialization.json.buildJsonObject
@@ -42,8 +44,10 @@ fun NoteListRoute(
         onDispose { store.close() }
     }
     Column(modifier) {
-        Text("Notes")
-        TextButton(onClick = store::refresh, enabled = !state.loading) { Text("Refresh") }
+        CompactAppBar(
+            "Context",
+            actions = listOf(ChromeAction("Refresh", !state.loading, store::refresh))
+        )
         if (state.loading) CircularProgressIndicator()
         state.error?.let { Text(it) }
         if (!state.loading && state.error == null && state.notes.isEmpty()) Text("No notes")

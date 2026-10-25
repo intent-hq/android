@@ -4,9 +4,8 @@ import android.os.Handler
 import android.os.Looper
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -16,6 +15,8 @@ import androidx.compose.ui.Modifier
 import dev.intent.app.cache.OfflineCache
 import dev.intent.app.comments.CommentRoute
 import dev.intent.app.comments.CommentStore
+import dev.intent.app.navigation.ChromeAction
+import dev.intent.app.navigation.LocalChromeActions
 
 /** Route entry point; the caller owns the shared session, this route owns its note subscription. */
 @Composable
@@ -48,16 +49,22 @@ fun NoteReaderRoute(
         CommentRoute(comments, onBack = { showComments = false }, modifier = modifier)
     } else {
         Column(modifier.fillMaxSize()) {
-            if (commentSource != null) {
-                TextButton(onClick = { showComments = true }) { Text("Comments") }
+            val actions = if (commentSource != null) {
+                listOf(ChromeAction("Comments") { showComments = true })
+            } else {
+                emptyList()
             }
-            NoteReaderScreen(
-                state,
-                onRetry = store::refresh,
-                modifier = Modifier.weight(1f),
-                onTaskStatus = store::updateLine,
-                onNoteStatus = store::updateStatus
-            )
+            CompositionLocalProvider(
+                LocalChromeActions provides (actions + LocalChromeActions.current)
+            ) {
+                NoteReaderScreen(
+                    state,
+                    onRetry = store::refresh,
+                    modifier = Modifier.weight(1f),
+                    onTaskStatus = store::updateLine,
+                    onNoteStatus = store::updateStatus
+                )
+            }
         }
     }
 }

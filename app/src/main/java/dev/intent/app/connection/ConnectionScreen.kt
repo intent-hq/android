@@ -26,7 +26,6 @@ fun ConnectionScreen(
 ) {
     LazyColumn(modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
-            Text("Connections", style = MaterialTheme.typography.headlineSmall)
             Button(onClick = onAdd) { Text("Add connection") }
         }
         items(state.connections, key = { it.id }) { connection ->

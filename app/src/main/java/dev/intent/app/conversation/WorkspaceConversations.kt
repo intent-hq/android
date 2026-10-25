@@ -2,8 +2,6 @@ package dev.intent.app.conversation
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Column
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
@@ -19,6 +17,8 @@ import dev.intent.app.agents.LocalConversationAgent
 import dev.intent.app.agents.RpcAgentSession
 import dev.intent.app.attachments.AndroidPhotoSource
 import dev.intent.app.attachments.PhotoAttachmentStore
+import dev.intent.app.navigation.CompactAppBar
+import dev.intent.app.navigation.LocalChromeBack
 import dev.intent.core.protocol.attachments.AttachmentUploadService
 import dev.intent.core.protocol.attachments.RpcAttachmentClient
 import dev.intent.core.protocol.session.RpcSession
@@ -33,18 +33,11 @@ fun WorkspaceConversations(session: RpcSession, workspaceId: String, onBack: () 
     DisposableEffect(agents) { onDispose { agents.close() } }
     BackHandler(selected != null) { selected = null }
     Column {
-        TextButton(onClick = {
-            if (selected ==
-                null
-            ) {
-                onBack()
-            } else {
-                selected = null
-            }
-        }) { Text("Back") }
         val agentId = selected
         if (agentId == null) {
-            AgentListRoute(agents, { selected = it })
+            CompositionLocalProvider(LocalChromeBack provides onBack) {
+                AgentListRoute(agents, { selected = it })
+            }
         } else {
             val conversation = remember(session, workspaceId, agentId) {
                 ConversationStore(RpcConversationSession(session, workspaceId, agentId), agentId)
@@ -77,6 +70,10 @@ fun WorkspaceConversations(session: RpcSession, workspaceId: String, onBack: () 
                     it.id == agentId
                 }
             ) {
+                CompactAppBar(
+                    agentState.agents.firstOrNull { it.id == agentId }?.name ?: "Conversation",
+                    onBack = { selected = null }
+                )
                 ConversationRoute(conversation, sends, photos = photos)
             }
         }

@@ -41,7 +41,6 @@ fun PairingScreen(
         modifier.verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Text("Pair with Intent", style = MaterialTheme.typography.headlineSmall)
         Text("Open pairing on your desktop. Scan its QR code or enter the connection details.")
         Text("The Android companion is under development.")
         Button(onClick = onScan, enabled = !busy) { Text("Scan QR code") }

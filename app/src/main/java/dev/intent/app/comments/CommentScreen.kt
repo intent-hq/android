@@ -14,6 +14,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -23,6 +24,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import dev.intent.app.navigation.ChromeAction
+import dev.intent.app.navigation.CompactAppBar
+import dev.intent.app.navigation.LocalChromeBack
 import dev.intent.core.protocol.models.Comment
 import dev.intent.core.protocol.models.CommentThreadSummary
 
@@ -38,12 +42,15 @@ fun CommentRoute(store: CommentStore, onBack: () -> Unit, modifier: Modifier = M
         if (selected == null) onBack() else selected = null
     }
     Column(modifier) {
-        TextButton(onClick = { if (selected == null) onBack() else selected = null }) {
-            Text(if (selected == null) "Back to note" else "Back to threads")
+        CompositionLocalProvider(
+            LocalChromeBack provides {
+                if (selected == null) onBack() else selected = null
+            }
+        ) {
+            CommentScreen(state, selected, {
+                selected = it
+            }, store::refresh, store::draft, store::reply)
         }
-        CommentScreen(state, selected, {
-            selected = it
-        }, store::refresh, store::draft, store::reply)
     }
 }
 
@@ -60,8 +67,7 @@ fun CommentScreen(
 ) {
     LazyColumn(modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         item {
-            Text("Comments", style = MaterialTheme.typography.headlineMedium)
-            TextButton(onClick = onRefresh) { Text("Refresh") }
+            CompactAppBar("Comments", actions = listOf(ChromeAction("Refresh", run = onRefresh)))
         }
         if (state.loading) item { CircularProgressIndicator() }
         state.error?.let { item { Text(it, color = MaterialTheme.colorScheme.error) } }

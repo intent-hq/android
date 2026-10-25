@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -18,6 +17,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import dev.intent.app.navigation.ChromeAction
+import dev.intent.app.navigation.CompactAppBar
 import dev.intent.core.protocol.models.Workspace
 
 @Composable
@@ -42,10 +43,12 @@ fun WorkspaceListScreen(
     modifier: Modifier = Modifier
 ) {
     Column(modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("Workspaces", style = MaterialTheme.typography.headlineMedium)
+        CompactAppBar(
+            "Workspaces",
+            actions = listOf(ChromeAction("Refresh", !state.isLoading, onRefresh))
+        )
         if (state.isLoading) CircularProgressIndicator()
         state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-        Button(onClick = onRefresh, enabled = !state.isLoading) { Text("Refresh") }
         if (!state.isLoading &&
             state.error == null &&
             state.workspaces.isEmpty()

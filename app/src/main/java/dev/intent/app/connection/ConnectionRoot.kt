@@ -2,9 +2,7 @@ package dev.intent.app.connection
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
@@ -19,7 +17,10 @@ import androidx.compose.ui.platform.LocalContext
 import dev.intent.app.attachments.AttachmentMedia
 import dev.intent.app.attachments.LocalAttachmentMedia
 import dev.intent.app.cache.RoomOfflineCache
+import dev.intent.app.navigation.ChromeAction
+import dev.intent.app.navigation.CompactAppBar
 import dev.intent.app.navigation.IntentNavigation
+import dev.intent.app.navigation.LocalChromeActions
 import dev.intent.app.navigation.WorkspaceContent
 import dev.intent.app.notifications.LocalNotifications
 import dev.intent.app.settings.AppPreferences
@@ -51,52 +52,79 @@ fun ConnectionRoot(
     var showConnections by remember { mutableStateOf(false) }
     var showSettings by remember { mutableStateOf(false) }
     var showPairing by remember { mutableStateOf(false) }
-    BackHandler(showConnections || showPairing || showSettings) {
+    val utilityOpen = showConnections || showPairing || showSettings
+    BackHandler(utilityOpen) {
         showPairing = false
         showConnections = false
         showSettings = false
     }
-    Column(modifier) {
-        Text(state.status)
-        state.error?.let { Text(it) }
-        Row {
-            TextButton(onClick = { showSettings = !showSettings }) { Text("Settings") }
-            TextButton(onClick = {
-                showConnections = !showConnections
-                showPairing = false
-            }) {
-                Text(if (showConnections) "Back" else "Connections")
+    val actions = buildList {
+        add(
+            ChromeAction("Settings") {
+                showSettings = true
+                showConnections = false
             }
-            if (state.activeId != null) {
-                TextButton(onClick = controller::disconnect) { Text("Disconnect") }
-            }
-        }
-        when {
-            showSettings -> ConnectionSettings(
-                controller.diagnostics,
-                Modifier.weight(1f),
-                preferences
-            ) {
-                showSettings = false
+        )
+        add(
+            ChromeAction("Connections") {
                 showConnections = true
+                showSettings = false
+                showPairing = false
             }
-            showPairing || state.connections.isEmpty() -> PairingScreen(
-                state.busy,
-                onScan,
-                controller::prepareManual,
-                Modifier.weight(1f)
-            )
-            showConnections || state.session == null -> ConnectionScreen(
-                state,
-                onSelect = {
-                    controller.select(it)
-                    showConnections = false
-                },
-                onForget = controller::forget,
-                onAdd = { showPairing = true },
-                modifier = Modifier.weight(1f)
-            )
-            else -> ConnectedContent(state, Modifier.weight(1f), notificationWorkspace)
+        )
+        if (state.activeId != null) add(ChromeAction("Disconnect", run = controller::disconnect))
+    }
+    CompositionLocalProvider(LocalChromeActions provides actions) {
+        Column(modifier) {
+            state.error?.let { Text(it) }
+            val utilityTitle = when {
+                showSettings -> "Settings"
+                showPairing || state.connections.isEmpty() -> "Pair connection"
+                showConnections || state.session == null -> "Connections"
+                else -> null
+            }
+            if (utilityTitle != null) {
+                CompactAppBar(
+                    utilityTitle,
+                    onBack = if (state.session != null || utilityOpen
+                    ) {
+                        {
+                            showSettings = false
+                            showConnections = false
+                            showPairing = false
+                        }
+                    } else {
+                        null
+                    }
+                )
+            }
+            when {
+                showSettings -> ConnectionSettings(
+                    controller.diagnostics,
+                    Modifier.weight(1f),
+                    preferences
+                ) {
+                    showSettings = false
+                    showConnections = true
+                }
+                showPairing || state.connections.isEmpty() -> PairingScreen(
+                    state.busy,
+                    onScan,
+                    controller::prepareManual,
+                    Modifier.weight(1f)
+                )
+                showConnections || state.session == null -> ConnectionScreen(
+                    state,
+                    onSelect = {
+                        controller.select(it)
+                        showConnections = false
+                    },
+                    onForget = controller::forget,
+                    onAdd = { showPairing = true },
+                    modifier = Modifier.weight(1f)
+                )
+                else -> ConnectedContent(state, Modifier.weight(1f), notificationWorkspace)
+            }
         }
     }
     state.pending?.let { payload ->

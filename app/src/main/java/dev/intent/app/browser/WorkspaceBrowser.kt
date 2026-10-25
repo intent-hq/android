@@ -9,13 +9,11 @@ import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
@@ -27,6 +25,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.viewinterop.AndroidView
+import dev.intent.app.navigation.ChromeAction
+import dev.intent.app.navigation.CompactAppBar
 import dev.intent.core.protocol.browser.PreviewUrl
 import dev.intent.core.protocol.session.RpcSession
 
@@ -58,11 +58,15 @@ private fun BrowserScreen(
 ) {
     var address by remember { mutableStateOf("http://daemon.localhost:3000/") }
     Column(Modifier.fillMaxSize()) {
-        Row {
-            TextButton(onClick = onBack) { Text("Back") }
-            TextButton(onClick = { open(address) }) { Text("Open / Retry") }
-        }
-        Text("Browser preview", style = MaterialTheme.typography.titleLarge)
+        CompactAppBar(
+            "Browser preview",
+            onBack,
+            listOf(
+                ChromeAction("Open / Retry") {
+                    open(address)
+                }
+            )
+        )
         OutlinedTextField(
             address,
             { address = it },

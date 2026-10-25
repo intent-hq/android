@@ -13,6 +13,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import dev.intent.app.navigation.ChromeAction
+import dev.intent.app.navigation.CompactAppBar
 import dev.intent.core.protocol.models.GitFileStatus
 import dev.intent.core.protocol.models.GitStatus
 
@@ -26,9 +28,8 @@ fun GitScreen(
 ) {
     LazyColumn(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         item {
-            Text("Git changes", style = MaterialTheme.typography.headlineMedium)
+            CompactAppBar("Changes", actions = listOf(ChromeAction("Refresh", run = onRefresh)))
             Text(state.status.branch ?: "No branch")
-            TextButton(onClick = onRefresh) { Text("Refresh") }
             if (state.loading) CircularProgressIndicator()
             state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             if (state.status.filesTruncated) {

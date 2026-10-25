@@ -21,6 +21,8 @@ import dev.intent.app.markdown.MarkdownNode
 import dev.intent.app.markdown.children
 import dev.intent.app.markdown.markdownFixture
 import dev.intent.app.markdown.parseMarkdown
+import dev.intent.app.navigation.ChromeAction
+import dev.intent.app.navigation.CompactAppBar
 import dev.intent.core.protocol.models.Note
 import dev.intent.core.protocol.models.NoteTaskRow
 
@@ -36,7 +38,12 @@ fun NoteReaderScreen(
     val body = state.note?.content
     val document = remember(body) { parseMarkdown(body.orEmpty()) }
     LazyColumn(modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        item { Text(state.note?.title ?: "Note", style = MaterialTheme.typography.headlineMedium) }
+        item {
+            CompactAppBar(
+                state.note?.title ?: "Note",
+                actions = listOf(ChromeAction("Refresh", run = onRetry))
+            )
+        }
         if (state.loading || state.saving) item { CircularProgressIndicator() }
         state.mutationError?.let { message ->
             item { Text(message, color = MaterialTheme.colorScheme.error) }
