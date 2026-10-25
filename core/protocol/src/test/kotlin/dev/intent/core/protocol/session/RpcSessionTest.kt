@@ -179,6 +179,29 @@ class RpcSessionTest {
         assertTrue(failed(session.request("after-close")) is SessionDisconnectedException)
     }
 
+    @Test
+    fun `subscription after close fails its lease without throwing or sending`() = fixture {
+            session,
+            server
+        ->
+        session.close()
+        val errors = LinkedBlockingQueue<Throwable>()
+        val lease = session.subscribe(
+            spec(),
+            { error("Closed session delivered a message") },
+            { error("Closed session admitted a subscription") },
+            errors::add
+        )
+        assertTrue(failed(lease.ready) is SessionDisconnectedException)
+        assertTrue(errors.poll(2, TimeUnit.SECONDS) is SessionDisconnectedException)
+        lease.close()
+        lease.close()
+        assertEquals(null, server.sent.poll(50, TimeUnit.MILLISECONDS))
+        assertTrue(errors.isEmpty())
+        // Consumer failures must not escape the closed-session path either.
+        session.subscribe(spec(), {}, onError = { error("Consumer failure") }).close()
+    }
+
     private fun fixture(test: (RpcSession, FakeTransport) -> Unit) {
         val servers = LinkedBlockingQueue<FakeTransport>()
         val ready = CompletableFuture<Unit>()

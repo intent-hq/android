@@ -3,6 +3,8 @@ package dev.intent.app.connection
 import dev.intent.app.conversation.ConversationSendStore
 import dev.intent.app.conversation.RpcConversationCommands
 import dev.intent.app.conversation.SendStatus
+import dev.intent.app.workspaces.RpcWorkspaceSession
+import dev.intent.app.workspaces.WorkspaceStore
 import dev.intent.core.protocol.JsonRpcMessage
 import dev.intent.core.protocol.WssTransport
 import dev.intent.core.protocol.pairing.CredentialBytes
@@ -304,6 +306,54 @@ class ConnectionControllerTest {
     }
 
     private fun payload() = PairingPayload(listOf("desktop.local"), 443, "secret", "AB".repeat(32))
+
+    @Test
+    fun `switch to same principal safely rejects stale screen subscription`() =
+        switchWithStaleScreen("person-a")
+
+    @Test
+    fun `switch to different principal safely rejects stale screen subscription`() =
+        switchWithStaleScreen("person-b")
+
+    private fun switchWithStaleScreen(principal: String) {
+        val repository = repository()
+        val first = repository.add(payload())
+        val second = repository.add(payload().copy(hosts = listOf("second.local")))
+        val transports = LinkedBlockingQueue<FakeTransport>()
+        controller(repository, transports).use { controller ->
+            controller.select(first.id)
+            val old = transports.poll(2, TimeUnit.SECONDS)!!
+            admit(old, "person-a")
+            await { controller.state.value.session != null }
+            await { old.methods.contains("system.status") }
+            val snapshot = controller.state.value
+            val staleSession = requireNotNull(snapshot.session)
+            controller.select(second.id)
+            val next = transports.poll(2, TimeUnit.SECONDS)!!
+            // The next endpoint has not admitted us yet (also covers an unreachable host).
+            assertNull(controller.state.value.session)
+            assertNull(controller.state.value.cacheScope)
+            // Compose may start an effect with its previous collected state after select.
+            WorkspaceStore(RpcWorkspaceSession(staleSession)).use { staleStore ->
+                staleStore.start()
+                assertFalse(staleStore.state.value.isLoading)
+                assertTrue(staleStore.state.value.error != null)
+                admit(next, principal)
+                await { controller.state.value.session != null }
+                assertNotEquals(staleSession, controller.state.value.session)
+                assertEquals(second.id, controller.state.value.activeId)
+                assertEquals(
+                    connectionCacheScope(second.payload, principal),
+                    controller.state.value.cacheScope
+                )
+                assertEquals(
+                    listOf("client.hello", "principal.me", "system.status"),
+                    old.methods.toList()
+                )
+                assertTrue(staleStore.state.value.workspaces.isEmpty())
+            }
+        }
+    }
 
     private fun controller(
         repository: ConnectionRepository,

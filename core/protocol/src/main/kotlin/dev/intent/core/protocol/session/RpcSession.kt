@@ -27,7 +27,8 @@ class SessionDisconnectedException : IOException("RPC connection is not ready")
 enum class SessionState { DISCONNECTED, CONNECTING, HANDSHAKING, READY, CLOSED }
 
 /**
- * All state and callbacks run on one owned executor. Callbacks must not block or wait on requests.
+ * Active state and callbacks run on one owned executor. Callbacks must not block or wait on requests.
+ * Subscribing after close reports its error immediately on the calling thread.
  * Mutations are never replayed. Reconnect restores subscriptions only after a successful hello.
  */
 @Suppress("TooManyFunctions", "LongParameterList")
@@ -145,11 +146,18 @@ class RpcSession(
         onSubscribed: (String) -> Unit = {},
         onError: (Throwable) -> Unit = {}
     ): SessionSubscription {
-        check(!closed.get()) { "Session is closed" }
         val entry = SubscriptionEntry(spec, onMessage, onSubscribed, onError)
-        execute {
-            subscriptions.add(entry)
-            if (state == SessionState.READY) admit(entry)
+        // A UI snapshot can outlive its connection during a switch. Reject its lease like
+        // a disconnected request instead of throwing from a Compose lifecycle effect.
+        if (closed.get()) {
+            val error = SessionDisconnectedException()
+            entry.ready.completeExceptionally(error)
+            safely { onError(error) }
+        } else {
+            execute {
+                subscriptions.add(entry)
+                if (state == SessionState.READY) admit(entry)
+            }
         }
         return object : SessionSubscription {
             override val ready = entry.ready
