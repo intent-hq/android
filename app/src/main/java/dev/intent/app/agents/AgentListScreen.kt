@@ -20,9 +20,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import dev.intent.app.design.AgentAvatarState
 import dev.intent.app.navigation.ChromeAction
 import dev.intent.app.navigation.CompactAppBar
 import dev.intent.core.protocol.models.Agent
@@ -65,7 +68,7 @@ fun AgentListScreen(
         ) {
             Text("No agents yet")
         }
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             items(rows, key = { it.agent.id }) { row ->
                 AgentTreeItem(
                     row,
@@ -128,19 +131,47 @@ private fun AgentTreeItem(
 
 @Composable
 private fun AgentRow(agent: Agent, onClick: () -> Unit) {
-    Column(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(12.dp)) {
+    Row(
+        Modifier.fillMaxWidth().clickable(
+            onClick = onClick
+        ).padding(horizontal = 12.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.Top
+    ) {
         AgentIdentityAvatar(agent)
-        Text(agent.name, style = MaterialTheme.typography.titleMedium)
-        Text(agent.status, style = MaterialTheme.typography.labelMedium)
-        val preview = if (agent.lastMessageRole == "user") {
-            agent.lastUserMessage
-        } else {
-            agent.digest ?: agent.lastAgentResponse
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(
+                agent.name,
+                style = MaterialTheme.typography.titleSmall,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                agent.rowStatus(),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            agent.rowPreview()?.let {
+                Text(
+                    it,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
         }
-        preview?.takeIf { it.isNotBlank() }?.let { Text(it, maxLines = 2) }
-        if (agent.isWaitingForOtherAgents) Text("Waiting for agents")
     }
 }
+
+internal fun Agent.rowStatus(): String = when (val state = avatarState()) {
+    AgentAvatarState.Waiting -> "Waiting for agents"
+    else -> state.label
+}
+
+internal fun Agent.rowPreview(): String? = (
+    if (lastMessageRole == "user") lastUserMessage else digest ?: lastAgentResponse
+    )?.replace(Regex("\\s+"), " ")?.trim()?.takeIf { it.isNotEmpty() }
 
 @Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
