@@ -53,6 +53,23 @@ class BrowserStoreTest {
         }
     }
 
+    @Test
+    fun `failed page stays failed after finish callback and retry clears error`() {
+        BrowserStore({ CompletableFuture() }, { it.close() }).use { store ->
+            store.open("http://daemon.localhost:3000")
+            val revision = store.state.value.revision
+            store.failed(revision)
+            store.loaded(revision)
+            assertNotNull(store.state.value.error)
+            assertNull(store.state.value.url)
+            store.open("http://daemon.localhost:3000")
+            assertNull(store.state.value.error)
+            assertTrue(store.state.value.loading)
+            store.failed(revision)
+            assertNull(store.state.value.error)
+        }
+    }
+
     private fun tunnel() = BrowserTunnel({ listener ->
         object : TunnelTransport {
             override fun connect() = listener.opened()

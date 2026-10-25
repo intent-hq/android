@@ -8,9 +8,11 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -22,10 +24,13 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.viewinterop.AndroidView
-import dev.intent.app.navigation.ChromeAction
+import dev.intent.app.design.IntentScreen
+import dev.intent.app.design.IntentSection
+import dev.intent.app.design.intentPageInsets
 import dev.intent.app.navigation.CompactAppBar
 import dev.intent.core.protocol.browser.PreviewUrl
 import dev.intent.core.protocol.session.RpcSession
@@ -50,7 +55,7 @@ fun WorkspaceBrowser(session: RpcSession, workspaceId: String, onBack: () -> Uni
 }
 
 @Composable
-private fun BrowserScreen(
+internal fun BrowserScreen(
     state: BrowserState,
     onBack: () -> Unit,
     open: (String) -> Unit,
@@ -58,28 +63,44 @@ private fun BrowserScreen(
 ) {
     var address by remember { mutableStateOf("http://daemon.localhost:3000/") }
     Column(Modifier.fillMaxSize()) {
-        CompactAppBar(
-            "Browser preview",
-            onBack,
-            listOf(
-                ChromeAction("Open / Retry") {
-                    open(address)
+        CompactAppBar("Browser preview", onBack)
+        Column(
+            Modifier.intentPageInsets(),
+            verticalArrangement = Arrangement.spacedBy(IntentScreen.itemSpacing)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(IntentScreen.itemSpacing)
+            ) {
+                OutlinedTextField(
+                    address,
+                    { address = it },
+                    Modifier.weight(1f),
+                    label = { Text("Preview URL") },
+                    singleLine = true
+                )
+                Button(onClick = { open(address) }, enabled = address.isNotBlank()) {
+                    Text(if (state.error == null) "Open" else "Retry")
                 }
+            }
+            if (state.loading) Text("Loading preview…", color = IntentScreen.secondaryText)
+            if (state.error != null) {
+                IntentSection("Preview unavailable") {
+                    Text(state.error, color = IntentScreen.error)
+                }
+            }
+            Text(
+                "Start the preview server in this workspace on the host, then open its URL here.",
+                color = IntentScreen.secondaryText,
+                style = MaterialTheme.typography.bodySmall
             )
-        )
-        OutlinedTextField(
-            address,
-            { address = it },
-            Modifier.fillMaxWidth(),
-            label = { Text("Preview URL") },
-            singleLine = true
-        )
-        if (state.loading) Text("Loading preview…")
-        state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-        Text(
-            "Under development. Use relative resource URLs. HTTPS pages require a valid certificate."
-        )
-        page()
+            Text(
+                "Under development. Use relative resource URLs. HTTPS requires a valid certificate.",
+                color = IntentScreen.secondaryText,
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
+        if (state.error == null) page()
     }
 }
 

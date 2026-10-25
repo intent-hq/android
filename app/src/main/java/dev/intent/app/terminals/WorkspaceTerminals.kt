@@ -2,16 +2,15 @@ package dev.intent.app.terminals
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Button
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -31,8 +30,10 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.withStyle
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import dev.intent.app.design.IntentScreen
+import dev.intent.app.design.IntentSection
+import dev.intent.app.design.intentPageInsets
 import dev.intent.app.navigation.ChromeAction
 import dev.intent.app.navigation.CompactAppBar
 import dev.intent.core.protocol.session.RpcSession
@@ -48,26 +49,42 @@ fun WorkspaceTerminals(session: RpcSession, workspaceId: String, onBack: () -> U
     val state by store.state.collectAsState()
     val back = { if (state.selected != null) store.select(null) else onBack() }
     BackHandler(onBack = back)
-    Column(Modifier.fillMaxSize().padding(12.dp)) {
+    Column(Modifier.fillMaxSize()) {
         CompactAppBar("Terminals", back, listOf(ChromeAction("Refresh", run = store::refresh)))
-        state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-        state.notice?.let { Text(it) }
-        if (state.loading) Text("Loading terminals…")
-        if (state.selected == null) {
-            if (!state.loading && state.terminals.isEmpty()) Text("No terminals in this workspace.")
-            LazyColumn {
-                items(state.terminals, key = { it.id }) { terminal ->
-                    TextButton(onClick = { store.select(terminal.id) }) {
-                        Text("${terminal.name}\n${terminal.cwd}")
+        Column(
+            Modifier.weight(1f).intentPageInsets(),
+            verticalArrangement = Arrangement.spacedBy(IntentScreen.itemSpacing)
+        ) {
+            state.error?.let { Text(it, color = IntentScreen.error) }
+            state.notice?.let { Text(it) }
+            if (state.loading) Text("Loading terminals…")
+            if (state.selected == null) {
+                if (!state.loading && state.error == null && state.terminals.isEmpty()) {
+                    IntentSection("No terminal sessions") {
+                        Text(
+                            "Open this workspace in Intent on the desktop and start a terminal session."
+                        )
+                        Text(
+                            "Then refresh this list to connect to that session.",
+                            color = IntentScreen.secondaryText
+                        )
+                        TextButton(onClick = store::refresh) { Text("Refresh") }
                     }
                 }
+                LazyColumn {
+                    items(state.terminals, key = { it.id }) { terminal ->
+                        TextButton(onClick = { store.select(terminal.id) }) {
+                            Text("${terminal.name}\n${terminal.cwd}")
+                        }
+                    }
+                }
+            } else {
+                Text(state.terminals.firstOrNull { it.id == state.selected }?.name ?: "Terminal")
+                Text("Basic ANSI display. Full-screen apps have limited rendering.")
+                TerminalOutput(state.frame, store::resize, Modifier.weight(1f))
+                if (state.ended) Text("This terminal has ended.")
+                TerminalInput(state.ready && !state.sending, state.selected, store::send)
             }
-        } else {
-            Text(state.terminals.firstOrNull { it.id == state.selected }?.name ?: "Terminal")
-            Text("Basic ANSI display. Full-screen apps have limited rendering.")
-            TerminalOutput(state.frame, store::resize, Modifier.weight(1f))
-            if (state.ended) Text("This terminal has ended.")
-            TerminalInput(state.ready && !state.sending, state.selected, store::send)
         }
     }
 }

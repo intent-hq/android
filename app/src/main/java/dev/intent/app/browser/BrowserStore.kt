@@ -74,6 +74,7 @@ class BrowserStore(
     fun failed(ticket: Long) {
         if (!closed && ticket == generation) {
             mutableState.value = state.value.copy(
+                url = null,
                 loading = false,
                 error = "Cannot load this preview. Check the server URL and connection, then retry."
             )
