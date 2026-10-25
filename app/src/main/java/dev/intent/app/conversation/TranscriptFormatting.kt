@@ -2,6 +2,8 @@ package dev.intent.app.conversation
 
 import dev.intent.core.protocol.models.ContentBlock
 import dev.intent.core.protocol.models.ConversationMessage
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonPrimitive
 
 internal data class TranscriptRow(val messages: List<ConversationMessage>) {
     val id: String get() = messages.first().id
@@ -59,8 +61,8 @@ internal fun transcriptTextParts(text: String): List<TranscriptTextPart> {
 
 internal fun toolBody(block: ContentBlock): String {
     val body = when (block.type) {
-        "tool_use" -> block.input?.toString().orEmpty()
-        else -> block.output?.toString() ?: block.text.orEmpty()
+        "tool_use" -> block.input?.displayText().orEmpty()
+        else -> block.output?.displayText() ?: block.text.orEmpty()
     }
     val title = block.name ?: return body
     val first = body.lineSequence().firstOrNull().orEmpty().trim()
@@ -70,3 +72,6 @@ internal fun toolBody(block: ContentBlock): String {
         body
     }
 }
+
+private fun JsonElement.displayText(): String =
+    (this as? JsonPrimitive)?.takeIf { it.isString }?.content ?: toString()

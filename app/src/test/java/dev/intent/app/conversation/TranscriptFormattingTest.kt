@@ -2,6 +2,8 @@ package dev.intent.app.conversation
 
 import dev.intent.core.protocol.models.ContentBlock
 import dev.intent.core.protocol.models.ConversationMessage
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -37,6 +39,32 @@ class TranscriptFormattingTest {
             toolBody(block.copy(text = "Read files carefully\nResult"))
         )
         assertEquals("Result\nRead files", toolBody(block.copy(text = "Result\nRead files")))
+    }
+
+    @Test
+    fun wireStringInputAndOutputRemoveRepeatedTitle() {
+        val value = JsonPrimitive("Read files\nResult")
+        assertEquals(
+            "Result",
+            toolBody(ContentBlock("tool_use", name = "Read files", input = value))
+        )
+        assertEquals(
+            "Result",
+            toolBody(ContentBlock("tool_result", name = "Read files", output = value))
+        )
+    }
+
+    @Test
+    fun structuredWireValuesKeepJsonRepresentation() {
+        val value = JsonObject(mapOf("title" to JsonPrimitive("Read files")))
+        assertEquals(
+            value.toString(),
+            toolBody(ContentBlock("tool_use", name = "Read files", input = value))
+        )
+        assertEquals(
+            value.toString(),
+            toolBody(ContentBlock("tool_result", name = "Read files", output = value))
+        )
     }
 
     private fun notice(id: String) = ConversationMessage(

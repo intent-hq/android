@@ -56,11 +56,11 @@ class ConversationTranscriptTest {
         show(ConversationState(messages = listOf(message), isLoading = false))
         compose.onNodeWithText("Visible answer").assertIsDisplayed()
         compose.onNodeWithText("Private reasoning detail").assertDoesNotExist()
-        compose.onNodeWithText("\"tool payload\"").assertDoesNotExist()
+        compose.onNodeWithText("tool payload").assertDoesNotExist()
         compose.onNodeWithText("▸ thinking").performClick()
         compose.onNodeWithText("Private reasoning detail").assertIsDisplayed()
         compose.onNodeWithText("▸ read_file").performClick()
-        compose.onNodeWithText("\"tool payload\"").assertIsDisplayed()
+        compose.onNodeWithText("tool payload").assertIsDisplayed()
     }
 
     @Test
