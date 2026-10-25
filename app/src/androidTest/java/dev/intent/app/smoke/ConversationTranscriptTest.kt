@@ -277,6 +277,34 @@ class ConversationTranscriptTest {
         compose.onNodeWithText("Monitoring PR", substring = true).assertDoesNotExist()
     }
 
+    @Test
+    fun responseGroupsCollapseAndMessageDetailsKeepExactTime() {
+        val timestamp = "2026-10-25T19:00:00Z"
+        val reply = ConversationMessage(
+            "grouped",
+            "assistant",
+            listOf(
+                ContentBlock("text", text = "<group:Setup>First</group><group:Result>Done</group>")
+            ),
+            timestamp
+        )
+        show(ConversationState(messages = listOf(reply), isLoading = false))
+        compose.onNodeWithText("▸ Setup").assertIsDisplayed()
+        compose.onNodeWithText("First").assertDoesNotExist()
+        compose.onNodeWithText("Done").assertIsDisplayed()
+        compose.onNodeWithText("<group:", substring = true).assertDoesNotExist()
+        compose.onNodeWithText(timestamp, substring = true).assertDoesNotExist()
+        compose.onNodeWithText("▸ Setup").performClick()
+        compose.onNodeWithText("First").assertIsDisplayed()
+        compose.onNodeWithText("▾ Result").performClick()
+        compose.onNodeWithText("Done").assertDoesNotExist()
+        compose.onNodeWithText("Assistant ·", substring = true).performClick()
+        compose.onNodeWithText("Message details").assertIsDisplayed()
+        compose.onNodeWithText(timestamp, substring = true).assertIsDisplayed()
+        compose.onNodeWithText("Close").performClick()
+        screenshot("transcript-groups")
+    }
+
     private fun screenshot(name: String) {
         compose.waitForIdle()
         val instrumentation = InstrumentationRegistry.getInstrumentation()

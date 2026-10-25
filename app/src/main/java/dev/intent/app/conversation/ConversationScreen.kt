@@ -21,7 +21,6 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import dev.intent.app.agents.LocalConversationAgent
 import dev.intent.app.attachments.MediaPreview
 import dev.intent.app.attachments.MediaReference
 import dev.intent.app.attachments.PhotoAttachmentStore
@@ -135,18 +134,19 @@ private fun TranscriptMessageContents(
         }
     }
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        val agent = LocalConversationAgent.current?.takeIf {
-            message.agentId == null || message.agentId == it.id
+        TranscriptMetadata(message)
+        val sections = remember(presentation.blocks, message.isStreaming) {
+            if (message.role == "assistant") {
+                transcriptSections(presentation.blocks, message.isStreaming == true)
+            } else {
+                presentation.blocks.mapIndexed { index, block ->
+                    TranscriptSection("block:$index", blocks = listOf(block))
+                }
+            }
         }
-        val author = if (message.role == "assistant") agent?.name ?: message.role else message.role
-        Text(
-            "$author · ${message.timestamp}",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        presentation.blocks.forEachIndexed { index, block ->
-            androidx.compose.runtime.key(block.id ?: index) {
-                TranscriptBlock(block, block.id in hydrating) {
+        sections.forEach { section ->
+            androidx.compose.runtime.key(section.id) {
+                TranscriptSectionContent(section, section == sections.last(), hydrating) { block ->
                     block.id?.let { onHydrate(message.id, it) }
                 }
             }
@@ -164,7 +164,7 @@ private fun TranscriptMessageContents(
 }
 
 @Composable
-private fun TranscriptBlock(block: ContentBlock, hydrating: Boolean, onHydrate: () -> Unit) {
+internal fun TranscriptBlock(block: ContentBlock, hydrating: Boolean, onHydrate: () -> Unit) {
     if (block.isQuestion()) return
     var expanded by remember { mutableStateOf(false) }
     val truncated = block.needsHydration()
