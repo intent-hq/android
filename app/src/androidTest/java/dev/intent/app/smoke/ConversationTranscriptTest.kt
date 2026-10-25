@@ -1,5 +1,6 @@
 package dev.intent.app.smoke
 
+import android.graphics.Bitmap
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.mutableStateOf
@@ -14,6 +15,7 @@ import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeDown
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
 import dev.intent.app.conversation.ComposerDraft
 import dev.intent.app.conversation.ConversationComposer
 import dev.intent.app.conversation.ConversationScreen
@@ -23,6 +25,7 @@ import dev.intent.app.design.IntentTheme
 import dev.intent.core.protocol.models.ContentBlock
 import dev.intent.core.protocol.models.ConversationMessage
 import dev.intent.core.protocol.models.QueuedMessage
+import java.io.File
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import org.junit.Assert.assertEquals
@@ -227,8 +230,10 @@ class ConversationTranscriptTest {
         compose.onNodeWithText("▸ Agent update · 2 updates").assertIsDisplayed()
         compose.onNodeWithText("Worker sent a message and finished").assertDoesNotExist()
         compose.onNodeWithText("<invoke", substring = true).assertDoesNotExist()
+        screenshot("format-compact")
         compose.onNodeWithText("▸ Tool detail").performClick()
         compose.onNodeWithText("<invoke name=\"read\">payload</invoke>").assertIsDisplayed()
+        screenshot("format-expanded")
     }
 
     @Test
@@ -262,12 +267,28 @@ class ConversationTranscriptTest {
             }
         }
         compose.onNodeWithText("▸ 2 queued background updates").assertIsDisplayed()
+        screenshot("queue-compact")
         compose.onNodeWithText("Monitoring PR", substring = true).assertDoesNotExist()
         compose.onNodeWithText("▸ 2 queued background updates").performClick()
         compose.onNodeWithText("Queued: Monitoring PR intent-hq/android: #5").assertIsDisplayed()
         compose.onNodeWithText("Queued: Monitoring PR intent-hq/android: #6").assertIsDisplayed()
+        screenshot("queue-expanded")
         compose.onNodeWithText("▾ 2 queued background updates").performClick()
         compose.onNodeWithText("Monitoring PR", substring = true).assertDoesNotExist()
+    }
+
+    private fun screenshot(name: String) {
+        compose.waitForIdle()
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val directory =
+            InstrumentationRegistry.getArguments().getString("additionalTestOutputDir")
+                ?.let(::File) ?: File(instrumentation.targetContext.cacheDir, "screenshots")
+        check(directory.mkdirs() || directory.isDirectory)
+        val bitmap = checkNotNull(instrumentation.uiAutomation.takeScreenshot())
+        File(directory, "$name.png").outputStream().use {
+            check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, it))
+        }
+        bitmap.recycle()
     }
 
     private fun show(state: ConversationState, older: () -> Unit = {}, refresh: () -> Unit = {}) {
