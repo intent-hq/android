@@ -17,10 +17,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import dev.intent.app.attachments.PhotoAttachmentStore
+import dev.intent.app.attachments.PhotoAttachments
 import dev.intent.app.attachments.PhotoPicker
 import dev.intent.core.protocol.models.Question
 import dev.intent.core.protocol.models.QuestionOption
@@ -32,40 +34,30 @@ fun ConversationComposer(
     onSend: (String) -> Boolean,
     onRetract: (String) -> Unit,
     onAnswer: (String, Map<String, QuestionAnswer>) -> Boolean,
-    photos: PhotoAttachmentStore? = null
+    photos: PhotoAttachmentStore? = null,
+    draft: ComposerDraft = remember { ComposerDraft() }
 ) {
     val photoState = photos?.state?.collectAsState()?.value
-    var draft by remember { mutableStateOf("") }
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Column(Modifier.heightIn(max = 240.dp).verticalScroll(rememberScrollState())) {
             state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             SendAttempts(state)
-            state.queue.forEach { message ->
-                Row {
-                    Text("Queued: ${message.content}", Modifier.weight(1f))
-                    TextButton(
-                        onClick = { onRetract(message.id) },
-                        enabled =
-                        message.id !in state.retracting
-                    ) {
-                        Text("Retract")
-                    }
-                }
-            }
+            QueuedConversationMessages(state, onRetract)
             state.questions?.let { QuestionComposer(it, onAnswer) }
         }
-        photos?.let { PhotoPicker(it) }
-        Row {
-            OutlinedTextField(draft, {
-                draft = it
+        photos?.let { PhotoAttachments(it) }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            photos?.let { PhotoPicker(it) }
+            OutlinedTextField(draft.text, {
+                draft.text = it
             }, Modifier.weight(1f), label = { Text("Message") }, maxLines = 4)
             TextButton(
                 onClick = {
-                    if (onSend(draft)) draft = ""
+                    if (onSend(draft.text)) draft.text = ""
                 },
                 enabled =
                 (photoState?.ready != false) &&
-                    (draft.isNotBlank() || photoState?.photos?.isNotEmpty() == true)
+                    (draft.text.isNotBlank() || photoState?.photos?.isNotEmpty() == true)
             ) {
                 Text("Send")
             }

@@ -44,21 +44,26 @@ fun PhotoPicker(store: PhotoAttachmentStore) {
         ) { uris ->
             store.add(uris.map { it.toString() })
         }
-    Column {
-        IconButton(
-            onClick = {
-                picker.launch(
-                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                )
-            },
-            enabled =
-            state.photos.size < MAX_PHOTOS
-        ) {
-            Icon(
-                painterResource(R.drawable.ic_attach),
-                "Attach photos (${state.photos.size}/$MAX_PHOTOS)"
+    IconButton(
+        onClick = {
+            picker.launch(
+                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
             )
-        }
+        },
+        enabled =
+        state.photos.size < MAX_PHOTOS
+    ) {
+        Icon(
+            painterResource(R.drawable.ic_attach),
+            "Attach photos (${state.photos.size}/$MAX_PHOTOS)"
+        )
+    }
+}
+
+@Composable
+fun PhotoAttachments(store: PhotoAttachmentStore) {
+    val state by store.state.collectAsState()
+    Column {
         state.photos.forEach { photo ->
             androidx.compose.runtime.key(photo.key) {
                 Row {

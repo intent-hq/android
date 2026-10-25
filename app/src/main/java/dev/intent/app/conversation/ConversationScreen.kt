@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -17,13 +18,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import dev.intent.app.agents.AgentIdentityAvatar
 import dev.intent.app.agents.LocalConversationAgent
 import dev.intent.app.attachments.MediaPreview
 import dev.intent.app.attachments.MediaReference
 import dev.intent.app.attachments.PhotoAttachmentStore
-import dev.intent.app.design.AgentAvatar
-import dev.intent.app.design.AgentAvatarState
 import dev.intent.app.markdown.MarkdownContent
 import dev.intent.core.protocol.attachments.messageBlock
 import dev.intent.core.protocol.models.ContentBlock
@@ -36,6 +34,7 @@ fun ConversationRoute(
     modifier: Modifier = Modifier,
     photos: PhotoAttachmentStore? = null
 ) {
+    val draft = remember(store) { ComposerDraft() }
     val state by store.state.collectAsState()
     val sending by sends.state.collectAsState()
     LaunchedEffect(state.messages) { sends.observe(state.messages) }
@@ -50,7 +49,7 @@ fun ConversationRoute(
     ConversationScreen(state, store::loadOlder, store::hydrate, {
         store.refresh()
         sends.refresh()
-    }, modifier) {
+    }, modifier, onSuggestedPrompt = { draft.text = it }) {
         ConversationComposer(sending, { text ->
             val ready = photos?.state?.value
             if (ready?.ready == false) {
@@ -65,7 +64,7 @@ fun ConversationRoute(
                 if (accepted) photos?.consume()
                 accepted
             }
-        }, sends::retract, sends::answer, photos)
+        }, sends::retract, sends::answer, photos, draft)
     }
 }
 
@@ -77,10 +76,18 @@ fun ConversationScreen(
     onHydrate: (String, String) -> Unit,
     onRefresh: () -> Unit,
     modifier: Modifier = Modifier,
+    onSuggestedPrompt: (String) -> Unit = {},
     composer: @Composable () -> Unit = {}
 ) {
     Column(modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        ConversationTranscript(state, onLoadOlder, onHydrate, onRefresh, Modifier.weight(1f))
+        ConversationTranscript(
+            state,
+            onLoadOlder,
+            onHydrate,
+            onRefresh,
+            Modifier.weight(1f),
+            onSuggestedPrompt
+        )
         composer()
     }
 }
@@ -89,39 +96,62 @@ fun ConversationScreen(
 internal fun TranscriptMessage(
     message: ConversationMessage,
     hydrating: Set<String>,
-    onHydrate: (String, String) -> Unit
+    onHydrate: (String, String) -> Unit,
+    onSuggestedPrompt: (String) -> Unit
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        if (message.role == "assistant") {
-            val agent = LocalConversationAgent.current
-            if (agent != null && (message.agentId == null || message.agentId == agent.id)) {
-                AgentIdentityAvatar(agent)
-                Text(agent.name, style = MaterialTheme.typography.labelMedium)
-            } else {
-                message.agentId?.let {
-                    AgentAvatar(
-                        it,
-                        state = if (message.isStreaming ==
-                            true
-                        ) {
-                            AgentAvatarState.Running
-                        } else {
-                            AgentAvatarState.Idle
-                        }
-                    )
-                }
+    val notice = remember(message) { ConversationNoise.label(message) }
+    var expanded by remember(message.id) { mutableStateOf(false) }
+    Column {
+        if (notice != null) {
+            TextButton(onClick = { expanded = !expanded }) {
+                Text(
+                    "${if (expanded) "▾" else "▸"} $notice",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
+        if (notice == null || expanded) {
+            TranscriptMessageContents(message, hydrating, onHydrate, onSuggestedPrompt)
+        }
+    }
+}
+
+@Composable
+private fun TranscriptMessageContents(
+    message: ConversationMessage,
+    hydrating: Set<String>,
+    onHydrate: (String, String) -> Unit,
+    onSuggestedPrompt: (String) -> Unit
+) {
+    val presentation = remember(message.contentBlocks, message.isStreaming) {
+        if (message.role == "assistant") {
+            SuggestedPrompts.parse(message.contentBlocks, message.isStreaming == true)
+        } else {
+            PromptPresentation(message.contentBlocks, emptyList())
+        }
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        val agent = LocalConversationAgent.current?.takeIf {
+            message.agentId == null || message.agentId == it.id
+        }
+        val author = if (message.role == "assistant") agent?.name ?: message.role else message.role
         Text(
-            "${message.role} · ${message.timestamp}",
-            style = MaterialTheme.typography.labelMedium
+            "$author · ${message.timestamp}",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-        message.contentBlocks.forEachIndexed { index, block ->
+        presentation.blocks.forEachIndexed { index, block ->
             androidx.compose.runtime.key(block.id ?: index) {
                 TranscriptBlock(block, block.id in hydrating) {
                     block.id?.let { onHydrate(message.id, it) }
                 }
             }
+        }
+        presentation.prompts.forEach { prompt ->
+            SuggestionChip(onClick = {
+                onSuggestedPrompt(prompt)
+            }, label = { Text(PromptLinks.visible(prompt)) })
         }
         if (message.isStreaming == true) Text("Response in progress…")
         message.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }

@@ -35,14 +35,15 @@ import kotlinx.coroutines.launch
 
 /** Reverse layout anchors the latest row at the bottom, including rows taller than the viewport. */
 @OptIn(ExperimentalMaterial3Api::class)
-@Suppress("LongMethod") // Viewport observation and content share one list state.
+@Suppress("LongMethod", "LongParameterList") // Shared viewport and content state.
 @Composable
 internal fun ConversationTranscript(
     state: ConversationState,
     onLoadOlder: () -> Unit,
     onHydrate: (String, String) -> Unit,
     onRefresh: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onSuggestedPrompt: (String) -> Unit = {}
 ) {
     val list = rememberLazyListState()
     var policy by remember { mutableStateOf(TranscriptScrollPolicy()) }
@@ -95,7 +96,7 @@ internal fun ConversationTranscript(
             verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.Bottom)
         ) {
             items(state.messages.asReversed(), key = { it.id }) { message ->
-                TranscriptMessage(message, state.hydrating, onHydrate)
+                TranscriptMessage(message, state.hydrating, onHydrate, onSuggestedPrompt)
             }
         }
         if (state.loadingOlder) {
