@@ -18,6 +18,10 @@
             android:exported="false" android:grantUriPermissions="true">
             <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/attachment_paths" />
         </provider>
+        <activity android:name=".connection.PairingScannerActivity"
+            android:exported="false" android:screenOrientation="fullUser"
+            android:theme="@style/zxing_CaptureTheme"
+            android:configChanges="orientation|screenSize" />
         <!-- Compose applies theme and size changes without discarding navigation or screen stores. -->
         <activity android:name=".MainActivity" android:exported="true" android:launchMode="singleTop"
             android:configChanges="uiMode|orientation|screenSize|smallestScreenSize|screenLayout">

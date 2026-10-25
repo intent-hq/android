@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">Intent</string>
+    <string name="close_pairing_scanner">Close scanner</string>
 </resources>

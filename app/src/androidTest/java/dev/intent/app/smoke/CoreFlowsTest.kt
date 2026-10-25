@@ -68,6 +68,8 @@ class CoreFlowsTest {
             })
         }).use { controller ->
             content { ConnectionRoot(controller, {}) }
+            compose.onNodeWithText("Scan QR code").assertIsDisplayed()
+            compose.onNodeWithText("Enter connection details").performClick()
             compose.onNodeWithText("Review connection").assertIsNotEnabled()
             compose.onNodeWithText("Host").performTextInput("desktop.test")
             compose.onNodeWithText("Port").performTextInput("443")

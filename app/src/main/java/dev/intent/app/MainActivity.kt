@@ -22,6 +22,7 @@ import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
 import dev.intent.app.connection.ConnectionRoot
 import dev.intent.app.connection.ConnectionViewModel
+import dev.intent.app.connection.PairingScannerActivity
 import dev.intent.app.design.IntentTheme
 import dev.intent.app.settings.AppPreferences
 import dev.intent.app.settings.Appearance
@@ -58,6 +59,8 @@ class MainActivity : ComponentActivity() {
                         onScan = {
                             scanner.launch(
                                 ScanOptions().setDesiredBarcodeFormats(ScanOptions.QR_CODE)
+                                    .setCaptureActivity(PairingScannerActivity::class.java)
+                                    .setOrientationLocked(false)
                                     .setPrompt("Scan the Intent pairing code")
                                     .setBeepEnabled(false).setBarcodeImageEnabled(false)
                             )
