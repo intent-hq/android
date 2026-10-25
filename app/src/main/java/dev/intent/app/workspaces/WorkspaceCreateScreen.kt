@@ -1,12 +1,15 @@
 package dev.intent.app.workspaces
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -15,6 +18,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import dev.intent.app.design.IntentScreen
+import dev.intent.app.design.IntentSection
+import dev.intent.app.design.intentPageInsets
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -49,42 +55,45 @@ fun WorkspaceCreateScreen(
                 }
         }
     }
-    Column(Modifier.verticalScroll(rememberScrollState())) {
-        Text("Create workspace — under development")
-        OutlinedTextField(draft.title, {
-            draft = draft.copy(title = it)
-        }, label = { Text("Title") }, enabled = !busy)
-        OutlinedTextField(draft.repositoryPath, {
-            draft = draft.copy(repositoryPath = it)
-        }, label = { Text("Repository path on host (optional)") }, enabled = !busy)
-        OutlinedTextField(draft.baseRef, {
-            draft = draft.copy(baseRef = it)
-        }, label = { Text("Base branch (optional)") }, enabled = !busy)
-        OutlinedTextField(draft.prompt, {
-            draft = draft.copy(prompt = it)
-        }, label = { Text("Initial prompt (optional)") }, enabled = !busy)
-        Text("Provider: ${draft.provider.ifBlank { "Host default" }}")
-        TextButton(onClick = {
-            draft = draft.copy(provider = "", model = "")
-        }, enabled = !busy) { Text("Use host default") }
-        options?.providers?.forEach { choice ->
-            TextButton(onClick = {
-                draft = draft.copy(provider = choice.id, model = "")
-            }, enabled = !busy) { Text(choice.name) }
+    Column(
+        Modifier.verticalScroll(rememberScrollState()).intentPageInsets(),
+        verticalArrangement = Arrangement.spacedBy(IntentScreen.sectionSpacing)
+    ) {
+        Text(
+            "Workspace creation is under development.",
+            style = MaterialTheme.typography.bodySmall,
+            color = IntentScreen.secondaryText
+        )
+        IntentSection("Workspace") {
+            OutlinedTextField(draft.title, {
+                draft = draft.copy(title = it)
+            }, modifier = Modifier.fillMaxWidth(), label = { Text("Title") }, enabled = !busy)
+            OutlinedTextField(draft.repositoryPath, {
+                draft = draft.copy(repositoryPath = it)
+            }, modifier = Modifier.fillMaxWidth(), label = {
+                Text("Repository path on host (optional)")
+            }, enabled = !busy)
+            OutlinedTextField(draft.baseRef, {
+                draft = draft.copy(baseRef = it)
+            }, modifier = Modifier.fillMaxWidth(), label = {
+                Text("Base branch (optional)")
+            }, enabled = !busy)
         }
-        Text("Model: ${draft.model.ifBlank { "Host default" }}")
-        models.forEach { choice ->
-            TextButton(onClick = {
-                draft = draft.copy(model = choice.id)
-            }, enabled = !busy) { Text(choice.name) }
+        IntentSection("Initial prompt") {
+            OutlinedTextField(draft.prompt, {
+                draft = draft.copy(prompt = it)
+            }, modifier = Modifier.fillMaxWidth(), label = {
+                Text("Prompt (optional)")
+            }, enabled = !busy)
         }
-        Text("Specialist: ${draft.specialist.ifBlank { "Host default" }}")
-        options?.specialists?.forEach { choice ->
-            TextButton(onClick = {
-                draft = draft.copy(specialist = choice.id)
-            }, enabled = !busy) { Text(choice.name) }
+        CreationChoices("Provider", draft.provider, options?.providers.orEmpty(), !busy) {
+            draft = draft.copy(provider = it, model = "")
         }
-        error?.let { Text(it) }
+        CreationChoices("Model", draft.model, models, !busy) { draft = draft.copy(model = it) }
+        CreationChoices("Specialist", draft.specialist, options?.specialists.orEmpty(), !busy) {
+            draft = draft.copy(specialist = it)
+        }
+        error?.let { Text(it, color = IntentScreen.error) }
         Button(onClick = {
             busy = true
             onBusy(true)
@@ -101,6 +110,26 @@ fun WorkspaceCreateScreen(
             }
         }, enabled = !busy && draft.title.isNotBlank()) {
             Text(if (busy) "Creating…" else "Create workspace")
+        }
+    }
+}
+
+@Composable
+private fun CreationChoices(
+    title: String,
+    selected: String,
+    choices: List<CreationChoice>,
+    enabled: Boolean,
+    onSelect: (String) -> Unit
+) {
+    IntentSection(title) {
+        (listOf(CreationChoice("", "Host default")) + choices).forEach { choice ->
+            FilterChip(
+                selected = selected == choice.id,
+                onClick = { onSelect(choice.id) },
+                label = { Text(choice.name) },
+                enabled = enabled
+            )
         }
     }
 }

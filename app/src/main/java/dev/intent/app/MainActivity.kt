@@ -1,14 +1,17 @@
 package dev.intent.app
 
 import android.content.Intent
+import android.graphics.Color
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -37,13 +40,16 @@ class MainActivity : ComponentActivity() {
         if (savedInstanceState == null) acceptLink(intent)
         setContent {
             val appearance by preferences.appearance.collectAsState()
-            IntentTheme(
-                darkTheme = when (appearance) {
-                    Appearance.System -> isSystemInDarkTheme()
-                    Appearance.Light -> false
-                    Appearance.Dark -> true
-                }
-            ) {
+            val darkTheme = when (appearance) {
+                Appearance.System -> isSystemInDarkTheme()
+                Appearance.Light -> false
+                Appearance.Dark -> true
+            }
+            SideEffect {
+                val bars = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT) { darkTheme }
+                enableEdgeToEdge(statusBarStyle = bars, navigationBarStyle = bars)
+            }
+            IntentTheme(darkTheme = darkTheme) {
                 Scaffold { padding ->
                     ConnectionRoot(
                         model.controller,

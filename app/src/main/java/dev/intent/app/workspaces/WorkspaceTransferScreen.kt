@@ -1,11 +1,15 @@
 package dev.intent.app.workspaces
 
+import android.text.format.Formatter
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -14,9 +18,15 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import dev.intent.app.connection.SavedConnection
 import dev.intent.app.connection.createConnectionSession
+import dev.intent.app.design.IntentScreen
+import dev.intent.app.design.IntentSection
+import dev.intent.app.design.IntentWarning
+import dev.intent.app.design.intentPageInsets
 import dev.intent.core.protocol.session.RpcSession
 import dev.intent.core.protocol.session.SessionState
 import java.util.concurrent.CompletableFuture
@@ -25,7 +35,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.longOrNull
 
 @Suppress("LongMethod")
 @Composable
@@ -59,42 +73,73 @@ fun WorkspaceTransferScreen(
         }
             .onFailure { status = "Transfer preview unavailable. Reconnect and retry." }
     }
-    Column(Modifier.verticalScroll(rememberScrollState())) {
-        Text("Transfer workspace — under development")
-        Text(status)
-        plan?.let { preview ->
-            Text("Estimated bytes: ${preview["totalSizeBytes"] ?: "Unknown"}")
-            (preview["warnings"] as? kotlinx.serialization.json.JsonArray)?.forEach { warning ->
-                Text((warning as? JsonObject)?.get("message")?.toString().orEmpty())
+    Column(
+        Modifier.verticalScroll(rememberScrollState()).intentPageInsets(),
+        verticalArrangement = Arrangement.spacedBy(IntentScreen.sectionSpacing)
+    ) {
+        Text(
+            "Workspace transfer is under development.",
+            style = MaterialTheme.typography.bodySmall,
+            color = IntentScreen.secondaryText
+        )
+        IntentSection("Transfer preview") {
+            Text(status)
+            plan?.let { preview ->
+                val bytes = (preview["totalSizeBytes"] as? JsonPrimitive)?.longOrNull
+                val size =
+                    bytes?.let { Formatter.formatFileSize(LocalContext.current, it) } ?: "Unknown"
+                Text("Estimated size: $size", color = IntentScreen.secondaryText)
             }
         }
-        Text("Transfer stops active agents. Keep both hosts connected until it finishes.")
-        Text("Archive the source after confirmed import")
-        Checkbox(archive, { archive = it }, enabled = !busy && !finished)
-        if (destinations.isEmpty()) Text("Pair another host in Settings first.")
-        destinations.forEach { destination ->
-            Button(onClick = {
-                busy = true
-                onBusy(true)
-                status = "Transferring workspace…"
-                scope.launch {
-                    val result = withContext(Dispatchers.IO + NonCancellable) {
-                        runCatching { transferTo(operations, workspaceId, destination, archive) }
+        IntentWarning {
+            Text("Before you transfer", style = MaterialTheme.typography.titleSmall)
+            Text("Transfer stops active agents. Keep both hosts connected until it finishes.")
+            (plan?.get("warnings") as? JsonArray)?.forEach { warning ->
+                val message = (
+                    (warning as? JsonObject)?.get(
+                        "message"
+                    ) as? JsonPrimitive
+                    )?.contentOrNull
+                if (!message.isNullOrBlank()) Text(message)
+            }
+        }
+        IntentSection("Source workspace") {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Checkbox(archive, { archive = it }, enabled = !busy && !finished)
+                Text("Archive the source after confirmed import")
+            }
+        }
+        IntentSection("Destination") {
+            if (destinations.isEmpty()) {
+                Text("Pair another host in Settings first.", color = IntentScreen.secondaryText)
+            }
+            destinations.forEach { destination ->
+                Button(onClick = {
+                    busy = true
+                    onBusy(true)
+                    status = "Transferring workspace…"
+                    scope.launch {
+                        val result = withContext(Dispatchers.IO + NonCancellable) {
+                            runCatching {
+                                transferTo(operations, workspaceId, destination, archive)
+                            }
+                        }
+                        result.onSuccess {
+                            status = it
+                            finished = true
+                        }.onFailure {
+                            status =
+                                "Transfer was not confirmed. " +
+                                "Check the destination before retrying. " +
+                                "The source was not archived."
+                            finished = true
+                        }
+                        busy = false
+                        onBusy(false)
                     }
-                    result.onSuccess {
-                        status = it
-                        finished = true
-                    }.onFailure {
-                        status =
-                            "Transfer was not confirmed. Check the destination before retrying. " +
-                            "The source was not archived."
-                        finished = true
-                    }
-                    busy = false
-                    onBusy(false)
+                }, enabled = plan != null && !busy && !finished) {
+                    Text("Transfer to ${destination.label}")
                 }
-            }, enabled = plan != null && !busy && !finished) {
-                Text("Transfer to ${destination.label}")
             }
         }
     }
