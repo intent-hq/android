@@ -15,6 +15,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import dev.intent.app.cache.OfflineCache
 import dev.intent.app.connection.SavedConnection
+import dev.intent.app.git.LocalWorkspaceRepository
+import dev.intent.app.git.repositoryLabel
 import dev.intent.app.workspaces.CreationOptionsStore
 import dev.intent.app.workspaces.RpcWorkspaceOperations
 import dev.intent.app.workspaces.RpcWorkspaceSession
@@ -81,6 +83,8 @@ fun IntentNavigation(
     }
     CompositionLocalProvider(
         LocalChromeActions provides (listOf(workspaceAction) + inheritedActions),
+        LocalWorkspaceRepository provides
+            repositoryLabel(workspaceState.workspaces.firstOrNull { it.id == selected }),
         LocalWorkspaceTitle provides
             (workspaceState.workspaces.firstOrNull { it.id == selected }?.title ?: "Workspace")
     ) {
