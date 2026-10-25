@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">Intent</string>
+    <string name="bootstrap_message">Intent Android is under development.</string>
+</resources>
