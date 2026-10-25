@@ -1,11 +1,8 @@
 package dev.intent.app.notes
 
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
@@ -51,10 +48,6 @@ fun NoteListRoute(
         if (state.loading) CircularProgressIndicator()
         state.error?.let { Text(it) }
         if (!state.loading && state.error == null && state.notes.isEmpty()) Text("No notes")
-        LazyColumn {
-            items(state.notes, key = { it.id }) { note ->
-                TextButton(onClick = { onSelected(note.id) }) { Text(note.title) }
-            }
-        }
+        ContextNoteList(state.notes, onSelected)
     }
 }
