@@ -1,20 +1,28 @@
 package dev.intent.app.connection
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
-import dev.intent.core.protocol.pairing.PairingPayload
+import dev.intent.app.design.IntentScreen
+import dev.intent.app.design.IntentSection
 
 @Composable
 fun ConnectionScreen(
@@ -24,41 +32,82 @@ fun ConnectionScreen(
     onAdd: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    LazyColumn(modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    var forgetId by rememberSaveable { mutableStateOf<String?>(null) }
+    LazyColumn(
+        modifier,
+        contentPadding = IntentScreen.pageInsets,
+        verticalArrangement = Arrangement.spacedBy(IntentScreen.sectionSpacing)
+    ) {
         item {
-            Button(onClick = onAdd) { Text("Add connection") }
+            Button(onClick = onAdd, enabled = !state.busy) { Text("Add connection") }
         }
         items(state.connections, key = { it.id }) { connection ->
-            Column {
-                Text(connection.label)
-                Row {
-                    TextButton(onClick = { onSelect(connection.id) }) {
-                        Text(if (state.activeId == connection.id) "Reconnect" else "Connect")
-                    }
-                    TextButton(onClick = { onForget(connection.id) }) { Text("Forget") }
-                }
-            }
+            SavedConnectionSection(connection, state, onSelect) { forgetId = connection.id }
         }
+    }
+    state.connections.firstOrNull { it.id == forgetId }?.let { connection ->
+        AlertDialog(
+            onDismissRequest = { forgetId = null },
+            title = { Text("Forget ${connection.displayName}?") },
+            text = {
+                Text(
+                    "This removes the saved connection from this device. You must pair again to reconnect."
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    forgetId = null
+                    onForget(connection.id)
+                }) { Text("Forget connection", color = IntentScreen.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { forgetId = null }) { Text("Cancel") }
+            }
+        )
     }
 }
 
-@Suppress("UnusedPrivateMember", "MagicNumber")
-@Preview(showBackground = true)
 @Composable
-private fun ConnectionsPreview() {
-    MaterialTheme {
-        ConnectionScreen(
-            ConnectionState(
-                connections = listOf(
-                    SavedConnection(
-                        "preview",
-                        PairingPayload(listOf("desktop.local"), 443, "preview")
-                    )
-                )
-            ),
-            {},
-            {},
-            {}
+private fun SavedConnectionSection(
+    connection: SavedConnection,
+    state: ConnectionState,
+    onSelect: (String) -> Unit,
+    onForget: () -> Unit
+) {
+    var menuOpen by rememberSaveable { mutableStateOf(false) }
+    IntentSection(connection.displayName) {
+        Text(
+            connection.displayAddress,
+            style = MaterialTheme.typography.bodySmall,
+            color = IntentScreen.secondaryText
         )
+        Surface(
+            shape = MaterialTheme.shapes.small,
+            color = MaterialTheme.colorScheme.surfaceVariant,
+            contentColor = IntentScreen.secondaryText
+        ) {
+            Text(
+                connectionStatus(connection.id, state),
+                Modifier.padding(horizontal = IntentScreen.itemSpacing),
+                style = MaterialTheme.typography.labelMedium
+            )
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            TextButton(onClick = { onSelect(connection.id) }, enabled = !state.busy) {
+                Text(if (state.activeId == connection.id) "Reconnect" else "Connect")
+            }
+            Box {
+                TextButton(onClick = { menuOpen = true }) { Text("Manage") }
+                DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                    DropdownMenuItem(
+                        text = { Text("Forget connection", color = IntentScreen.error) },
+                        onClick = {
+                            menuOpen = false
+                            onForget()
+                        }
+                    )
+                }
+            }
+        }
     }
 }
