@@ -357,15 +357,6 @@
     "text": "example",
     "status": "example"
   },
-  "NoteTasksResult": {
-    "tasks": [
-      {
-        "lineNumber": 1,
-        "text": "example",
-        "status": "example"
-      }
-    ]
-  },
   "WorkspaceTask": {
     "id": "example",
     "title": "example",

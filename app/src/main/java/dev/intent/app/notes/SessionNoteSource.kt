@@ -2,7 +2,7 @@ package dev.intent.app.notes
 
 import dev.intent.app.comments.RpcCommentSession
 import dev.intent.core.protocol.models.NoteResult
-import dev.intent.core.protocol.models.NoteTasksResult
+import dev.intent.core.protocol.models.NoteTaskRow
 import dev.intent.core.protocol.models.TaskUpdateNoteStatusParams
 import dev.intent.core.protocol.models.TaskUpdateNoteStatusResult
 import dev.intent.core.protocol.models.TaskUpdateParams
@@ -10,6 +10,7 @@ import dev.intent.core.protocol.models.TaskUpdateResult
 import dev.intent.core.protocol.models.WireJson
 import dev.intent.core.protocol.session.RpcSession
 import dev.intent.core.protocol.session.SubscriptionSpec
+import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
@@ -33,10 +34,8 @@ class SessionNoteSource(private val session: RpcSession) : NoteSource {
     override fun tasks(workspaceId: String, noteId: String) = session.request(
         "note.listTasks",
         params(workspaceId, noteId),
-        NoteTasksResult.serializer()
-    ).thenApply {
-        it.tasks
-    }
+        ListSerializer(NoteTaskRow.serializer())
+    )
 
     override fun updateLine(
         workspaceId: String,

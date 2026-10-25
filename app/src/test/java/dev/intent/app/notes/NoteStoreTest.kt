@@ -2,10 +2,10 @@ package dev.intent.app.notes
 
 import dev.intent.core.protocol.models.Note
 import dev.intent.core.protocol.models.NoteTaskRow
-import dev.intent.core.protocol.models.NoteTasksResult
 import dev.intent.core.protocol.models.WireJson
 import java.io.Closeable
 import java.util.concurrent.CompletableFuture
+import kotlinx.serialization.builtins.ListSerializer
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -21,9 +21,9 @@ class NoteStoreTest {
         assertTrue(source.notes.isEmpty())
         source.refresh()
         val tasks = WireJson.decodeFromString(
-            NoteTasksResult.serializer(),
-            """{"tasks":[{"lineNumber":3,"text":"Read it","status":"in-progress","taskNoteId":"task-a"}]}"""
-        ).tasks
+            ListSerializer(NoteTaskRow.serializer()),
+            """[{"lineNumber":3,"text":"Read it","status":"in-progress","taskNoteId":"task-a"}]"""
+        )
         source.complete(0, "Body", tasks)
         assertEquals("Body", store.state.note?.content)
         assertEquals("task-a", store.state.tasks.single().taskNoteId)

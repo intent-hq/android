@@ -93,7 +93,6 @@ class WireModelsTest {
         roundTrip<NoteListResult>("NoteListResult")
         roundTrip<NoteResult>("NoteResult")
         roundTrip<NoteTaskRow>("NoteTaskRow")
-        roundTrip<NoteTasksResult>("NoteTasksResult")
         roundTrip<WorkspaceTask>("WorkspaceTask")
         roundTrip<TaskListParams>("TaskListParams")
         roundTrip<TaskGetParams>("TaskGetParams")

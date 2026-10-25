@@ -77,9 +77,6 @@ data class NoteTaskRow(
 )
 
 @Serializable
-data class NoteTasksResult(val tasks: List<NoteTaskRow>)
-
-@Serializable
 data class WorkspaceTask(
     val id: String,
     val title: String,
