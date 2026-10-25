@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build the shared iOS TailcatKit Go wrapper for Android without modifying its source.
+# Build the shared iOS wrapper with Android error-detail methods in a temporary copy.
 set -euo pipefail
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
@@ -29,7 +29,9 @@ WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
 mkdir -p "$WORK/source" "$WORK/bin" "$ROOT/tailcat/libs"
 (cd "$SOURCE" && tar --exclude='./build' --exclude='./.git' -cf - .) | tar -xf - -C "$WORK/source"
+cp "$ROOT"/tailcat/go/*.go "$WORK/source/"
 cd "$WORK/source"
+go test ./...
 export PATH="$WORK/bin:$PATH"
 echo "Installing gomobile and gobind at $MOBILE_VERSION with $GOTOOLCHAIN"
 GOBIN="$WORK/bin" go install \

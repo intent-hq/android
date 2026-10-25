@@ -8,11 +8,15 @@ object Tailcat : TunnelClientFactory {
     override val available = true
 
     override fun createClient(token: String): TunnelClient =
-        NativeTunnelClient(Tailcatkit.newClient(token))
+        NativeTunnelClient(Tailcatkit.newClient(token), token)
 }
 
-private class NativeTunnelClient(private val client: Client) : TunnelClient {
-    override fun ping(timeoutMs: Int) = client.ping(timeoutMs.toLong())
+private class NativeTunnelClient(private val client: Client, private val token: String) :
+    TunnelClient {
+    override fun ping(timeoutMs: Int) {
+        val detail = client.pingError(timeoutMs.toLong())
+        if (detail.isNotEmpty()) throw NativeTunnelException(detail, token)
+    }
 
     override fun forward(remotePort: Int): TunnelForwarder =
         NativeTunnelForwarder(client.forward(remotePort.toLong()))

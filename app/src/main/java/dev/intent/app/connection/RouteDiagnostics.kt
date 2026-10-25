@@ -1,8 +1,9 @@
 package dev.intent.app.connection
 
 import android.util.Log
+import dev.intent.tailcat.NativeTunnelException
 
-/** Never include endpoints, payloads, exception messages or stack traces. */
+/** Only sanitized native errors may include text. Other errors expose classes only. */
 internal object RouteDiagnostics {
     fun record(route: String, stage: String, outcome: String, error: Throwable? = null) {
         val entry = format(route, stage, outcome, error)
@@ -14,7 +15,14 @@ internal object RouteDiagnostics {
         "route=$route stage=$stage outcome=$outcome" +
             (
                 error?.let {
-                    " exception=${it.javaClass.simpleName} cause=${it.cause?.javaClass?.simpleName}"
+                    " exception=${it.javaClass.simpleName}" +
+                        " cause=${it.cause?.javaClass?.simpleName}" +
+                        (
+                            (it as? NativeTunnelException)?.let { native ->
+                                " detail=${native.diagnosticDetail}"
+                            }
+                                ?: ""
+                            )
                 }
                     ?: ""
                 )
