@@ -23,6 +23,7 @@ import dev.intent.app.design.IntentTheme
 import dev.intent.core.protocol.models.ContentBlock
 import dev.intent.core.protocol.models.ConversationMessage
 import dev.intent.core.protocol.models.QueuedMessage
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -194,6 +195,79 @@ class ConversationTranscriptTest {
         compose.onNodeWithText(machineText).assertIsDisplayed()
         compose.onNodeWithText("▸ 1 queued background updates").performClick()
         compose.onNodeWithText("Queued: $queuedText").assertIsDisplayed()
+    }
+
+    @Test
+    fun rawMarkupAndRepeatedLifecycleNoticesStayCompact() {
+        val rows = listOf(
+            ConversationMessage(
+                "n1",
+                "user",
+                listOf(ContentBlock("text", text = "Worker sent a message and finished"))
+            ),
+            ConversationMessage(
+                "n2",
+                "user",
+                listOf(ContentBlock("text", text = "Worker sent a message and finished"))
+            ),
+            ConversationMessage(
+                "reply",
+                "assistant",
+                listOf(
+                    ContentBlock(
+                        "text",
+                        text = "Before\n<invoke name=\"read\">payload</invoke>\nAfter"
+                    )
+                )
+            )
+        )
+        show(ConversationState(messages = rows, isLoading = false))
+        compose.onNodeWithText("Before").assertIsDisplayed()
+        compose.onNodeWithText("After").assertIsDisplayed()
+        compose.onNodeWithText("▸ Agent update · 2 updates").assertIsDisplayed()
+        compose.onNodeWithText("Worker sent a message and finished").assertDoesNotExist()
+        compose.onNodeWithText("<invoke", substring = true).assertDoesNotExist()
+        compose.onNodeWithText("▸ Tool detail").performClick()
+        compose.onNodeWithText("<invoke name=\"read\">payload</invoke>").assertIsDisplayed()
+    }
+
+    @Test
+    fun queuedMonitorUpdatesUseOneExpandableSummary() {
+        val metadata = JsonObject(mapOf("type" to JsonPrimitive("pr_monitor_wake")))
+        compose.setContent {
+            IntentTheme {
+                ConversationComposer(
+                    ConversationSendState(
+                        queue = listOf(
+                            QueuedMessage(
+                                "p1",
+                                "Monitoring PR intent-hq/android: #5",
+                                "",
+                                0,
+                                metadata
+                            ),
+                            QueuedMessage(
+                                "p2",
+                                "Monitoring PR intent-hq/android: #6",
+                                "",
+                                1,
+                                metadata
+                            )
+                        )
+                    ),
+                    { true },
+                    {},
+                    { _, _ -> false }
+                )
+            }
+        }
+        compose.onNodeWithText("▸ 2 queued background updates").assertIsDisplayed()
+        compose.onNodeWithText("Monitoring PR", substring = true).assertDoesNotExist()
+        compose.onNodeWithText("▸ 2 queued background updates").performClick()
+        compose.onNodeWithText("Queued: Monitoring PR intent-hq/android: #5").assertIsDisplayed()
+        compose.onNodeWithText("Queued: Monitoring PR intent-hq/android: #6").assertIsDisplayed()
+        compose.onNodeWithText("▾ 2 queued background updates").performClick()
+        compose.onNodeWithText("Monitoring PR", substring = true).assertDoesNotExist()
     }
 
     private fun show(state: ConversationState, older: () -> Unit = {}, refresh: () -> Unit = {}) {

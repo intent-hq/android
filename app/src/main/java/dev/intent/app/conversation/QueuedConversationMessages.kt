@@ -2,7 +2,6 @@ package dev.intent.app.conversation
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -20,12 +19,8 @@ internal fun QueuedConversationMessages(state: ConversationSendState, onRetract:
     human.forEach { QueuedMessageRow(it, it.id !in state.retracting, onRetract) }
     if (background.isNotEmpty()) {
         Column {
-            TextButton(onClick = { expanded = !expanded }) {
-                Text(
-                    "${if (expanded) "▾" else "▸"} ${background.size} queued background updates",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+            CompactDisclosure("${background.size} queued background updates", expanded) {
+                expanded = !expanded
             }
             if (expanded) {
                 background.forEach { QueuedMessageRow(it, it.id !in state.retracting, onRetract) }

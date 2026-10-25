@@ -59,5 +59,8 @@ internal object ConversationNoise {
     private fun fromText(text: String): String? {
         val trimmed = text.trimStart()
         return prefixes.entries.firstOrNull { trimmed.startsWith(it.key) }?.value
+            ?: "Agent update".takeIf {
+                Regex("[^\\n]+ sent a message(?: and finished)?[.!]?").matches(trimmed.trim())
+            }
     }
 }

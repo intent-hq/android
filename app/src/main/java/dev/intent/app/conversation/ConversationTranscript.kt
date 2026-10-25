@@ -46,6 +46,8 @@ internal fun ConversationTranscript(
     onSuggestedPrompt: (String) -> Unit = {}
 ) {
     val list = rememberLazyListState()
+    val rows = remember(state.messages) { transcriptRows(state.messages) }
+    val currentRows by rememberUpdatedState(rows)
     var policy by remember { mutableStateOf(TranscriptScrollPolicy()) }
     val currentState by rememberUpdatedState(state)
     val loadOlder by rememberUpdatedState(onLoadOlder)
@@ -66,7 +68,7 @@ internal fun ConversationTranscript(
             TranscriptViewport(
                 atBottom = !list.canScrollBackward,
                 atTop = list.layoutInfo.visibleItemsInfo.any {
-                    it.index == value.messages.lastIndex
+                    it.index == currentRows.lastIndex
                 },
                 scrolling = list.isScrollInProgress,
                 nextToken = value.nextToken,
@@ -93,10 +95,10 @@ internal fun ConversationTranscript(
             state = list,
             reverseLayout = true,
             modifier = Modifier.fillMaxSize().testTag("transcript"),
-            verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.Bottom)
+            verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.Bottom)
         ) {
-            items(state.messages.asReversed(), key = { it.id }) { message ->
-                TranscriptMessage(message, state.hydrating, onHydrate, onSuggestedPrompt)
+            items(rows.asReversed(), key = { it.id }) { row ->
+                TranscriptMessage(row, state.hydrating, onHydrate, onSuggestedPrompt)
             }
         }
         if (state.loadingOlder) {

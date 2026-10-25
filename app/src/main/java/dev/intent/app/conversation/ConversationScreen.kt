@@ -1,5 +1,6 @@
 package dev.intent.app.conversation
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
@@ -16,6 +17,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import dev.intent.app.agents.LocalConversationAgent
@@ -94,25 +97,25 @@ fun ConversationScreen(
 
 @Composable
 internal fun TranscriptMessage(
-    message: ConversationMessage,
+    row: TranscriptRow,
     hydrating: Set<String>,
     onHydrate: (String, String) -> Unit,
     onSuggestedPrompt: (String) -> Unit
 ) {
+    val message = row.messages.first()
     val notice = remember(message) { ConversationNoise.label(message) }
     var expanded by remember(message.id) { mutableStateOf(false) }
     Column {
         if (notice != null) {
-            TextButton(onClick = { expanded = !expanded }) {
-                Text(
-                    "${if (expanded) "▾" else "▸"} $notice",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+            CompactDisclosure(
+                "$notice${if (row.messages.size > 1) " · ${row.messages.size} updates" else ""}",
+                expanded
+            ) { expanded = !expanded }
         }
         if (notice == null || expanded) {
-            TranscriptMessageContents(message, hydrating, onHydrate, onSuggestedPrompt)
+            row.messages.distinctBy { it.contentBlocks }.forEach {
+                TranscriptMessageContents(it, hydrating, onHydrate, onSuggestedPrompt)
+            }
         }
     }
 }
@@ -131,7 +134,7 @@ private fun TranscriptMessageContents(
             PromptPresentation(message.contentBlocks, emptyList())
         }
     }
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         val agent = LocalConversationAgent.current?.takeIf {
             message.agentId == null || message.agentId == it.id
         }
@@ -167,13 +170,9 @@ private fun TranscriptBlock(block: ContentBlock, hydrating: Boolean, onHydrate: 
     val truncated = block.needsHydration()
     val details = block.type in setOf("tool_use", "tool_result", "thinking")
     if (details) {
-        TextButton(onClick = {
+        CompactDisclosure(block.name ?: block.type.replace('_', ' '), expanded) {
             expanded = !expanded
             if (expanded && truncated) onHydrate()
-        }) {
-            Text(
-                "${if (expanded) "▾" else "▸"} ${block.name ?: block.type.replace('_', ' ')}"
-            )
         }
     }
     if (!details || expanded) {
@@ -194,9 +193,11 @@ private fun TranscriptBlock(block: ContentBlock, hydrating: Boolean, onHydrate: 
 @Composable
 private fun BlockContent(block: ContentBlock) {
     when (block.type) {
-        "text", "thinking" -> MarkdownContent(block.text.orEmpty())
-        "tool_use" -> Text(block.input?.toString().orEmpty())
-        "tool_result" -> Text(block.output?.toString() ?: block.text.orEmpty())
+        "text", "thinking" -> TranscriptText(block.text.orEmpty())
+        "tool_use", "tool_result" -> Text(
+            toolBody(block),
+            style = MaterialTheme.typography.bodySmall
+        )
         "image", "file" -> MediaPreview(
             MediaReference(
                 block.fileName ?: if (block.type == "image") "Image" else "Attachment",
@@ -251,3 +252,37 @@ private fun ConversationPreview() {
 
 private fun ContentBlock.needsHydration(): Boolean =
     inputTruncated == true || outputTruncated == true || dataTruncated == true
+
+@Composable
+internal fun CompactDisclosure(label: String, expanded: Boolean, onClick: () -> Unit) {
+    Text(
+        "${if (expanded) "▾" else "▸"} $label",
+        Modifier.clickable(onClick = onClick).padding(vertical = 6.dp),
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis
+    )
+}
+
+@Composable
+private fun TranscriptText(text: String) {
+    val parts = remember(text) { transcriptTextParts(text) }
+    parts.forEachIndexed { index, part ->
+        androidx.compose.runtime.key(index) {
+            if (part.toolMarkup) {
+                var expanded by remember { mutableStateOf(false) }
+                CompactDisclosure("Tool detail", expanded) { expanded = !expanded }
+                if (expanded) {
+                    Text(
+                        part.text,
+                        style = MaterialTheme.typography.bodySmall,
+                        fontFamily = FontFamily.Monospace
+                    )
+                }
+            } else if (part.text.isNotBlank()) {
+                MarkdownContent(part.text)
+            }
+        }
+    }
+}
