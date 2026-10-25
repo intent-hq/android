@@ -1,0 +1,5 @@
+{ "jsonrpc":"2.0","method":"subscription.push","params":{
+  "subscriptionId":"sub-progressive","kind":"history","seq":2,
+  "history":{
+    "target":20,"received":2,"complete":true,
+    "nextToken":null,"truncated":false,"totalMessages":2 } } }

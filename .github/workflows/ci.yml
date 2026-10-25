@@ -41,6 +41,55 @@ jobs:
       - name: Build, lint, and run unit tests
         run: ./gradlew build ktlintCheck detekt test
 
+  instrumentation:
+    name: Android emulator UI tests (API ${{ matrix.api }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        api: [34]
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: android-actions/setup-android@v4
+      - name: Install SDK and emulator
+        run: sdkmanager "platform-tools" "platforms;android-37.0" "build-tools;36.0.0" "emulator" "system-images;android-${{ matrix.api }};google_apis;x86_64"
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-provider: basic
+          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+      - name: Run smoke tests on managed Pixel 8
+        shell: bash
+        run: |
+          selectors=$(python3 scripts/ui-smoke-tests.py)
+          ./gradlew :app:pixel8Api34DebugAndroidTest -Ptailcat.enabled=false \
+            -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader_indirect \
+            "-Pandroid.testInstrumentationRunnerArguments.class=$selectors"
+      - name: Check screenshot export
+        run: python3 scripts/check-ui-screenshots.py
+      - name: Retain UI reports and light/dark screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-ui-api-${{ matrix.api }}
+          retention-days: 14
+          if-no-files-found: error
+          path: |
+            app/build/reports/androidTests/
+            app/build/outputs/androidTest-results/
+            app/build/outputs/managed_device_android_test_additional_output/
+
   pr-title:
     name: Conventional PR title
     if: github.event_name == 'pull_request'

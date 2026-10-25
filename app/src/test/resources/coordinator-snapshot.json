@@ -1,0 +1,28 @@
+{
+  "subscriptionId": "lease",
+  "kind": "snapshot",
+  "seq": 0,
+  "snapshot": {
+    "agentId": "agent",
+    "truncated": true,
+    "totalMessages": 340,
+    "nextToken": "older",
+    "messages": [
+      {
+        "id": "user", "role": "user", "seq": 338,
+        "contentBlocks": [{"id": "user:0", "type": "text", "text": "Check the Android app."}]
+      },
+      {
+        "id": "reply", "role": "assistant", "seq": 339,
+        "contentBlocks": [
+          {"id": "reply:0", "type": "text", "text": "The build passed."},
+          {"id": "reply:1", "type": "tool_use", "name": "workspace_api", "toolCallId": "call", "input": {"code": "return await ws.workspace.details()"}, "inputTruncated": true, "inputBytes": 20000},
+          {"id": "reply:2", "type": "tool_result", "tool_use_id": "call", "output": [{"type": "text", "text": "Workspace ready"}], "is_error": false, "outputTruncated": true, "outputBytes": 80000},
+          {"id": "reply:3", "type": "image", "attachmentId": "attachment", "mimeType": "image/png", "dataTruncated": true, "dataBytes": 800000},
+          {"id": "reply:4", "type": "resource", "resource": {"uri": "intent://question/test", "mimeType": "application/json", "text": "{\"questions\":[{\"title\":\"Choose a mode\"}]}"}},
+          {"id": "reply:5", "type": "text", "text": "[System reminder] Continue the assigned task."}
+        ]
+      }
+    ]
+  }
+}

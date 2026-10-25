@@ -1,0 +1,8 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <!-- Compose test content is installed by the rule, not Activity.onCreate.
+             Keep emulator input-device changes from recreating this test host. -->
+        <activity android:name="androidx.activity.ComponentActivity"
+            android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize|smallestScreenSize|screenLayout|uiMode" />
+    </application>
+</manifest>

@@ -1,0 +1,9 @@
+{ "jsonrpc":"2.0","method":"subscription.push","params":{
+  "subscriptionId":"sub-progressive","kind":"history","seq":1,
+  "history":{
+    "target":20,"received":2,"complete":false,
+    "message":{
+      "id":"older-user","agentId":"agent-123","seq":0,"role":"user",
+      "contentBlocks":[ { "type":"text","id":"older-user:0","text":"Run the tests" } ],
+      "timestamp":"2026-06-27T01:00:00.000Z"
+    } } } }

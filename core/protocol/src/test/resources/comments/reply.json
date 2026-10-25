@@ -1,0 +1,12 @@
+{
+  "success": true,
+  "message": "Reply added",
+  "comment": {
+    "id": "reply", "threadId": "thread", "parentId": "root", "noteId": "note",
+    "type": "comment", "content": "Thanks", "author": "Sam", "authorType": "user",
+    "status": "open", "createdAt": "2026-10-24T20:00:00Z", "updatedAt": "2026-10-24T20:00:00Z",
+    "authorPrincipalId": "principal",
+    "authorIdentity": {"provider": "github", "host": "github.com", "externalUserId": "42"}
+  },
+  "thread": {"threadId": "thread", "totalComments": 2}
+}

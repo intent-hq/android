@@ -15,4 +15,4 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "IntentAndroid"
-include(":app", ":core:protocol")
+include(":app", ":core:protocol", ":tailcat", ":tailcat:native")

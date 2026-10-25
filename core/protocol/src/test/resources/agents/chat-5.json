@@ -1,0 +1,9 @@
+{ "jsonrpc":"2.0","method":"subscription.push","params":{
+  "subscriptionId":"sub-7","kind":"delta","seq":6,
+  "delta":{
+    "added":[],
+    "updated":[
+      { "agentId":"agent-123","messageId":"0190a200-asst","role":"assistant",
+        "block":{ "type":"text","id":"0190a200-asst:0","text":"Let me check the logs first." } }
+    ],
+    "removedIds":[] } } }

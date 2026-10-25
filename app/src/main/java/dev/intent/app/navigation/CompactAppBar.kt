@@ -1,0 +1,80 @@
+package dev.intent.app.navigation
+
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+
+val LocalChromeActions = staticCompositionLocalOf { emptyList<ChromeAction>() }
+val LocalChromeBack = staticCompositionLocalOf<(() -> Unit)?> { null }
+val LocalWorkspaceTitle = staticCompositionLocalOf { "Workspace" }
+
+@Composable
+fun CompactAppBar(
+    title: String,
+    onBack: (() -> Unit)? = LocalChromeBack.current,
+    actions: List<ChromeAction> = emptyList()
+) {
+    var expanded by remember(title) { mutableStateOf(false) }
+    val menu = actions + LocalChromeActions.current
+    Row(
+        Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(horizontal = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        if (onBack != null) {
+            TextButton(
+                onClick = onBack,
+                modifier = Modifier.semantics {
+                    contentDescription = "Back"
+                }
+            ) {
+                Text("‹", style = MaterialTheme.typography.headlineSmall)
+            }
+        }
+        Text(
+            title,
+            Modifier.weight(1f).padding(horizontal = 8.dp),
+            style = MaterialTheme.typography.titleMedium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        if (menu.isNotEmpty()) {
+            Box {
+                TextButton(
+                    onClick = { expanded = true },
+                    modifier = Modifier.semantics { contentDescription = "More actions" }
+                ) { Text("⋮", style = MaterialTheme.typography.headlineSmall) }
+                DropdownMenu(expanded, onDismissRequest = { expanded = false }) {
+                    menu.forEach { action ->
+                        DropdownMenuItem(
+                            text = { Text(action.label) },
+                            enabled = action.enabled,
+                            onClick = {
+                                expanded = false
+                                action.run()
+                            }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}

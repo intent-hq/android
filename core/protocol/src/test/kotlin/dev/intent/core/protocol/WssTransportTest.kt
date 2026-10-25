@@ -37,6 +37,7 @@ class WssTransportTest {
             transport(server, fingerprint, events).use { transport ->
                 transport.connect()
                 assertEquals("open", events.next())
+                assertEquals(true, events.pins.poll(5, TimeUnit.SECONDS))
                 assertEquals(
                     "Bearer secret",
                     server.takeRequest(5, TimeUnit.SECONDS)!!.getHeader("Authorization")
@@ -58,6 +59,7 @@ class WssTransportTest {
             transport(server, "00".repeat(32), events).use { transport ->
                 transport.connect()
                 assertTrue(events.next() is Throwable)
+                assertEquals(false, events.pins.poll(5, TimeUnit.SECONDS))
                 assertEquals(0, server.requestCount)
             }
         }
@@ -168,6 +170,10 @@ class WssTransportTest {
 
     private class Events : WssTransport.Listener {
         val queue = LinkedBlockingQueue<Any>()
+        val pins = LinkedBlockingQueue<Boolean>()
+        override fun onPinVerified(accepted: Boolean) {
+            pins.add(accepted)
+        }
         fun next(): Any = checkNotNull(queue.poll(5, TimeUnit.SECONDS)) {
             "Transport event timed out"
         }

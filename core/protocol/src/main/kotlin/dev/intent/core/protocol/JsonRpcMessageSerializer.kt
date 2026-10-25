@@ -61,9 +61,7 @@ object JsonRpcMessageSerializer : KSerializer<JsonRpcMessage> {
         )
         val id = obj.getValue("id")
         return if ("result" in obj) {
-            val result =
-                obj["result"] as? JsonObject
-                    ?: throw SerializationException("Result must be an object")
+            val result = obj.getValue("result")
             JsonRpcMessage.Success(id, result)
         } else {
             val error =
