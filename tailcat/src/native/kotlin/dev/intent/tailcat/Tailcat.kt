@@ -2,13 +2,22 @@ package dev.intent.tailcat
 
 import tailcatkit.Client
 import tailcatkit.Forwarder
+import tailcatkit.InterfaceProvider
 import tailcatkit.Tailcatkit
 
 object Tailcat : TunnelClientFactory {
     override val available = true
 
-    override fun createClient(token: String): TunnelClient =
-        NativeTunnelClient(Tailcatkit.newClient(token), token)
+    private val interfacesRegistered by lazy {
+        Tailcatkit.registerInterfaceProvider(object : InterfaceProvider {
+            override fun interfacesJSON(): String = AndroidInterfaces.current()
+        })
+    }
+
+    override fun createClient(token: String): TunnelClient {
+        interfacesRegistered
+        return NativeTunnelClient(Tailcatkit.newClient(token), token)
+    }
 }
 
 private class NativeTunnelClient(private val client: Client, private val token: String) :

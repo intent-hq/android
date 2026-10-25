@@ -42,6 +42,7 @@ detekt {
 }
 
 dependencies {
+    implementation(libs.kotlinx.serialization.json)
     if (nativeEnabled) implementation(project(":tailcat:native"))
     testImplementation(libs.junit)
 }
