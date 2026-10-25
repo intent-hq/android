@@ -11,7 +11,9 @@ data class AgentListState(
     val agents: List<Agent> = emptyList(),
     val isLoading: Boolean = true,
     val error: String? = null
-)
+) {
+    val tree: AgentTree = AgentTree(agents)
+}
 
 /** One store belongs to one daemon session. Closing it does not close that session. */
 class AgentStore(private val session: AgentSession, private val workspaceId: String) : Closeable {

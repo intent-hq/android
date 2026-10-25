@@ -12,6 +12,50 @@ import org.junit.Test
 
 class AgentStoreTest {
     @Test
+    fun hierarchyKeepsParentsFirstAndUpdatesAfterRemoval() {
+        val session = FakeAgentSession()
+        val store = AgentStore(session, "workspace")
+        store.start()
+        session.admit()
+        session.reads.last().complete(
+            listOf(
+                Agent("idle", "Idle child", parentAgentId = "root"),
+                Agent("busy", "Busy child", parentAgentId = "root", status = "active"),
+                Agent("leaf", "Grandchild", parentAgentId = "busy"),
+                Agent("root", "Coordinator")
+            )
+        )
+        val tree = store.state.value.tree
+        assertEquals(listOf("root", "busy", "leaf", "idle"), tree.rows().map { it.agent.id })
+        assertEquals(listOf(0, 1, 2, 1), tree.rows().map { it.depth })
+        assertEquals(listOf("root"), tree.rows(setOf("root")).map { it.agent.id })
+        session.push(
+            SubscriptionPush("lease", "agent", 1, delta = EntityDelta(removedIds = listOf("root")))
+        )
+        assertEquals(
+            listOf("busy", "leaf", "idle"),
+            store.state.value.tree.rows().map {
+                it.agent.id
+            }
+        )
+    }
+
+    @Test
+    fun hierarchyHandlesMissingParentsAndCyclesWithoutLosingAgents() {
+        val tree = AgentTree(
+            listOf(
+                Agent("a", "A", parentAgentId = "b"),
+                Agent("b", "B", parentAgentId = "a"),
+                Agent("c", "C", parentAgentId = "missing"),
+                Agent("d", "D", parentAgentId = "d")
+            )
+        )
+        assertEquals(setOf("a", "b", "c", "d"), tree.rows().map { it.agent.id }.toSet())
+        assertEquals(4, tree.rows().size)
+        assertEquals(3, tree.rows(setOf("a")).size)
+    }
+
+    @Test
     fun scopeAndRetirementFilterLiveRows() {
         val session = FakeAgentSession()
         val store = AgentStore(session, "workspace")
