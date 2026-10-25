@@ -46,10 +46,17 @@ internal class HostRacingTransport(
     override fun connect() {
         check(!closed.get() && started.compareAndSet(false, true))
         dispatch {
-            payload.hosts.distinct().forEach { host ->
-                candidates.add(Candidate(connectionEndpoint(host, payload.port)))
+            payload.hosts.distinct().forEachIndexed { index, host ->
+                candidates.add(Candidate(connectionEndpoint(host, payload.port), "direct-$index"))
             }
-            if (payload.tcAddress != null && tunnels.available) candidates.add(Candidate(null))
+            if (payload.tcAddress != null &&
+                tunnels.available
+            ) {
+                candidates.add(Candidate(null, "tunnel"))
+            }
+            if (payload.tcAddress != null && !tunnels.available) {
+                RouteDiagnostics.record("tunnel", "candidate", "unavailable")
+            }
             if (candidates.isEmpty()) {
                 listener.onFailure(IOException("No available connection route"))
             } else {
@@ -57,6 +64,7 @@ internal class HostRacingTransport(
                 events.schedule({
                     if (!closed.get() && winner == null) {
                         candidates.filterNot { it.failed }.forEach {
+                            RouteDiagnostics.record(it.route, "race", "timeout")
                             failed(it, IOException("Connection route timed out"))
                         }
                     }
@@ -79,7 +87,11 @@ internal class HostRacingTransport(
 
     @Suppress("TooGenericExceptionCaught") // A failed candidate must not abort other routes.
     private fun start(candidate: Candidate) {
+        RouteDiagnostics.record(candidate.route, "attempt", "start")
         val callbacks = object : WssTransport.Listener {
+            override fun onPinVerified(accepted: Boolean) {
+                RouteDiagnostics.record(candidate.route, "pin", if (accepted) "pass" else "fail")
+            }
             override fun onOpen() = dispatch { opened(candidate) }
             override fun onMessage(message: JsonRpcMessage) = dispatch {
                 if (winner === candidate) listener.onMessage(message)
@@ -111,6 +123,7 @@ internal class HostRacingTransport(
     private fun opened(candidate: Candidate) {
         if (candidate.failed || winner != null) return
         winner = candidate
+        RouteDiagnostics.record(candidate.route, "race", "winner")
         candidates.filter { it !== candidate }.forEach {
             it.failed = true
             it.transport?.close()
@@ -121,6 +134,7 @@ internal class HostRacingTransport(
     private fun failed(candidate: Candidate, error: Throwable) {
         if (candidate.failed) return
         candidate.failed = true
+        RouteDiagnostics.record(candidate.route, "attempt", "failure", error)
         candidate.transport?.close()
         if (winner === candidate || (winner == null && candidates.all { it.failed })) {
             listener.onFailure(error)
@@ -135,7 +149,7 @@ internal class HostRacingTransport(
         }
     }
 
-    private class Candidate(@Volatile var endpoint: String?) {
+    private class Candidate(@Volatile var endpoint: String?, val route: String) {
         var transport: SessionTransport? = null
         var failed = false
     }

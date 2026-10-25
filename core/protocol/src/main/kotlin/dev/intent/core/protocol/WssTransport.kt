@@ -23,6 +23,7 @@ class WssTransport(
 ) : Closeable {
     interface Listener {
         fun onOpen() {}
+        fun onPinVerified(accepted: Boolean) {}
         fun onMessage(message: JsonRpcMessage) {}
         fun onBinary(bytes: ByteArray) {}
         fun onClosed(code: Int, reason: String) {}
@@ -45,9 +46,9 @@ class WssTransport(
         require(token.isNotBlank()) { "A bearer token is required" }
         require(heartbeatMillis > 0)
         val trust = LeafTrustManager {
-            if (CertificateFingerprint.of(it) !=
-                pin
-            ) {
+            val accepted = CertificateFingerprint.of(it) == pin
+            listener.onPinVerified(accepted)
+            if (!accepted) {
                 throw CertificateException("Certificate fingerprint mismatch")
             }
         }

@@ -26,11 +26,20 @@ internal class TailcatSessionTransport(
     @Suppress("TooGenericExceptionCaught") // gomobile reports Go failures as Exception.
     override fun connect() {
         worker.execute {
+            var stage = "create"
             try {
+                RouteDiagnostics.record("tunnel", stage, "start")
                 val client = factory.createClient(address)
+                RouteDiagnostics.record("tunnel", stage, "pass")
                 if (own(client)) {
+                    stage = "ping"
+                    RouteDiagnostics.record("tunnel", stage, "start")
                     client.ping(PING_TIMEOUT_MILLIS)
+                    RouteDiagnostics.record("tunnel", stage, "pass")
+                    stage = "forward"
+                    RouteDiagnostics.record("tunnel", stage, "start")
                     val forwarder = client.forward(remotePort)
+                    RouteDiagnostics.record("tunnel", stage, "pass")
                     if (own(forwarder)) {
                         require(forwarder.localPort in 1..MAX_PORT)
                         val endpoint = connectionEndpoint("127.0.0.1", forwarder.localPort)
@@ -38,11 +47,14 @@ internal class TailcatSessionTransport(
                         if (own(transport)) {
                             socket = transport
                             onEndpoint(endpoint)
+                            stage = "wss"
+                            RouteDiagnostics.record("tunnel", stage, "start")
                             transport.connect()
                         }
                     }
                 }
             } catch (error: Exception) {
+                RouteDiagnostics.record("tunnel", stage, "failure", error)
                 listener.onFailure(error)
                 close()
             } finally {
