@@ -65,7 +65,7 @@ class RpcConversationSession(
             params {
                 put("limit", PAGE_SIZE)
                 put("projection", "slim")
-                put("historyDelivery", "atomic")
+                put("historyDelivery", "snapshot")
             }
         ),
         onMessage = { payload ->
