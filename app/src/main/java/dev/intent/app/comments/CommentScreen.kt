@@ -4,7 +4,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
@@ -24,6 +24,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import dev.intent.app.design.IntentScreen
 import dev.intent.app.navigation.ChromeAction
 import dev.intent.app.navigation.CompactAppBar
 import dev.intent.app.navigation.LocalChromeBack
@@ -71,10 +72,12 @@ fun CommentScreen(
     modifier: Modifier = Modifier,
     noteTitle: String = "Note"
 ) {
-    LazyColumn(modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        item {
-            CompactAppBar("Comments", actions = listOf(ChromeAction("Refresh", run = onRefresh)))
-        }
+    Column(modifier.fillMaxSize()) {
+        CompactAppBar("Comments", actions = listOf(ChromeAction("Refresh", run = onRefresh)))
+        LazyColumn(
+            contentPadding = IntentScreen.pageInsets,
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
         if (state.loading) item { CircularProgressIndicator() }
         state.error?.let { item { Text(it, color = MaterialTheme.colorScheme.error) } }
         val thread = state.threads.find { it.threadId == selected }
@@ -121,6 +124,7 @@ fun CommentScreen(
                 item { ReplyComposer(state, selected, onDraft, onReply) }
             }
         }
+    }
     }
 }
 

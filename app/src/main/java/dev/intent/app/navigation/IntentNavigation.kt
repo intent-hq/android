@@ -86,6 +86,7 @@ fun IntentNavigation(
         LocalChromeActions provides (listOf(workspaceAction) + inheritedActions),
         LocalWorkspaceRepository provides
             repositoryLabel(workspaceState.workspaces.firstOrNull { it.id == selected }),
+        LocalWorkspaceDetails provides workspaceState.workspaces.firstOrNull { it.id == selected },
         LocalWorkspaceTitle provides
             (workspaceState.workspaces.firstOrNull { it.id == selected }?.title ?: "Workspace")
     ) {

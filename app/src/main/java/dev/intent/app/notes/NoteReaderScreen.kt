@@ -3,8 +3,8 @@ package dev.intent.app.notes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
@@ -17,6 +17,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import dev.intent.app.design.IntentScreen
 import dev.intent.app.markdown.MarkdownNode
 import dev.intent.app.markdown.children
 import dev.intent.app.markdown.markdownFixture
@@ -37,48 +38,55 @@ fun NoteReaderScreen(
 ) {
     val body = state.note?.content
     val document = remember(body) { parseMarkdown(body.orEmpty()) }
-    LazyColumn(modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        item {
-            CompactAppBar(
-                state.note?.title ?: "Note",
-                actions = listOf(ChromeAction("Refresh", run = onRetry))
-            )
-        }
-        if (state.loading || state.saving) item { CircularProgressIndicator() }
-        state.mutationError?.let { message ->
-            item { Text(message, color = MaterialTheme.colorScheme.error) }
-        }
-        state.note?.metadata?.task?.let { task ->
-            item {
-                TaskStatusMenu(
-                    task.status,
-                    taskNoteStatuses,
-                    !state.saving && !state.loading,
-                    onNoteStatus
-                )
+    Column(modifier.fillMaxSize()) {
+        CompactAppBar(
+            state.note?.title ?: "Note",
+            actions = listOf(ChromeAction("Refresh", run = onRetry))
+        )
+        LazyColumn(
+            contentPadding = IntentScreen.pageInsets,
+            verticalArrangement = Arrangement.spacedBy(IntentScreen.itemSpacing)
+        ) {
+            if (state.loading || state.saving) item { CircularProgressIndicator() }
+            state.mutationError?.let { message ->
+                item { Text(message, color = MaterialTheme.colorScheme.error) }
             }
-        }
-        state.error?.let { message ->
-            item {
-                Column {
-                    Text(message, color = MaterialTheme.colorScheme.error)
-                    Button(onClick = onRetry) { Text("Retry") }
+            state.note?.metadata?.task?.let { task ->
+                item {
+                    TaskStatusMenu(
+                        task.status,
+                        taskNoteStatuses,
+                        !state.saving && !state.loading,
+                        onNoteStatus
+                    )
                 }
             }
-        }
-        if (state.deleted) item { Text("This note was deleted.") }
-        if (state.note != null && body == null) item { Text("The note body is not available.") }
-        if (state.note?.contentTruncated ==
-            true
-        ) {
-            item { Text("This note shows only part of its content.") }
-        }
-        if (body == "") item { Text("This note is empty.") }
-        items(document.children()) { MarkdownNode(it) }
-        if (state.tasks.isNotEmpty()) {
-            item { Text("Tasks", style = MaterialTheme.typography.titleLarge) }
-            items(state.tasks) { task ->
-                NoteTaskRowView(task, !state.saving && !state.loading) { onTaskStatus(task, it) }
+            state.error?.let { message ->
+                item {
+                    Column {
+                        Text(message, color = MaterialTheme.colorScheme.error)
+                        Button(onClick = onRetry) { Text("Retry") }
+                    }
+                }
+            }
+            if (state.deleted) item { Text("This note was deleted.") }
+            if (state.note != null && body == null) {
+                item { Text("The note body is not available.") }
+            }
+            if (state.note?.contentTruncated ==
+                true
+            ) {
+                item { Text("This note shows only part of its content.") }
+            }
+            if (body == "") item { Text("This note is empty.") }
+            items(document.children()) { MarkdownNode(it) }
+            if (state.tasks.isNotEmpty()) {
+                item { Text("Tasks", style = MaterialTheme.typography.titleLarge) }
+                items(state.tasks) { task ->
+                    NoteTaskRowView(task, !state.saving && !state.loading) {
+                        onTaskStatus(task, it)
+                    }
+                }
             }
         }
     }

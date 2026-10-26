@@ -21,8 +21,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.intent.app.design.IntentLightDarkPreview
+import dev.intent.app.design.IntentScreen
 import dev.intent.app.design.IntentSpacing
 import dev.intent.app.design.IntentTheme
+import dev.intent.app.design.intentPageInsets
 import dev.intent.app.navigation.ChromeAction
 import dev.intent.app.navigation.CompactAppBar
 import dev.intent.core.protocol.models.Workspace
@@ -48,22 +50,27 @@ fun WorkspaceListScreen(
     onWorkspaceSelected: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Column(modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(modifier) {
         CompactAppBar(
             "Workspaces",
             actions = listOf(ChromeAction("Refresh", !state.isLoading, onRefresh))
         )
-        if (state.isLoading) CircularProgressIndicator()
-        state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-        if (!state.isLoading &&
-            state.error == null &&
-            state.workspaces.isEmpty()
+        Column(
+            Modifier.intentPageInsets(),
+            verticalArrangement = Arrangement.spacedBy(IntentScreen.itemSpacing)
         ) {
-            Text("No workspaces yet")
-        }
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            items(state.workspaces, key = { it.id }) { workspace ->
-                WorkspaceRow(workspace) { onWorkspaceSelected(workspace.id) }
+            if (state.isLoading) CircularProgressIndicator()
+            state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+            if (!state.isLoading &&
+                state.error == null &&
+                state.workspaces.isEmpty()
+            ) {
+                Text("No workspaces yet")
+            }
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(state.workspaces, key = { it.id }) { workspace ->
+                    WorkspaceRow(workspace) { onWorkspaceSelected(workspace.id) }
+                }
             }
         }
     }
@@ -75,7 +82,7 @@ private fun WorkspaceRow(workspace: Workspace, onClick: () -> Unit) {
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        color = IntentScreen.surface,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
         Column(

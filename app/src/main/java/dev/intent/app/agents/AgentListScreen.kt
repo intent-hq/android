@@ -28,6 +28,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import dev.intent.app.design.AgentAvatarState
 import dev.intent.app.lists.ListFilters
+import dev.intent.app.design.intentPageInsets
+import dev.intent.app.design.IntentScreen
 import dev.intent.app.navigation.ChromeAction
 import dev.intent.app.navigation.CompactAppBar
 import dev.intent.core.protocol.models.Agent
@@ -68,11 +70,12 @@ fun AgentListScreen(
         }
     }
     val rows = tree.rows(collapsed.toSet())
-    Column(modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(modifier) {
         CompactAppBar(
             "Agents",
             actions = listOf(ChromeAction("Refresh", !state.isLoading, onRefresh))
         )
+        Column(Modifier.intentPageInsets(), verticalArrangement = Arrangement.spacedBy(IntentScreen.itemSpacing)) {
         if (state.isLoading) CircularProgressIndicator()
         state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         if (!state.isLoading &&
@@ -105,6 +108,7 @@ fun AgentListScreen(
                 )
             }
         }
+    }
     }
 }
 

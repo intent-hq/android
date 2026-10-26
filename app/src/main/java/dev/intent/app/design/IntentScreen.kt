@@ -46,20 +46,47 @@ fun IntentSection(
     modifier: Modifier = Modifier,
     content: @Composable ColumnScope.() -> Unit
 ) {
+    IntentCard(modifier) { SectionContent(title, content) }
+}
+
+/** Clickable sections use the same neutral surface and border as static sections. */
+@Composable
+fun IntentSection(
+    title: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit
+) {
     Surface(
+        onClick = onClick,
         modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
         color = IntentScreen.surface,
         contentColor = IntentScreen.text,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+    ) { SectionContent(title, content) }
+}
+
+@Composable
+private fun IntentCard(modifier: Modifier, content: @Composable () -> Unit) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large,
+        color = IntentScreen.surface,
+        contentColor = IntentScreen.text,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        content = content
+    )
+}
+
+@Composable
+private fun SectionContent(title: String, content: @Composable ColumnScope.() -> Unit) {
+    Column(
+        Modifier.padding(IntentScreen.sectionInsets),
+        verticalArrangement = Arrangement.spacedBy(IntentScreen.itemSpacing)
     ) {
-        Column(
-            Modifier.padding(IntentScreen.sectionInsets),
-            verticalArrangement = Arrangement.spacedBy(IntentScreen.itemSpacing)
-        ) {
-            Text(title, style = MaterialTheme.typography.titleSmall)
-            content()
-        }
+        Text(title, style = MaterialTheme.typography.titleSmall)
+        content()
     }
 }
 

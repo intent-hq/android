@@ -2,14 +2,16 @@ package dev.intent.app.navigation
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -25,6 +27,8 @@ import androidx.compose.ui.unit.dp
 
 val LocalChromeActions = staticCompositionLocalOf { emptyList<ChromeAction>() }
 val LocalChromeBack = staticCompositionLocalOf<(() -> Unit)?> { null }
+val LocalWorkspaceDetails =
+    staticCompositionLocalOf<dev.intent.core.protocol.models.Workspace?> { null }
 val LocalWorkspaceTitle = staticCompositionLocalOf { "Workspace" }
 
 @Composable
@@ -40,14 +44,16 @@ fun CompactAppBar(
         verticalAlignment = Alignment.CenterVertically
     ) {
         if (onBack != null) {
-            TextButton(
+            IconButton(
                 onClick = onBack,
-                modifier = Modifier.semantics {
+                modifier = Modifier.size(48.dp).semantics {
                     contentDescription = "Back"
                 }
             ) {
                 Text("‹", style = MaterialTheme.typography.headlineSmall)
             }
+        } else {
+            Spacer(Modifier.size(48.dp))
         }
         Text(
             title,
@@ -58,9 +64,11 @@ fun CompactAppBar(
         )
         if (menu.isNotEmpty()) {
             Box {
-                TextButton(
+                IconButton(
                     onClick = { expanded = true },
-                    modifier = Modifier.semantics { contentDescription = "More actions" }
+                    modifier = Modifier.size(48.dp).semantics {
+                        contentDescription = "More actions"
+                    }
                 ) { Text("⋮", style = MaterialTheme.typography.headlineSmall) }
                 DropdownMenu(expanded, onDismissRequest = { expanded = false }) {
                     menu.forEach { action ->

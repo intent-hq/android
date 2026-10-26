@@ -4,7 +4,6 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -30,6 +29,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import dev.intent.app.design.IntentScreen
 import dev.intent.app.design.IntentSpacing
 import dev.intent.app.lists.ListFilters
 import dev.intent.core.protocol.models.Note
@@ -44,7 +44,7 @@ internal fun ContextNoteList(notes: List<Note>, onSelected: (String) -> Unit) {
     val rows = remember(notes, collapsed, query, currentOnly) {
         contextNoteRows(filterContextNotes(notes, query, currentOnly), collapsed)
     }
-    LazyColumn(contentPadding = PaddingValues(IntentSpacing.content)) {
+    LazyColumn(contentPadding = IntentScreen.pageInsets) {
         item {
             ListFilters(query, currentOnly, "Search notes and tasks", { query = it }, {
                 currentOnly =
