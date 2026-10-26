@@ -19,7 +19,8 @@ private class GroupParser(private val streaming: Boolean) {
     private var group: TranscriptSection? = null
     private val tokenPattern = (
         "(?m)^ {0,3}(`{3,}|~{3,})[^\\n]*\\n[\\s\\S]*?(?:^ {0,3}\\1[ \\t]*(?:\\n|$)|\\z)" +
-            "|(`+)[^`]*?\\2|</group(?::[^<>\\n]+)?>|<group:(?<name>[^<>\\n]+)>"
+            "|(`+)[^`]*?\\2|</group(?::[^<>\\n]*)?>|<group:(?<name>[^<>\\n]*)(?:>|(?=</group|\\n)" +
+            (if (streaming) ")" else "|$)")
         )
 
     private val tokens = Regex(
@@ -41,7 +42,7 @@ private class GroupParser(private val streaming: Boolean) {
         tokens.findAll(text).forEach { token ->
             if (token.value.startsWith("<")) {
                 appendText(block, text.substring(cursor, token.range.first), "$index:$ordinal:text")
-                if (token.value.startsWith("<group:") && token.value.endsWith(">")) {
+                if (token.groups["name"] != null) {
                     flush()
                     group =
                         TranscriptSection(
