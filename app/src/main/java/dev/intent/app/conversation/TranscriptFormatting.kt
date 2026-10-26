@@ -5,19 +5,33 @@ import dev.intent.core.protocol.models.ConversationMessage
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonPrimitive
 
-internal data class TranscriptRow(val messages: List<ConversationMessage>) {
-    val id: String get() = messages.first().id
+internal data class TranscriptRow(
+    val messages: List<ConversationMessage>,
+    val id: String = messages.first().id
+)
+
+/** Retain a loaded row's identity when older or live activity extends its group. */
+internal class TranscriptRowGrouping {
+    private var previous = emptyList<TranscriptRow>()
+
+    fun rows(messages: List<ConversationMessage>): List<TranscriptRow> {
+        val keys = previous.map { it.id }.toSet()
+        previous = transcriptRows(messages).map { row ->
+            row.copy(id = row.messages.firstOrNull { it.id in keys }?.id ?: row.id)
+        }
+        return previous
+    }
 }
 
 /** Group adjacent machine notices without merging across a human or assistant reply. */
 internal fun transcriptRows(messages: List<ConversationMessage>): List<TranscriptRow> {
     val rows = mutableListOf<TranscriptRow>()
     messages.forEach { message ->
-        val label = ConversationNoise.label(message)
+        val label = activityLabel(message)
         val previous = rows.lastOrNull()
         if (label != null &&
             previous != null &&
-            ConversationNoise.label(previous.messages.first()) == label
+            activityLabel(previous.messages.first()) == label
         ) {
             rows[rows.lastIndex] = TranscriptRow(previous.messages + message)
         } else {
@@ -26,6 +40,20 @@ internal fun transcriptRows(messages: List<ConversationMessage>): List<Transcrip
     }
     return rows
 }
+
+internal fun ContentBlock.isToolActivity(): Boolean =
+    type in setOf("thinking", "tool_use", "tool_result") && !isQuestion()
+
+internal fun ConversationMessage.isToolActivity(): Boolean =
+    role in setOf("assistant", "tool", "user") &&
+        error == null &&
+        metadata?.get("interruptReason") == null &&
+        metadata?.get("finishReason") == null &&
+        contentBlocks.isNotEmpty() &&
+        contentBlocks.all { it.isToolActivity() }
+
+private fun activityLabel(message: ConversationMessage): String? =
+    if (message.isToolActivity()) "Tool activity" else ConversationNoise.label(message)
 
 internal data class TranscriptTextPart(val text: String, val toolMarkup: Boolean = false)
 

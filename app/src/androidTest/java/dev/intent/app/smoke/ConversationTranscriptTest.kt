@@ -57,6 +57,7 @@ class ConversationTranscriptTest {
         compose.onNodeWithText("Visible answer").assertIsDisplayed()
         compose.onNodeWithText("Private reasoning detail").assertDoesNotExist()
         compose.onNodeWithText("tool payload").assertDoesNotExist()
+        compose.onNodeWithText("▸ Tool activity · 2 items").performClick()
         compose.onNodeWithText("▸ thinking").performClick()
         compose.onNodeWithText("Private reasoning detail").assertIsDisplayed()
         compose.onNodeWithText("▸ read_file").performClick()

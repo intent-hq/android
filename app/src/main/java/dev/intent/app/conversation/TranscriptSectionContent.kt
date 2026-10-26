@@ -34,11 +34,7 @@ internal fun TranscriptSectionContent(
         }
         if (section.name == null || expanded) {
             Column(Modifier.padding(start = if (section.name == null) 0.dp else 12.dp)) {
-                section.blocks.forEachIndexed { index, block ->
-                    androidx.compose.runtime.key(block.id ?: index, index) {
-                        TranscriptBlock(block, block.id in hydrating) { onHydrate(block) }
-                    }
-                }
+                TranscriptSectionBlocks(section.blocks, hydrating, onHydrate)
             }
         }
     }

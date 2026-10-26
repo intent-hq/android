@@ -102,20 +102,42 @@ internal fun TranscriptMessage(
     onSuggestedPrompt: (String) -> Unit
 ) {
     val message = row.messages.first()
+    val activity = message.isToolActivity()
     val notice = remember(message) { ConversationNoise.label(message) }
-    var expanded by remember(message.id) { mutableStateOf(false) }
+    var expanded by androidx.compose.runtime.saveable.rememberSaveable(row.id) {
+        mutableStateOf(false)
+    }
     Column {
-        if (notice != null) {
-            CompactDisclosure(
-                "$notice${if (row.messages.size > 1) " · ${row.messages.size} updates" else ""}",
-                expanded
-            ) { expanded = !expanded }
+        if (activity || notice != null) {
+            val label = if (activity) {
+                toolActivityLabel(row.messages.flatMap { it.contentBlocks })
+            } else {
+                "$notice${if (row.messages.size > 1) " · ${row.messages.size} updates" else ""}"
+            }
+            CompactDisclosure(label, expanded) { expanded = !expanded }
         }
-        if (notice == null || expanded) {
-            row.messages.distinctBy { it.contentBlocks }.forEach {
-                TranscriptMessageContents(it, hydrating, onHydrate, onSuggestedPrompt)
+        if ((!activity && notice == null) || expanded) {
+            val messages = if (activity) {
+                row.messages
+            } else {
+                row.messages.distinctBy {
+                    it.contentBlocks
+                }
+            }
+            messages.forEach {
+                androidx.compose.runtime.key(it.id) {
+                    if (activity) {
+                        TranscriptMetadata(it)
+                        ToolActivityBlocks(it.contentBlocks, hydrating) { block ->
+                            block.id?.let { id -> onHydrate(it.id, id) }
+                        }
+                    } else {
+                        TranscriptMessageContents(it, hydrating, onHydrate, onSuggestedPrompt)
+                    }
+                }
             }
         }
+        if (activity && row.messages.any { it.isStreaming == true }) Text("Response in progress…")
     }
 }
 
@@ -137,7 +159,12 @@ private fun TranscriptMessageContents(
         TranscriptMetadata(message)
         val sections = remember(presentation.blocks, message.isStreaming) {
             if (message.role == "assistant") {
-                transcriptSections(presentation.blocks, message.isStreaming == true)
+                groupToolSections(
+                    transcriptSections(
+                        presentation.blocks,
+                        message.isStreaming == true
+                    )
+                )
             } else {
                 presentation.blocks.mapIndexed { index, block ->
                     TranscriptSection("block:$index", blocks = listOf(block))

@@ -48,7 +48,8 @@ internal fun ConversationTranscript(
     onSuggestedPrompt: (String) -> Unit = {}
 ) {
     val list = rememberLazyListState()
-    val rows = remember(state.messages) { transcriptRows(state.messages) }
+    val grouping = remember { TranscriptRowGrouping() }
+    val rows = remember(state.messages) { grouping.rows(state.messages) }
     val currentRows by rememberUpdatedState(rows)
     var policy by remember { mutableStateOf(TranscriptScrollPolicy()) }
     val currentState by rememberUpdatedState(state)
