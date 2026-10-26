@@ -6,7 +6,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -32,15 +31,13 @@ import dev.intent.app.navigation.ChromeAction
 import dev.intent.app.navigation.CompactAppBar
 import dev.intent.app.navigation.LocalChromeActions
 import dev.intent.app.navigation.LocalChromeBack
-import dev.intent.app.workspaces.LocalOpenRecentWorkspaceAgent
 import dev.intent.app.workspaces.RpcWorkspaceOperations
-import dev.intent.app.workspaces.mostRecentWorkspaceAgent
+import dev.intent.app.workspaces.recentWorkspaceAgentEntry
 import dev.intent.core.protocol.attachments.AttachmentUploadService
 import dev.intent.core.protocol.attachments.RpcAttachmentClient
 import dev.intent.core.protocol.session.RpcSession
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.future.await
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -60,23 +57,8 @@ fun WorkspaceConversations(session: RpcSession, workspaceId: String, onBack: () 
     var selected by rememberSaveable(session, workspaceId) { mutableStateOf<String?>(null) }
     var creating by rememberSaveable(session, workspaceId) { mutableStateOf(false) }
     val creation = remember(session) { NewAgentOptionsStore(RpcWorkspaceOperations(session)) }
-    val openRecent = LocalOpenRecentWorkspaceAgent.current
-    var recentAttempted by rememberSaveable(session, workspaceId) { mutableStateOf(false) }
-    var recentError by remember(session, workspaceId) { mutableStateOf<String?>(null) }
-    LaunchedEffect(session, workspaceId, selected, creating) {
-        if (openRecent && !recentAttempted) {
-            recentAttempted = true
-            try {
-                selected =
-                    mostRecentWorkspaceAgent(
-                        RpcAgentSession(session, workspaceId).list().await()
-                    )?.id
-            } catch (error: CancellationException) {
-                throw error
-            } catch (error: Exception) {
-                recentError = error.message ?: "Cannot open the most recent agent."
-            }
-        }
+    val recentError = recentWorkspaceAgentEntry(session, workspaceId, selected, creating) {
+        selected = it
     }
     DisposableEffect(agents) {
         agents.start()
