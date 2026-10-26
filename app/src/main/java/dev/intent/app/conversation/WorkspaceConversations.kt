@@ -32,8 +32,8 @@ import dev.intent.app.navigation.ChromeAction
 import dev.intent.app.navigation.CompactAppBar
 import dev.intent.app.navigation.LocalChromeActions
 import dev.intent.app.navigation.LocalChromeBack
-import dev.intent.app.workspaces.RpcWorkspaceOperations
 import dev.intent.app.workspaces.LocalOpenRecentWorkspaceAgent
+import dev.intent.app.workspaces.RpcWorkspaceOperations
 import dev.intent.app.workspaces.mostRecentWorkspaceAgent
 import dev.intent.core.protocol.attachments.AttachmentUploadService
 import dev.intent.core.protocol.attachments.RpcAttachmentClient

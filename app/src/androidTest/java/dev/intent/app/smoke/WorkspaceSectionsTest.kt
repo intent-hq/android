@@ -63,12 +63,15 @@ class WorkspaceSectionsTest {
         compose.recreateActivity()
         compose.runOnIdle { dark.value = true }
         compose.onNodeWithText("Changes").assertIsSelected()
+        waitForVisibleText(commitAnchor)
         compose.onNodeWithText(commitAnchor).assertIsDisplayed()
         compose.onNodeWithText("Context").performClick()
+        waitForVisibleText(noteAnchor)
         compose.onNodeWithText(noteAnchor).assertIsDisplayed()
         compose.onNode(hasScrollAction()).performScrollToIndex(0)
         compose.onNode(hasSetTextAction()).assertTextContains("Plan")
         compose.onNodeWithText("Agents").performClick()
+        waitForVisibleText(agentAnchor)
         compose.onNodeWithText(agentAnchor).assertIsDisplayed()
         compose.onNode(hasScrollAction()).performScrollToIndex(0)
         compose.onNode(hasSetTextAction()).assertTextContains("Agent")
@@ -131,6 +134,12 @@ class WorkspaceSectionsTest {
                 }?.let { node.boundsInRoot.top to it.text }
             }
         return rows.minBy { it.first }.second
+    }
+
+    private fun waitForVisibleText(text: String) {
+        compose.waitUntil(TIMEOUT) {
+            runCatching { compose.onNodeWithText(text).assertIsDisplayed() }.isSuccess
+        }
     }
 
     private fun waitForText(text: String) {
