@@ -85,6 +85,7 @@ internal fun ContextNoteList(
                     Text(
                         if (filesExpanded) "Files ⌄" else "Files ›",
                         Modifier.fillMaxWidth(),
+                        color = IntentScreen.text,
                         style = MaterialTheme.typography.titleSmall
                     )
                 }

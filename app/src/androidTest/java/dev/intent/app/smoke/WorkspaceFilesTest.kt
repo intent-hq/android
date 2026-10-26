@@ -21,11 +21,13 @@ import dev.intent.app.testing.createIntentComposeRule
 import dev.intent.core.protocol.JsonRpcMessage
 import dev.intent.core.protocol.WssTransport
 import dev.intent.core.protocol.session.RpcSession
+import dev.intent.core.protocol.session.SessionState
 import dev.intent.core.protocol.session.SessionTransport
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.util.Base64
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
@@ -87,6 +89,13 @@ class WorkspaceFilesTest {
     fun emptyFoldersAndUnsupportedPreviewHaveClearStates() = connected {
         scrollTo("files.folder.empty")
         compose.onNodeWithTag("files.folder.empty").performClick()
+        compose.waitUntil(TIMEOUT) {
+            compose.onAllNodes(androidx.compose.ui.test.hasText("Empty folder"))
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNode(
+            hasScrollAction()
+        ).performScrollToNode(androidx.compose.ui.test.hasText("Empty folder"))
         compose.onNodeWithText("Empty folder").assertIsDisplayed()
         scrollTo("files.file.report.pdf")
         compose.onNodeWithTag("files.file.report.pdf").performClick()
@@ -118,12 +127,19 @@ class WorkspaceFilesTest {
 
     private fun connected(test: (FilesTestServer) -> Unit) {
         lateinit var server: FilesTestServer
+        val ready = AtomicBoolean(false)
         RpcSession({
             FilesTestServer(it).also { fixture -> server = fixture }
-        }, JsonObject(emptyMap())).use { session ->
+        }, JsonObject(emptyMap()), onState = {
+            ready.set(it == SessionState.READY)
+        }).use { session ->
             session.connect()
+            compose.waitUntil(TIMEOUT) { ready.get() }
             compose.setContent { IntentTheme { NoteListRoute(session, "workspace", {}) } }
-            compose.waitUntil(TIMEOUT) { server.paths("file.list").isNotEmpty() }
+            compose.waitUntil(TIMEOUT) {
+                compose.onAllNodes(androidx.compose.ui.test.hasText("Search notes and tasks"))
+                    .fetchSemanticsNodes().isNotEmpty()
+            }
             test(server)
         }
     }

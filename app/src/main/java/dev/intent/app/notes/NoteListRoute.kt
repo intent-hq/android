@@ -1,6 +1,8 @@
 package dev.intent.app.notes
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -66,35 +68,42 @@ fun NoteListRoute(
         onDispose { store.close() }
     }
     NoteListScreen(
-        state.copy(loading = state.loading || filesState.loading.isNotEmpty()),
+        state,
         {
             store.refresh()
             files.refresh()
         },
         onSelected,
         modifier,
-        files = { workspaceFiles(filesState, files::toggle, files::retry) { selectedFile = it } }
+        files = { workspaceFiles(filesState, files::toggle, files::retry) { selectedFile = it } },
+        refreshingFiles = filesState.loading.isNotEmpty()
     )
 }
 
+@Suppress("LongParameterList") // Note hydration and folder refresh have separate loading states.
 @Composable
 internal fun NoteListScreen(
     state: NoteListState,
     onRefresh: () -> Unit,
     onSelected: (String) -> Unit,
     modifier: Modifier = Modifier,
-    files: (LazyListScope.() -> Unit)? = null
+    files: (LazyListScope.() -> Unit)? = null,
+    refreshingFiles: Boolean = false
 ) {
     Column(modifier) {
         WorkspaceSectionAppBar("Context")
-        RefreshableList(state.loading, onRefresh) {
-            ContextNoteList(
-                state.notes,
-                onSelected,
-                loading = state.loading,
-                error = state.error,
-                files = files
-            )
+        RefreshableList(state.loading || refreshingFiles, onRefresh) {
+            if (state.loading && state.notes.isEmpty()) {
+                Spacer(Modifier.fillMaxSize())
+            } else {
+                ContextNoteList(
+                    state.notes,
+                    onSelected,
+                    loading = state.loading,
+                    error = state.error,
+                    files = files
+                )
+            }
         }
     }
 }
