@@ -6,7 +6,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
-data class CreationChoice(val id: String, val name: String)
+data class CreationChoice(val id: String, val name: String, val selectable: Boolean = true)
 data class CreationOptions(
     val providers: List<CreationChoice>,
     val specialists: List<CreationChoice>
@@ -46,7 +46,7 @@ class CreationOptionsStore(private val operations: WorkspaceOperations) {
         operations.request("specialist.list").rows("specialists").map { it.choice() }
     )
 
-    private fun loadProviders(): List<CreationChoice> {
+    fun loadProviders(): List<CreationChoice> {
         val catalog = operations.request("providers.catalog").rows("providers")
         val settings = operations.request(
             "settings.get",
@@ -79,7 +79,7 @@ class CreationOptionsStore(private val operations: WorkspaceOperations) {
                 JsonPrimitive(false) -> " (sign in on host)"
                 else -> " (sign-in status unknown)"
             }
-            choice.copy(name = choice.name + suffix)
+            choice.copy(name = choice.name + suffix, selectable = auth != JsonPrimitive(false))
         }
     }
 

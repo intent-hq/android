@@ -16,15 +16,21 @@ import androidx.compose.ui.platform.LocalContext
 import dev.intent.app.agents.AgentListRoute
 import dev.intent.app.agents.AgentStore
 import dev.intent.app.agents.LocalConversationAgent
+import dev.intent.app.agents.NewAgentOptionsStore
+import dev.intent.app.agents.NewAgentScreen
 import dev.intent.app.agents.RpcAgentSession
 import dev.intent.app.attachments.AndroidPhotoSource
 import dev.intent.app.attachments.PhotoAttachmentStore
+import dev.intent.app.navigation.ChromeAction
 import dev.intent.app.navigation.CompactAppBar
+import dev.intent.app.navigation.LocalChromeActions
 import dev.intent.app.navigation.LocalChromeBack
+import dev.intent.app.workspaces.RpcWorkspaceOperations
 import dev.intent.core.protocol.attachments.AttachmentUploadService
 import dev.intent.core.protocol.attachments.RpcAttachmentClient
 import dev.intent.core.protocol.session.RpcSession
 
+@Suppress("LongMethod") // List, creation, and conversation destinations share selection state.
 @Composable
 fun WorkspaceConversations(session: RpcSession, workspaceId: String, onBack: () -> Unit) {
     val listState = rememberSaveableStateHolder()
@@ -33,12 +39,27 @@ fun WorkspaceConversations(session: RpcSession, workspaceId: String, onBack: () 
             AgentStore(RpcAgentSession(session, workspaceId), workspaceId)
         }
     var selected by rememberSaveable(session, workspaceId) { mutableStateOf<String?>(null) }
+    var creating by rememberSaveable(session, workspaceId) { mutableStateOf(false) }
+    val creation = remember(session) { NewAgentOptionsStore(RpcWorkspaceOperations(session)) }
     DisposableEffect(agents) { onDispose { agents.close() } }
     BackHandler(selected != null) { selected = null }
     Column {
         val agentId = selected
-        if (agentId == null) {
-            CompositionLocalProvider(LocalChromeBack provides onBack) {
+        if (creating) {
+            NewAgentScreen(creation, workspaceId, { creating = false }) {
+                creating = false
+                agents.refresh()
+                selected = it
+            }
+        } else if (agentId == null) {
+            CompositionLocalProvider(
+                LocalChromeBack provides onBack,
+                LocalChromeActions provides
+                    (
+                        listOf(ChromeAction("New agent") { creating = true }) +
+                            LocalChromeActions.current
+                        )
+            ) {
                 listState.SaveableStateProvider("agents") {
                     AgentListRoute(agents, { selected = it })
                 }
