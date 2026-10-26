@@ -16,6 +16,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
@@ -25,32 +28,60 @@ import dev.intent.app.design.IntentScreen
 import dev.intent.app.design.IntentSpacing
 import dev.intent.app.design.IntentTheme
 import dev.intent.app.lists.RefreshableList
+import dev.intent.app.navigation.ChromeAction
 import dev.intent.app.navigation.CompactAppBar
 import dev.intent.core.protocol.models.Workspace
 
+@Suppress("LongParameterList", "LongMethod")
 @Composable
 fun WorkspaceListRoute(
     store: WorkspaceStore,
     onWorkspaceSelected: (String) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onOpenRecent: (String) -> Unit = onWorkspaceSelected,
+    onAction: (Workspace, WorkspaceAction) -> Unit = { _, _ -> },
+    updatingId: String? = null
 ) {
     val state by store.state.collectAsState()
     DisposableEffect(store) {
         store.start()
         onDispose { store.stop() }
     }
-    WorkspaceListScreen(state, store::refresh, onWorkspaceSelected, modifier)
+    WorkspaceListScreen(
+        state,
+        store::refresh,
+        onWorkspaceSelected,
+        modifier,
+        onOpenRecent,
+        onAction,
+        updatingId
+    )
 }
 
+@Suppress("LongParameterList", "LongMethod")
 @Composable
 fun WorkspaceListScreen(
     state: WorkspaceListState,
     onRefresh: () -> Unit,
     onWorkspaceSelected: (String) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onOpenRecent: (String) -> Unit = onWorkspaceSelected,
+    onAction: (Workspace, WorkspaceAction) -> Unit = { _, _ -> },
+    updatingId: String? = null
 ) {
+    var showArchived by rememberSaveable { mutableStateOf(false) }
+    var revealedId by rememberSaveable { mutableStateOf<String?>(null) }
+    val rows = state.workspaces.filter { showArchived || !it.status.equals("Archived", true) }
     Column(modifier) {
-        CompactAppBar("Workspaces")
+        CompactAppBar(
+            "Workspaces",
+            actions = listOf(
+                ChromeAction(if (showArchived) "Hide archived" else "Show archived") {
+                    showArchived = !showArchived
+                    revealedId = null
+                }
+            )
+        )
         RefreshableList(state.isLoading, onRefresh) {
             LazyColumn(
                 Modifier.fillMaxSize(),
@@ -58,11 +89,19 @@ fun WorkspaceListScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 state.error?.let { item { Text(it, color = MaterialTheme.colorScheme.error) } }
-                if (!state.isLoading && state.error == null && state.workspaces.isEmpty()) {
+                if (!state.isLoading && state.error == null && rows.isEmpty()) {
                     item { Text("No workspaces yet") }
                 }
-                items(state.workspaces, key = { it.id }) { workspace ->
-                    WorkspaceRow(workspace) { onWorkspaceSelected(workspace.id) }
+                items(rows, key = { it.id }) { workspace ->
+                    WorkspaceSwipeRow(
+                        workspace = workspace,
+                        enabled = updatingId != workspace.id,
+                        revealed = revealedId == workspace.id,
+                        onReveal = { revealedId = if (it) workspace.id else null },
+                        onClick = { onWorkspaceSelected(workspace.id) },
+                        onOpenRecent = { onOpenRecent(workspace.id) },
+                        onAction = { onAction(workspace, it) }
+                    ) { WorkspaceRow(workspace) }
                 }
             }
         }
@@ -70,9 +109,8 @@ fun WorkspaceListScreen(
 }
 
 @Composable
-private fun WorkspaceRow(workspace: Workspace, onClick: () -> Unit) {
+private fun WorkspaceRow(workspace: Workspace) {
     Surface(
-        onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
         color = IntentScreen.surface,

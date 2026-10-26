@@ -89,6 +89,7 @@ class WorkspaceSectionsTest {
         back()
         compose.onNodeWithText("Agents").assertIsSelected()
         compose.onNodeWithText("Context").performClick()
+        waitForText("Plan 1")
         compose.onNodeWithText("Plan 1").performClick()
         compose.onNodeWithText("Note body").assertIsDisplayed()
         back()

@@ -7,6 +7,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -19,8 +20,12 @@ import dev.intent.app.connection.SavedConnection
 import dev.intent.app.git.LocalWorkspaceRepository
 import dev.intent.app.git.repositoryLabel
 import dev.intent.app.workspaces.CreationOptionsStore
+import dev.intent.app.workspaces.LocalOpenRecentWorkspaceAgent
 import dev.intent.app.workspaces.RpcWorkspaceOperations
 import dev.intent.app.workspaces.RpcWorkspaceSession
+import dev.intent.app.workspaces.WorkspaceAction
+import dev.intent.app.workspaces.WorkspaceActionDialog
+import dev.intent.app.workspaces.WorkspaceActionStore
 import dev.intent.app.workspaces.WorkspaceCreateScreen
 import dev.intent.app.workspaces.WorkspaceListRoute
 import dev.intent.app.workspaces.WorkspaceStore
@@ -28,7 +33,8 @@ import dev.intent.app.workspaces.WorkspaceTransferScreen
 import dev.intent.core.protocol.session.RpcSession
 
 /** The connection owner supplies a paired session when the connection flow is available. */
-@Suppress("LongParameterList", "LongMethod") // Connection-scoped navigation state and destinations.
+// Connection-scoped navigation state and destinations.
+@Suppress("LongParameterList", "LongMethod", "CyclomaticComplexMethod")
 @Composable
 fun IntentNavigation(
     session: RpcSession? = null,
@@ -53,8 +59,17 @@ fun IntentNavigation(
         return
     }
     val store = remember(session, cache) { WorkspaceStore(RpcWorkspaceSession(session), cache) }
+    val lifecycle = remember(store, session) {
+        WorkspaceActionStore(store) { method, params -> session.request(method, params) }
+    }
+    val lifecycleState by lifecycle.state.collectAsState()
+    DisposableEffect(lifecycle) { onDispose { lifecycle.close() } }
+    var openRecent by rememberSaveable(session) { mutableStateOf(false) }
     var selectedWorkspace by rememberSaveable(session, initialWorkspace) {
         mutableStateOf(initialWorkspace)
+    }
+    LaunchedEffect(lifecycleState.removedId) {
+        if (lifecycleState.removedId == selectedWorkspace) selectedWorkspace = null
     }
     DisposableEffect(store) {
         store.start()
@@ -82,8 +97,18 @@ fun IntentNavigation(
     } else {
         ChromeAction("Transfer workspace", !operationBusy) { transferring = true }
     }
+    val selectedRow = workspaceState.workspaces.firstOrNull { it.id == selected }
+    val lifecycleActions = selectedRow?.let { workspace ->
+        WorkspaceAction.entries.map { action ->
+            ChromeAction("${action.label} workspace", !lifecycleState.busy) {
+                lifecycle.begin(workspace, action)
+            }
+        }
+    }.orEmpty()
+    WorkspaceActionDialog(lifecycleState, lifecycle)
     CompositionLocalProvider(
-        LocalChromeActions provides (listOf(workspaceAction) + inheritedActions),
+        LocalOpenRecentWorkspaceAgent provides openRecent,
+        LocalChromeActions provides (lifecycleActions + listOf(workspaceAction) + inheritedActions),
         LocalWorkspaceRepository provides
             repositoryLabel(workspaceState.workspaces.firstOrNull { it.id == selected }),
         LocalWorkspaceDetails provides workspaceState.workspaces.firstOrNull { it.id == selected },
@@ -99,7 +124,19 @@ fun IntentNavigation(
                         creating = false
                     }
                 }
-                selected == null -> WorkspaceListRoute(store, { selectedWorkspace = it })
+                selected == null -> WorkspaceListRoute(
+                    store,
+                    {
+                        openRecent = false
+                        selectedWorkspace = it
+                    },
+                    onOpenRecent = {
+                        openRecent = true
+                        selectedWorkspace = it
+                    },
+                    onAction = lifecycle::begin,
+                    updatingId = lifecycleState.workspace?.id.takeIf { lifecycleState.busy }
+                )
                 transferring -> {
                     CompactAppBar("Transfer workspace", onBack = back)
                     WorkspaceTransferScreen(session, selected, destinations, onBusy = {

@@ -22,6 +22,7 @@ import dev.intent.app.notes.NoteListRoute
 import dev.intent.app.notes.NoteReaderRoute
 import dev.intent.app.notes.SessionNoteSource
 import dev.intent.app.terminals.WorkspaceTerminals
+import dev.intent.app.workspaces.LocalOpenRecentWorkspaceAgent
 import dev.intent.app.workspaces.WorkspaceDetailScreen
 import dev.intent.core.protocol.session.RpcSession
 
@@ -38,15 +39,20 @@ fun WorkspaceContent(
     val preferences = remember(context, sectionScope) {
         WorkspaceSectionPreferences(context, sectionScope)
     }
+    val openRecent = LocalOpenRecentWorkspaceAgent.current
     var destination by rememberSaveable(
         session,
         workspaceId,
         stateSaver = workspaceDestinationSaver
     ) {
-        mutableStateOf(preferences.load(workspaceId))
+        mutableStateOf(
+            if (openRecent) WorkspaceDestination.Conversations else preferences.load(workspaceId)
+        )
     }
     var section by rememberSaveable(session, workspaceId, stateSaver = workspaceDestinationSaver) {
-        mutableStateOf(preferences.load(workspaceId))
+        mutableStateOf(
+            if (openRecent) WorkspaceDestination.Conversations else preferences.load(workspaceId)
+        )
     }
     val savedState = rememberSaveableStateHolder()
     val source = remember(session) { SessionNoteSource(session) }

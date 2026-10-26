@@ -120,6 +120,22 @@ class WorkspaceStore(
         }
     }
 
+    /** Fence older list reads before applying a server-confirmed mutation. */
+    @Synchronized
+    internal fun confirmChange(id: String, title: String? = null, archived: Boolean = false) {
+        if (closed) return
+        revision++
+        val rows = state.value.workspaces.mapNotNull {
+            when {
+                it.id != id -> it
+                title != null -> it.copy(title = title)
+                archived -> it.copy(status = "Archived")
+                else -> null
+            }
+        }
+        publish(rows)
+    }
+
     @Synchronized
     fun stop() {
         subscriptionGeneration++
