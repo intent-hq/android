@@ -89,7 +89,7 @@ class ConversationTranscriptTest {
     }
 
     @Test
-    fun topLoadsHistoryOnceAndPullRefreshHasNoButton() {
+    fun topLoadsHistoryWithoutRefreshingWhileMorePagesExist() {
         var loads = 0
         var refreshes = 0
         show(
@@ -103,7 +103,7 @@ class ConversationTranscriptTest {
         compose.onNodeWithTag("transcript").performTouchInput { swipeDown() }
         compose.runOnIdle {
             assertEquals(1, loads)
-            assertEquals(1, refreshes)
+            assertEquals(0, refreshes)
         }
         compose.onNodeWithText("Refresh").assertDoesNotExist()
         compose.onNodeWithText("Load older messages").assertDoesNotExist()

@@ -77,6 +77,40 @@ class ConversationStoreTest {
     }
 
     @Test
+    fun manualRefreshKeepsLoadedPrefixAndCursorButUpdatesSnapshotTail() {
+        start()
+        store.loadOlder()
+        session.pages.single().complete(
+            ConversationPage("agent", listOf(row("old")), nextToken = null)
+        )
+        store.refresh()
+        session.admit()
+        snapshot(listOf(row(text = "Refreshed"), row("new")))
+        assertEquals(listOf("old", "m", "new"), store.state.value.messages.map { it.id })
+        assertEquals("Refreshed", store.state.value.messages[1].contentBlocks.single().text)
+        assertEquals(null, store.state.value.nextToken)
+        // A later server snapshot is still authoritative; retention is one-shot.
+        snapshot(listOf(row("replacement")))
+        assertEquals(listOf("replacement"), store.state.value.messages.map { it.id })
+    }
+
+    @Test
+    fun refreshWithoutOverlapAndReconnectBeforeSnapshotDoNotKeepStaleHistory() {
+        start()
+        store.refresh()
+        session.admit()
+        snapshot(listOf(row("replacement")))
+        assertEquals(listOf("replacement"), store.state.value.messages.map { it.id })
+        store.loadOlder()
+        session.pages.single().complete(ConversationPage("agent", listOf(row("old"))))
+        store.refresh()
+        session.admit()
+        session.admit()
+        snapshot(listOf(row("replacement")))
+        assertEquals(listOf("replacement"), store.state.value.messages.map { it.id })
+    }
+
+    @Test
     fun fullDeltasReplaceAndTerminalSettles() {
         start()
         delta("Hello world")

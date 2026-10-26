@@ -13,7 +13,9 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.pullToRefresh
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -86,10 +88,16 @@ internal fun ConversationTranscript(
         policy = policy.contentChanged(state.messages.lastOrNull())
         if (policy.following && state.messages.isNotEmpty()) list.scrollToItem(0)
     }
-    PullToRefreshBox(
-        isRefreshing = state.isLoading,
-        onRefresh = onRefresh,
-        modifier = modifier.nestedScroll(gestures)
+    val refresh = rememberPullToRefreshState()
+    // Downward overscroll at a page boundary means read older, never discard loaded history.
+    val canRefresh = state.nextToken == null && !state.loadingOlder
+    Box(
+        modifier = modifier.nestedScroll(gestures).pullToRefresh(
+            isRefreshing = state.isLoading,
+            state = refresh,
+            enabled = canRefresh,
+            onRefresh = onRefresh
+        )
     ) {
         LazyColumn(
             state = list,
@@ -100,6 +108,13 @@ internal fun ConversationTranscript(
             items(rows.asReversed(), key = { it.id }) { row ->
                 TranscriptMessage(row, state.hydrating, onHydrate, onSuggestedPrompt)
             }
+        }
+        if (canRefresh) {
+            PullToRefreshDefaults.Indicator(
+                state = refresh,
+                isRefreshing = state.isLoading,
+                modifier = Modifier.align(Alignment.TopCenter)
+            )
         }
         if (state.loadingOlder) {
             CircularProgressIndicator(Modifier.align(Alignment.TopCenter).size(24.dp))

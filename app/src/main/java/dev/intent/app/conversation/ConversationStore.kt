@@ -24,14 +24,23 @@ class ConversationStore(private val session: ConversationSession, private val ag
     private var generation = 0L
     private var epoch = 0L
     private var closed = false
+    private var refreshHistory: ConversationState? = null
 
     @Synchronized
     fun start() {
         if (closed || lease != null) return
         val current = ++generation
+        var subscribed = false
         lease = session.subscribe(
             { push -> guarded(current) { apply(push) } },
-            { guarded(current) { resetPending() } },
+            {
+                guarded(current) {
+                    // Only the requested refresh retains history, not a later reconnect.
+                    if (subscribed) refreshHistory = null
+                    subscribed = true
+                    resetPending()
+                }
+            },
             { guarded(current) { fail() } }
         )
     }
@@ -58,8 +67,19 @@ class ConversationStore(private val session: ConversationSession, private val ag
         if (snapshot != null) {
             if (snapshot.agentId != agentId) return
             epoch++
+            val retained = refreshHistory
+            refreshHistory = null
+            val messages = snapshot.messages.distinctBy { it.id }
+            val overlap = retained?.messages?.indexOfFirst { it.id == messages.firstOrNull()?.id }
+                ?: -1
+            // Refresh the authoritative tail while retaining earlier pages and their cursor.
+            val prefix = retained?.messages?.takeIf { overlap > 0 }?.take(overlap).orEmpty()
             mutableState.value =
-                ConversationState(snapshot.messages.distinctBy { it.id }, snapshot.nextToken, false)
+                ConversationState(
+                    prefix + messages,
+                    if (prefix.isNotEmpty()) retained?.nextToken else snapshot.nextToken,
+                    false
+                )
         } else if (delta != null && !state.value.isLoading) {
             mutableState.value = state.value.copy(
                 messages = reduceConversation(state.value.messages, delta, agentId),
@@ -139,6 +159,7 @@ class ConversationStore(private val session: ConversationSession, private val ag
     }
 
     private fun fail() {
+        refreshHistory = null
         mutableState.value =
             state.value.copy(
                 isLoading = false,
@@ -149,12 +170,15 @@ class ConversationStore(private val session: ConversationSession, private val ag
 
     @Synchronized
     fun refresh() {
+        val history = state.value
         stop()
+        refreshHistory = history
         start()
     }
 
     @Synchronized
     fun stop() {
+        refreshHistory = null
         generation++
         resetPending()
         lease?.close()
