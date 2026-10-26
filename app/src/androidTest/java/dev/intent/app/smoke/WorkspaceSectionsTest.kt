@@ -4,8 +4,15 @@ import android.content.Context
 import android.content.pm.ActivityInfo
 import android.view.KeyEvent
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.assertTextContains
+import androidx.compose.ui.test.hasSetTextAction
+import androidx.compose.ui.test.performScrollToIndex
+import androidx.compose.ui.test.click
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -13,6 +20,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTouchInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry
@@ -39,22 +47,31 @@ class WorkspaceSectionsTest {
         compose.onNodeWithText("Search agents").performTextInput("Agent")
         compose.onNode(hasScrollAction()).performScrollToNode(hasText("Agent 35"))
         compose.onNodeWithText("Agent 35").assertIsDisplayed()
+        val agentAnchor = firstVisibleRow("Agent ")
         compose.onNodeWithText("Context").performClick()
+        waitForText("Search notes and tasks")
         compose.onNodeWithText("Search notes and tasks").performTextInput("Plan")
         compose.onNode(hasScrollAction()).performScrollToNode(hasText("Plan 35"))
         compose.onNodeWithText("Plan 35").assertIsDisplayed()
+        val noteAnchor = firstVisibleRow("Plan ")
         compose.onNodeWithText("Changes").performClick()
         compose.onNodeWithText("Changes").assertIsSelected()
+        waitForText("Commit history")
         compose.onNode(hasScrollAction()).performScrollToNode(hasText("Commit 35"))
+        val commitAnchor = firstVisibleRow("Commit ")
         rotate()
         compose.recreateActivity()
         compose.runOnIdle { dark.value = true }
         compose.onNodeWithText("Changes").assertIsSelected()
-        compose.onNodeWithText("Commit 35").assertIsDisplayed()
+        compose.onNodeWithText(commitAnchor).assertIsDisplayed()
         compose.onNodeWithText("Context").performClick()
-        compose.onNodeWithText("Plan 35").assertIsDisplayed()
+        compose.onNodeWithText(noteAnchor).assertIsDisplayed()
+        compose.onNode(hasScrollAction()).performScrollToIndex(0)
+        compose.onNode(hasSetTextAction()).assertTextContains("Plan")
         compose.onNodeWithText("Agents").performClick()
-        compose.onNodeWithText("Agent 35").assertIsDisplayed()
+        compose.onNodeWithText(agentAnchor).assertIsDisplayed()
+        compose.onNode(hasScrollAction()).performScrollToIndex(0)
+        compose.onNode(hasSetTextAction()).assertTextContains("Agent")
         back()
         compose.onNodeWithText("Workspaces").assertIsDisplayed()
     }
@@ -64,6 +81,11 @@ class WorkspaceSectionsTest {
         openWorkspace()
         compose.onNodeWithText("Agent 1").performClick()
         compose.onNodeWithText("Message").assertIsDisplayed()
+        compose.onNodeWithText("Linked plan").performTouchInput { click(Offset(20f, center.y)) }
+        compose.onNodeWithText("Note body").assertIsDisplayed()
+        back()
+        compose.onNodeWithText("Message").assertIsDisplayed()
+        compose.onNodeWithText("Linked plan").assertIsDisplayed()
         back()
         compose.onNodeWithText("Agents").assertIsSelected()
         compose.onNodeWithText("Context").performClick()
@@ -99,6 +121,23 @@ class WorkspaceSectionsTest {
         compose.onNodeWithText("Workspaces").assertIsDisplayed()
     }
 
+    private fun firstVisibleRow(prefix: String): String {
+        val rows = compose.onAllNodes(hasText(prefix, substring = true)).fetchSemanticsNodes()
+            .filter { it.boundsInRoot.height > 0 }
+            .mapNotNull { node ->
+                node.config.getOrNull(SemanticsProperties.Text)?.firstOrNull {
+                    it.text.startsWith(prefix) && it.text.removePrefix(prefix).toIntOrNull() != null
+                }?.let { node.boundsInRoot.top to it.text }
+            }
+        return rows.minBy { it.first }.second
+    }
+
+    private fun waitForText(text: String) {
+        compose.waitUntil(TIMEOUT) {
+            compose.onAllNodes(hasText(text)).fetchSemanticsNodes().isNotEmpty()
+        }
+    }
+
     private fun openWorkspace() {
         compose.onNodeWithText("Android smoke workspace").performClick()
         compose.waitUntil(TIMEOUT) {
@@ -118,7 +157,10 @@ class WorkspaceSectionsTest {
 
     private fun connected(notification: Boolean = false, test: () -> Unit) {
         InstrumentationRegistry.getInstrumentation().targetContext
-            .getSharedPreferences("workspace-sections", Context.MODE_PRIVATE).edit().clear().commit()
+            .getSharedPreferences(
+                "workspace-sections",
+                Context.MODE_PRIVATE
+            ).edit().clear().commit()
         val repository = MemoryConnections()
         val saved = repository.add(
             PairingPayload(listOf("desktop.test"), 443, "smoke-token", "AB".repeat(32))
@@ -164,8 +206,14 @@ class WorkspaceSectionsTest {
             "comment.unsubscribe" to "{}",
             "agent.getQueue" to """{"success":true,"queue":[]}""",
             "agent.get" to """{"agent":{"id":"agent-1","name":"Agent 1"}}""",
-            "agent.getConversation" to """{"agentId":"agent-1","messages":[]}""",
+            "agent.getConversation" to """{"agentId":"agent-1","messages":[
+                {"id":"message-1","role":"assistant","contentBlocks":[
+                {"type":"text","text":"[Linked plan](intent://local/note/note-1)"}]}]}""",
             "chat.subscribe" to """{"subscriptionId":"chat"}""",
+            "chat.snapshot" to """{"subscriptionId":"chat","kind":"snapshot","seq":0,
+                "snapshot":{"agentId":"agent-1","messages":[
+                {"id":"message-1","role":"assistant","contentBlocks":[
+                {"type":"text","text":"[Linked plan](intent://local/note/note-1)"}]}]}}""",
             "chat.unsubscribe" to "{}",
             "git.status" to """{"branch":"main","files":[
                 {"path":"app.kt","status":"M","staged":false}]}""",
@@ -173,7 +221,7 @@ class WorkspaceSectionsTest {
                 """{"hash":"commit-$it","message":"Commit $it"}"""
             }}]}""",
             "git.diffs" to "[]",
-            "terminal.list" to """{"terminals":[]}"""
+            "terminal.list" to """{"terminals":[],"daemonBootId":"smoke-boot"}"""
         )
     }
 }

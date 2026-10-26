@@ -4,7 +4,10 @@ import android.content.Context
 
 /** Store only the section, never a child screen, and isolate paired daemon accounts. */
 internal class WorkspaceSectionPreferences(context: Context, private val scope: String) {
-    private val preferences = context.getSharedPreferences("workspace-sections", Context.MODE_PRIVATE)
+    private val preferences = context.getSharedPreferences(
+        "workspace-sections",
+        Context.MODE_PRIVATE
+    )
 
     fun load(workspaceId: String): WorkspaceDestination =
         workspaceDestination(preferences.getString("$scope:$workspaceId", null).orEmpty())

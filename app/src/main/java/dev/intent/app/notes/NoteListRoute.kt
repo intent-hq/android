@@ -1,6 +1,8 @@
 package dev.intent.app.notes
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
@@ -51,7 +53,16 @@ internal fun NoteListScreen(
     Column(modifier) {
         WorkspaceSectionAppBar("Context")
         RefreshableList(state.loading, onRefresh) {
-            ContextNoteList(state.notes, onSelected, loading = state.loading, error = state.error)
+            if (state.loading && state.notes.isEmpty()) {
+                Spacer(Modifier.fillMaxSize())
+            } else {
+                ContextNoteList(
+                    state.notes,
+                    onSelected,
+                    loading = state.loading,
+                    error = state.error
+                )
+            }
         }
     }
 }

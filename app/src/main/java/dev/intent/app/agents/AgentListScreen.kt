@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -75,43 +76,47 @@ fun AgentListScreen(
     Column(modifier) {
         WorkspaceSectionAppBar("Agents")
         RefreshableList(state.isLoading, onRefresh) {
-            LazyColumn(
-                Modifier.fillMaxSize(),
-                contentPadding = IntentScreen.pageInsets,
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                state.error?.let { item { Text(it, color = MaterialTheme.colorScheme.error) } }
-                if (!state.isLoading && state.error == null && state.agents.isEmpty()) {
-                    item { Text("No agents yet") }
+            if (state.isLoading && state.agents.isEmpty()) {
+                Spacer(Modifier.fillMaxSize())
+            } else {
+                LazyColumn(
+                    Modifier.fillMaxSize(),
+                    contentPadding = IntentScreen.pageInsets,
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    state.error?.let { item { Text(it, color = MaterialTheme.colorScheme.error) } }
+                    if (!state.isLoading && state.error == null && state.agents.isEmpty()) {
+                        item { Text("No agents yet") }
+                    }
+                    item {
+                        ListFilters(query, currentOnly, "Search agents", { query = it }, {
+                            currentOnly =
+                                it
+                        })
+                    }
+                    if (rows.isEmpty() && (query.isNotBlank() || currentOnly)) {
+                        item { Text("No matching agents. Change the search or select All.") }
+                    }
+                    items(rows, key = { it.agent.id }) { row ->
+                        AgentTreeItem(
+                            row,
+                            row.agent.id !in collapsed,
+                            onToggle = {
+                                collapsed = ArrayList(
+                                    if (row.agent.id in
+                                        collapsed
+                                    ) {
+                                        collapsed - row.agent.id
+                                    } else {
+                                        collapsed + row.agent.id
+                                    }
+                                )
+                            },
+                            onClick = { onAgentSelected(row.agent.id) }
+                        )
+                    }
+                    if (resources != null) item { resources() }
                 }
-                item {
-                    ListFilters(query, currentOnly, "Search agents", { query = it }, {
-                        currentOnly =
-                            it
-                    })
-                }
-                if (rows.isEmpty() && (query.isNotBlank() || currentOnly)) {
-                    item { Text("No matching agents. Change the search or select All.") }
-                }
-                items(rows, key = { it.agent.id }) { row ->
-                    AgentTreeItem(
-                        row,
-                        row.agent.id !in collapsed,
-                        onToggle = {
-                            collapsed = ArrayList(
-                                if (row.agent.id in
-                                    collapsed
-                                ) {
-                                    collapsed - row.agent.id
-                                } else {
-                                    collapsed + row.agent.id
-                                }
-                            )
-                        },
-                        onClick = { onAgentSelected(row.agent.id) }
-                    )
-                }
-                if (resources != null) item { resources() }
             }
         }
     }

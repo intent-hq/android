@@ -32,6 +32,13 @@ internal class SmokeServer(
             else -> error("Unexpected smoke request: ${request.method}")
         }
         listener.onMessage(JsonRpcMessage.Success(request.id, Json.parseToJsonElement(result)))
+        if (request.method == "chat.subscribe") {
+            responses["chat.snapshot"]?.let {
+                listener.onMessage(
+                    JsonRpcMessage.Notification("subscription.push", Json.parseToJsonElement(it))
+                )
+            }
+        }
         return true
     }
 }

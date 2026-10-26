@@ -3,6 +3,7 @@ package dev.intent.app.git
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.lazy.LazyColumn
@@ -36,76 +37,85 @@ fun GitScreen(
     Column(Modifier.fillMaxSize()) {
         WorkspaceSectionAppBar("Changes")
         RefreshableList(state.loading, onRefresh) {
-            LazyColumn(
-                Modifier.fillMaxSize(),
-                contentPadding = IntentScreen.pageInsets,
-                verticalArrangement = Arrangement.spacedBy(IntentScreen.itemSpacing)
-            ) {
-                item {
-                    IntentSection("Repository") {
-                        Text(
-                            repository ?: "Repository unavailable",
-                            style = MaterialTheme.typography.titleMedium
-                        )
-                        Text(state.status.branch ?: "No branch", color = IntentScreen.secondaryText)
-                    }
-                }
-                item {
-                    state.error?.let { Text(it, color = IntentScreen.error) }
-                    if (state.status.filesTruncated) {
-                        Text(
-                            "The file list is incomplete (${state.status.totalFiles ?: "unknown"} files)."
-                        )
-                    }
-                }
-                if (state.isClean()) {
+            if (state.loading && state.commits.isEmpty() && state.status.files.isEmpty()) {
+                Spacer(Modifier.fillMaxSize())
+            } else {
+                LazyColumn(
+                    Modifier.fillMaxSize(),
+                    contentPadding = IntentScreen.pageInsets,
+                    verticalArrangement = Arrangement.spacedBy(IntentScreen.itemSpacing)
+                ) {
                     item {
-                        IntentSection("Working tree clean") {
-                            Text("No uncommitted changes.", color = IntentScreen.secondaryText)
-                        }
-                    }
-                } else {
-                    for (staged in listOf(true, false)) {
-                        val files = state.status.files.filter { it.staged == staged }
-                        if (files.isNotEmpty()) {
-                            item {
-                                Text(
-                                    if (staged) "Staged" else "Unstaged",
-                                    style = MaterialTheme.typography.titleMedium
-                                )
-                            }
-                            items(files) { file ->
-                                TextButton(onClick = {
-                                    onSelect(file)
-                                }, modifier = Modifier.fillMaxWidth()) {
-                                    Text("${file.status}  ${file.path}")
-                                }
-                            }
-                        }
-                    }
-                    if (hasStatus &&
-                        state.status.files.isEmpty() &&
-                        !state.status.filesTruncated
-                    ) {
-                        item {
+                        IntentSection("Repository") {
                             Text(
-                                "Changes are present, but no file rows are available. Refresh to retry."
+                                repository ?: "Repository unavailable",
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                            Text(
+                                state.status.branch ?: "No branch",
+                                color = IntentScreen.secondaryText
                             )
                         }
                     }
-                }
-                item { Text("Commit history", style = MaterialTheme.typography.titleMedium) }
-                if (state.commits.isEmpty() && hasStatus) {
-                    item { Text("No commits yet.", color = IntentScreen.secondaryText) }
-                }
-                items(state.commits, key = { it.hash }) { commit -> CommitRow(commit) }
-                if (state.nextToken != null) {
                     item {
-                        TextButton(
-                            onClick = onMore,
-                            enabled = !state.loading && !state.loadingMore
+                        state.error?.let { Text(it, color = IntentScreen.error) }
+                        if (state.status.filesTruncated) {
+                            Text(
+                                "The file list is incomplete " +
+                                    "(${state.status.totalFiles ?: "unknown"} files)."
+                            )
+                        }
+                    }
+                    if (state.isClean()) {
+                        item {
+                            IntentSection("Working tree clean") {
+                                Text("No uncommitted changes.", color = IntentScreen.secondaryText)
+                            }
+                        }
+                    } else {
+                        for (staged in listOf(true, false)) {
+                            val files = state.status.files.filter { it.staged == staged }
+                            if (files.isNotEmpty()) {
+                                item {
+                                    Text(
+                                        if (staged) "Staged" else "Unstaged",
+                                        style = MaterialTheme.typography.titleMedium
+                                    )
+                                }
+                                items(files) { file ->
+                                    TextButton(onClick = {
+                                        onSelect(file)
+                                    }, modifier = Modifier.fillMaxWidth()) {
+                                        Text("${file.status}  ${file.path}")
+                                    }
+                                }
+                            }
+                        }
+                        if (hasStatus &&
+                            state.status.files.isEmpty() &&
+                            !state.status.filesTruncated
                         ) {
-                            Text(if (state.loadingMore) "Loading…" else "Load older commits")
+                            item {
+                                Text(
+                                    "Changes are present, but no file rows are available. " +
+                                        "Refresh to retry."
+                                )
+                            }
+                        }
+                    }
+                    item { Text("Commit history", style = MaterialTheme.typography.titleMedium) }
+                    if (state.commits.isEmpty() && hasStatus) {
+                        item { Text("No commits yet.", color = IntentScreen.secondaryText) }
+                    }
+                    items(state.commits, key = { it.hash }) { commit -> CommitRow(commit) }
+                    if (state.nextToken != null) {
+                        item {
+                            TextButton(
+                                onClick = onMore,
+                                enabled = !state.loading && !state.loadingMore
+                            ) {
+                                Text(if (state.loadingMore) "Loading…" else "Load older commits")
+                            }
                         }
                     }
                 }
