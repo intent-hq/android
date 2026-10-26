@@ -1,7 +1,10 @@
 package dev.intent.app.conversation
 
+import dev.intent.core.protocol.models.ChatEntity
 import dev.intent.core.protocol.models.ChatPush
 import dev.intent.core.protocol.models.ConversationMessage
+import dev.intent.core.protocol.models.ConversationPage
+import dev.intent.core.protocol.models.EntityDelta
 import java.io.Closeable
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -16,6 +19,7 @@ data class ConversationState(
 )
 
 /** Snapshot epochs fence paging and hydration replies across reconnects and invalidations. */
+@Suppress("TooManyFunctions") // Paging and refresh share the same synchronized lifecycle.
 class ConversationStore(private val session: ConversationSession, private val agentId: String) :
     Closeable {
     private val mutableState = MutableStateFlow(ConversationState())
@@ -25,6 +29,7 @@ class ConversationStore(private val session: ConversationSession, private val ag
     private var epoch = 0L
     private var closed = false
     private var refreshHistory: ConversationState? = null
+    private var refreshGap: RefreshGap? = null
 
     @Synchronized
     fun start() {
@@ -51,6 +56,7 @@ class ConversationStore(private val session: ConversationSession, private val ag
     }
 
     private fun resetPending() {
+        refreshGap = null
         epoch++
         mutableState.value =
             state.value.copy(
@@ -69,22 +75,63 @@ class ConversationStore(private val session: ConversationSession, private val ag
             epoch++
             val retained = refreshHistory
             refreshHistory = null
-            val messages = snapshot.messages.distinctBy { it.id }
-            val overlap = retained?.messages?.indexOfFirst { it.id == messages.firstOrNull()?.id }
-                ?: -1
-            // Refresh the authoritative tail while retaining earlier pages and their cursor.
-            val prefix = retained?.messages?.takeIf { overlap > 0 }?.take(overlap).orEmpty()
-            mutableState.value =
-                ConversationState(
-                    prefix + messages,
-                    if (prefix.isNotEmpty()) retained?.nextToken else snapshot.nextToken,
-                    false
-                )
+            refreshGap = null
+            val tail = ConversationState(
+                snapshot.messages.distinctBy { it.id },
+                snapshot.nextToken,
+                false
+            )
+            if (retained == null || retained.messages.isEmpty() || tail.messages.isEmpty()) {
+                mutableState.value = tail
+            } else {
+                refreshGap = RefreshGap(retained, tail)
+                mutableState.value = state.value.copy(isLoading = false, loadingOlder = true)
+                fillRefreshGap()
+            }
         } else if (delta != null && !state.value.isLoading) {
+            refreshGap?.deltas?.add(delta)
             mutableState.value = state.value.copy(
                 messages = reduceConversation(state.value.messages, delta, agentId),
                 error = null
             )
+        }
+    }
+
+    private fun fillRefreshGap() {
+        val gap = refreshGap ?: return
+        val tail = gap.tail
+        val retainedIds = gap.retained.messages.map { it.id }.toSet()
+        val overlap = tail.messages.indexOfFirst { it.id in retainedIds }
+        val token = tail.nextToken
+        val pagingStopped = gap.tokens.size >= MAX_REFRESH_PAGES || token in gap.tokens
+        if (overlap >= 0 || token == null || pagingStopped) {
+            val retainedIndex = gap.retained.messages.indexOfFirst {
+                it.id ==
+                    tail.messages.firstOrNull()?.id
+            }
+            val prefix = gap.retained.messages.take(retainedIndex.coerceAtLeast(0))
+            mutableState.value = tail.copy(
+                messages = gap.deltas.fold(prefix + tail.messages) { messages, delta ->
+                    reduceConversation(messages, delta, agentId)
+                },
+                nextToken = if (retainedIndex >= 0) gap.retained.nextToken else token
+            )
+            refreshGap = null
+            return
+        }
+        gap.tokens.add(token)
+        val current = epoch
+        session.history(token).whenComplete { page, error ->
+            synchronized(this) {
+                if (!closed && epoch == current && refreshGap === gap) {
+                    if (error != null || page.agentId != agentId) {
+                        fail()
+                    } else {
+                        gap.prepend(page)
+                        fillRefreshGap()
+                    }
+                }
+            }
         }
     }
 
@@ -160,6 +207,7 @@ class ConversationStore(private val session: ConversationSession, private val ag
 
     private fun fail() {
         refreshHistory = null
+        refreshGap = null
         mutableState.value =
             state.value.copy(
                 isLoading = false,
@@ -189,5 +237,22 @@ class ConversationStore(private val session: ConversationSession, private val ag
     override fun close() {
         closed = true
         stop()
+    }
+}
+
+private const val MAX_REFRESH_PAGES = 10
+
+private class RefreshGap(val retained: ConversationState, var tail: ConversationState) {
+    val tokens = mutableSetOf<String>()
+    val deltas = mutableListOf<EntityDelta<ChatEntity>>()
+
+    fun prepend(page: ConversationPage) {
+        // Snapshot rows and live updates win over older page copies.
+        val currentIds = tail.messages.map { it.id }.toSet()
+        tail = tail.copy(
+            messages =
+            page.messages.distinctBy { it.id }.filter { it.id !in currentIds } + tail.messages,
+            nextToken = page.nextToken
+        )
     }
 }

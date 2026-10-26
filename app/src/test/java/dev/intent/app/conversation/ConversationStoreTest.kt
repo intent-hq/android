@@ -90,24 +90,22 @@ class ConversationStoreTest {
         assertEquals("Refreshed", store.state.value.messages[1].contentBlocks.single().text)
         assertEquals(null, store.state.value.nextToken)
         // A later server snapshot is still authoritative; retention is one-shot.
-        snapshot(listOf(row("replacement")))
+        snapshot(listOf(row("replacement")), token = null)
         assertEquals(listOf("replacement"), store.state.value.messages.map { it.id })
     }
 
     @Test
-    fun refreshWithoutOverlapAndReconnectBeforeSnapshotDoNotKeepStaleHistory() {
+    fun exhaustedRefreshAndReconnectBeforeSnapshotDoNotKeepStaleHistory() {
         start()
         store.refresh()
         session.admit()
-        snapshot(listOf(row("replacement")))
+        snapshot(listOf(row("replacement")), token = null)
         assertEquals(listOf("replacement"), store.state.value.messages.map { it.id })
-        store.loadOlder()
-        session.pages.single().complete(ConversationPage("agent", listOf(row("old"))))
         store.refresh()
         session.admit()
         session.admit()
-        snapshot(listOf(row("replacement")))
-        assertEquals(listOf("replacement"), store.state.value.messages.map { it.id })
+        snapshot(listOf(row("reconnected")))
+        assertEquals(listOf("reconnected"), store.state.value.messages.map { it.id })
     }
 
     @Test
@@ -205,7 +203,7 @@ class ConversationStoreTest {
     }
 }
 
-private class FakeConversationSession : ConversationSession {
+internal class FakeConversationSession : ConversationSession {
     lateinit var push: (ChatPush) -> Unit
     lateinit var admit: () -> Unit
     val pages = mutableListOf<CompletableFuture<ConversationPage>>()

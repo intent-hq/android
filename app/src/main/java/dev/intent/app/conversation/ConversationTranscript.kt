@@ -85,7 +85,13 @@ internal fun ConversationTranscript(
             }
         }
     }
-    LaunchedEffect(state.messages.lastOrNull()) {
+    var previousIds by remember { mutableStateOf(emptySet<String>()) }
+    LaunchedEffect(state.messages) {
+        val ids = state.messages.map { it.id }.toSet()
+        if (isDisjointReplacement(previousIds, ids)) {
+            policy = policy.resume()
+        }
+        previousIds = ids
         policy = policy.contentChanged(state.messages.lastOrNull())
         if (policy.following && state.messages.isNotEmpty()) list.scrollToItem(0)
     }
@@ -138,3 +144,6 @@ internal fun ConversationTranscript(
         }
     }
 }
+
+private fun isDisjointReplacement(previous: Set<String>, current: Set<String>) =
+    previous.isNotEmpty() && current.isNotEmpty() && previous.none { it in current }

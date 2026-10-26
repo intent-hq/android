@@ -121,6 +121,34 @@ class ConversationHistoryTest {
         compose.runOnIdle { store.close() }
     }
 
+    @Test
+    fun disjointReplacementShowsNewestMessage() {
+        val state = mutableStateOf(ConversationState(messages = page(0), isLoading = false))
+        show(state)
+        compose.onNodeWithTag("transcript").performTouchInput { swipeDown() }
+        compose.onNodeWithTag("transcript").performScrollToIndex(19)
+        compose.onNodeWithText("Message 0").assertIsDisplayed()
+        compose.runOnIdle {
+            state.value = ConversationState(messages = page(100), isLoading = false)
+        }
+        compose.onNodeWithText("Message 119").assertIsDisplayed()
+    }
+
+    @Test
+    fun overlappingRefreshWithNewMessagesKeepsReadingPosition() {
+        val state = mutableStateOf(ConversationState(messages = page(0), isLoading = false))
+        show(state)
+        compose.onNodeWithTag("transcript").performTouchInput { swipeDown() }
+        compose.onNodeWithTag("transcript").performScrollToIndex(19)
+        val anchor = compose.onNodeWithText("Message 0").assertIsDisplayed()
+        val before = anchor.fetchSemanticsNode().boundsInRoot
+        compose.runOnIdle {
+            state.value = state.value.copy(messages = page(0) + page(20))
+        }
+        compose.waitForIdle()
+        assertEquals(before, anchor.assertIsDisplayed().fetchSemanticsNode().boundsInRoot)
+    }
+
     private fun show(
         state: MutableState<ConversationState>,
         older: () -> Unit = {},
