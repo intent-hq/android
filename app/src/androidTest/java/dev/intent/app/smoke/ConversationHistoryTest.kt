@@ -14,10 +14,17 @@ import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeDown
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import dev.intent.app.conversation.ConversationScreen
+import dev.intent.app.conversation.ConversationSession
 import dev.intent.app.conversation.ConversationState
+import dev.intent.app.conversation.ConversationStore
 import dev.intent.app.design.IntentTheme
+import dev.intent.core.protocol.models.ChatPush
 import dev.intent.core.protocol.models.ContentBlock
 import dev.intent.core.protocol.models.ConversationMessage
+import dev.intent.core.protocol.models.ConversationPage
+import dev.intent.core.protocol.models.MessageBlockResult
+import java.io.Closeable
+import java.util.concurrent.CompletableFuture
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -88,13 +95,30 @@ class ConversationHistoryTest {
     }
 
     @Test
-    fun exhaustedHistoryStillAllowsExplicitPullRefresh() {
-        val state = mutableStateOf(ConversationState(messages = page(0), isLoading = false))
+    fun exhaustedHistoryRefreshKeepsTheVisibleMessageAndOffset() {
+        val session = HistoryRefreshSession()
+        val store = ConversationStore(session, "agent")
+        store.start()
+        session.snapshot(page(0), null)
+        val state = mutableStateOf(store.state.value)
         var refreshes = 0
-        show(state, refresh = { refreshes++ })
+        show(state, refresh = {
+            refreshes++
+            store.refresh()
+            state.value = store.state.value
+        })
         compose.onNodeWithTag("transcript").performScrollToIndex(19)
         compose.onNodeWithTag("transcript").performTouchInput { swipeDown() }
         compose.runOnIdle { assertEquals(1, refreshes) }
+        val anchor = compose.onNodeWithText("Message 0").assertIsDisplayed()
+        val before = anchor.fetchSemanticsNode().boundsInRoot
+        compose.runOnIdle {
+            session.snapshot(page(0).takeLast(5), "older")
+            state.value = store.state.value
+        }
+        compose.waitForIdle()
+        assertEquals(before, anchor.assertIsDisplayed().fetchSemanticsNode().boundsInRoot)
+        compose.runOnIdle { store.close() }
     }
 
     private fun show(
@@ -118,4 +142,36 @@ class ConversationHistoryTest {
             listOf(ContentBlock("text", text = "Message $it"))
         )
     }
+}
+
+private class HistoryRefreshSession : ConversationSession {
+    private lateinit var push: (ChatPush) -> Unit
+
+    override fun subscribe(
+        onPush: (ChatPush) -> Unit,
+        onSubscribed: () -> Unit,
+        onError: (Throwable) -> Unit
+    ): Closeable {
+        push = onPush
+        onSubscribed()
+        return Closeable {}
+    }
+
+    fun snapshot(messages: List<ConversationMessage>, token: String?) {
+        push(
+            ChatPush(
+                "s",
+                "snapshot",
+                0,
+                snapshot = ConversationPage("agent", messages, nextToken = token)
+            )
+        )
+    }
+
+    override fun history(token: String): CompletableFuture<ConversationPage> = error("Not expected")
+
+    override fun hydrate(
+        messageId: String,
+        blockId: String
+    ): CompletableFuture<MessageBlockResult> = error("Not expected")
 }
