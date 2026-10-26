@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -42,8 +43,10 @@ internal fun ContextNoteList(
     notes: List<Note>,
     onSelected: (String) -> Unit,
     loading: Boolean = false,
-    error: String? = null
+    error: String? = null,
+    files: (LazyListScope.() -> Unit)? = null
 ) {
+    var filesExpanded by rememberSaveable { mutableStateOf(true) }
     var query by rememberSaveable { mutableStateOf("") }
     var currentOnly by rememberSaveable { mutableStateOf(false) }
     var collapsed by remember(query, currentOnly) { mutableStateOf(emptySet<String>()) }
@@ -73,6 +76,20 @@ internal fun ContextNoteList(
                         collapsed + row.note.id
                     }
             }
+        }
+        if (files != null) {
+            item(key = "files.heading") {
+                TextButton(onClick = {
+                    filesExpanded = !filesExpanded
+                }, modifier = Modifier.fillMaxWidth().padding(top = IntentScreen.sectionSpacing)) {
+                    Text(
+                        if (filesExpanded) "Files ⌄" else "Files ›",
+                        Modifier.fillMaxWidth(),
+                        style = MaterialTheme.typography.titleSmall
+                    )
+                }
+            }
+            if (filesExpanded) files()
         }
     }
 }

@@ -63,12 +63,12 @@ class AndroidPhotoSource(
 
 /** Decode off the main thread. Bound bitmap memory and apply the camera's EXIF orientation. */
 @Suppress("MagicNumber") // EXIF orientation angles in degrees.
-fun decodePhoto(file: File): Bitmap {
+fun decodePhoto(file: File, maxDimension: Int = MAX_DIMENSION): Bitmap {
     val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
     BitmapFactory.decodeFile(file.path, options)
     check(options.outWidth > 0 && options.outHeight > 0)
     var sample = 1
-    while (maxOf(options.outWidth, options.outHeight) / sample > MAX_DIMENSION) sample *= 2
+    while (maxOf(options.outWidth, options.outHeight) / sample > maxDimension) sample *= 2
     options.inJustDecodeBounds = false
     options.inSampleSize = sample
     val bitmap = requireNotNull(BitmapFactory.decodeFile(file.path, options))
