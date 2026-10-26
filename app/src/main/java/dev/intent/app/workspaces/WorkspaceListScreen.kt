@@ -21,6 +21,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.intent.app.design.IntentLightDarkPreview
@@ -72,9 +74,16 @@ fun WorkspaceListScreen(
     var showArchived by rememberSaveable { mutableStateOf(false) }
     var revealedId by rememberSaveable { mutableStateOf<String?>(null) }
     val rows = state.workspaces.filter { showArchived || !it.status.equals("Archived", true) }
+    val drawerButtons = dev.intent.app.drawers.LocalDrawerButtons.current
     Column(modifier) {
         CompactAppBar(
             "Workspaces",
+            leading = drawerButtons?.let {
+                { DrawerHeaderButton("Connections", "☰", it.connections) }
+            },
+            trailing = drawerButtons?.let {
+                { DrawerHeaderButton("Agent history", "◷", it.history) }
+            },
             actions = listOf(
                 ChromeAction(if (showArchived) "Hide archived" else "Show archived") {
                     showArchived = !showArchived
@@ -213,4 +222,12 @@ private fun WorkspaceListPreview() {
             onWorkspaceSelected = {}
         )
     }
+}
+
+@Composable
+private fun DrawerHeaderButton(label: String, symbol: String, onClick: () -> Unit) {
+    androidx.compose.material3.IconButton(
+        onClick = onClick,
+        modifier = Modifier.semantics { contentDescription = label }
+    ) { Text(symbol) }
 }

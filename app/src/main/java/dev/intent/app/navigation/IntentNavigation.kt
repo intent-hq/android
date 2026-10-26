@@ -17,8 +17,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import dev.intent.app.cache.OfflineCache
 import dev.intent.app.connection.SavedConnection
+import dev.intent.app.drawers.WorkspaceDrawers
 import dev.intent.app.git.LocalWorkspaceRepository
 import dev.intent.app.git.repositoryLabel
+import dev.intent.app.history.LocalHistoryAgent
+import dev.intent.app.history.LocalHistoryNavigation
 import dev.intent.app.workspaces.CreationOptionsStore
 import dev.intent.app.workspaces.LocalOpenRecentWorkspaceAgent
 import dev.intent.app.workspaces.RpcWorkspaceOperations
@@ -68,7 +71,20 @@ fun IntentNavigation(
     var selectedWorkspace by rememberSaveable(session, initialWorkspace) {
         mutableStateOf(initialWorkspace)
     }
+    val history = LocalHistoryNavigation.current
+    var historyAgent by rememberSaveable(session) { mutableStateOf<String?>(null) }
+    LaunchedEffect(history?.target, session) {
+        history?.target?.takeIf { it.connectionId == history.connectionId }?.let {
+            historyAgent = it.agentId
+            openRecent = false
+            selectedWorkspace = it.workspaceId
+            history.consumeTarget()
+        }
+    }
     LaunchedEffect(lifecycleState.removedId) {
+        lifecycleState.removedId?.let { id ->
+            history?.connectionId?.let { history.store.removeWorkspace(it, id) }
+        }
         if (lifecycleState.removedId == selectedWorkspace) selectedWorkspace = null
     }
     DisposableEffect(store) {
@@ -107,6 +123,9 @@ fun IntentNavigation(
     }.orEmpty()
     WorkspaceActionDialog(lifecycleState, lifecycle)
     CompositionLocalProvider(
+        dev.intent.app.history.LocalHistoryWorkspaceTitles provides
+            workspaceState.workspaces.associate { it.id to it.title },
+        LocalHistoryAgent provides historyAgent,
         LocalOpenRecentWorkspaceAgent provides openRecent,
         LocalChromeActions provides (lifecycleActions + listOf(workspaceAction) + inheritedActions),
         LocalWorkspaceRepository provides
@@ -124,19 +143,23 @@ fun IntentNavigation(
                         creating = false
                     }
                 }
-                selected == null -> WorkspaceListRoute(
-                    store,
-                    {
-                        openRecent = false
-                        selectedWorkspace = it
-                    },
-                    onOpenRecent = {
-                        openRecent = true
-                        selectedWorkspace = it
-                    },
-                    onAction = lifecycle::begin,
-                    updatingId = lifecycleState.workspace?.id.takeIf { lifecycleState.busy }
-                )
+                selected == null -> WorkspaceDrawers {
+                    WorkspaceListRoute(
+                        store,
+                        {
+                            historyAgent = null
+                            openRecent = false
+                            selectedWorkspace = it
+                        },
+                        onOpenRecent = {
+                            historyAgent = null
+                            openRecent = true
+                            selectedWorkspace = it
+                        },
+                        onAction = lifecycle::begin,
+                        updatingId = lifecycleState.workspace?.id.takeIf { lifecycleState.busy }
+                    )
+                }
                 transferring -> {
                     CompactAppBar("Transfer workspace", onBack = back)
                     WorkspaceTransferScreen(session, selected, destinations, onBusy = {

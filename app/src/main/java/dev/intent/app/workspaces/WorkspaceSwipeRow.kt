@@ -68,27 +68,26 @@ internal fun WorkspaceSwipeRow(
             Modifier.offset { IntOffset(((if (revealed) -width else 0f) + drag).roundToInt(), 0) }
                 .testTag("workspace.row.${workspace.id}")
                 .pointerInput(workspace.id, enabled, revealed) {
-                    if (enabled) {
-                        detectHorizontalDragGestures(
-                            onDragEnd = {
-                                when {
-                                    revealed -> onReveal(drag <= width * REVEAL_THRESHOLD)
-                                    drag > width / 2 -> {
-                                        onReveal(false)
-                                        onOpenRecent()
-                                    }
-                                    drag < -width * REVEAL_THRESHOLD -> onReveal(true)
-                                    drag > width * REVEAL_THRESHOLD -> onReveal(false)
+                    detectHorizontalDragGestures(
+                        onDragEnd = {
+                            when {
+                                !enabled -> Unit
+                                revealed -> onReveal(drag <= width * REVEAL_THRESHOLD)
+                                drag > width / 2 -> {
+                                    onReveal(false)
+                                    onOpenRecent()
                                 }
-                                drag = 0f
-                            },
-                            onDragCancel = { drag = 0f },
-                            onHorizontalDrag = { change, amount ->
-                                change.consume()
-                                drag = (drag + amount).coerceIn(-width, width)
+                                drag < -width * REVEAL_THRESHOLD -> onReveal(true)
+                                drag > width * REVEAL_THRESHOLD -> onReveal(false)
                             }
-                        )
-                    }
+                            drag = 0f
+                        },
+                        onDragCancel = { drag = 0f },
+                        onHorizontalDrag = { change, amount ->
+                            change.consume()
+                            if (enabled) drag = (drag + amount).coerceIn(-width, width)
+                        }
+                    )
                 }
                 .combinedClickable(
                     enabled = enabled,

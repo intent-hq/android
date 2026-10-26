@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -39,7 +40,9 @@ fun WorkspaceContent(
     val preferences = remember(context, sectionScope) {
         WorkspaceSectionPreferences(context, sectionScope)
     }
-    val openRecent = LocalOpenRecentWorkspaceAgent.current
+    val openRecent =
+        LocalOpenRecentWorkspaceAgent.current ||
+            dev.intent.app.history.LocalHistoryAgent.current != null
     var destination by rememberSaveable(
         session,
         workspaceId,
@@ -53,6 +56,13 @@ fun WorkspaceContent(
         mutableStateOf(
             if (openRecent) WorkspaceDestination.Conversations else preferences.load(workspaceId)
         )
+    }
+    val historyAgent = dev.intent.app.history.LocalHistoryAgent.current
+    LaunchedEffect(historyAgent) {
+        if (historyAgent != null) {
+            destination = WorkspaceDestination.Conversations
+            section = WorkspaceDestination.Conversations
+        }
     }
     val savedState = rememberSaveableStateHolder()
     val source = remember(session) { SessionNoteSource(session) }

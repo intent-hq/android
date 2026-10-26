@@ -35,7 +35,9 @@ val LocalWorkspaceTitle = staticCompositionLocalOf { "Workspace" }
 fun CompactAppBar(
     title: String,
     onBack: (() -> Unit)? = LocalChromeBack.current,
-    actions: List<ChromeAction> = emptyList()
+    actions: List<ChromeAction> = emptyList(),
+    leading: (@Composable () -> Unit)? = null,
+    trailing: (@Composable () -> Unit)? = null
 ) {
     var expanded by remember(title) { mutableStateOf(false) }
     val menu = actions + LocalChromeActions.current
@@ -43,7 +45,9 @@ fun CompactAppBar(
         Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(horizontal = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        if (onBack != null) {
+        if (leading != null) {
+            leading()
+        } else if (onBack != null) {
             IconButton(
                 onClick = onBack,
                 modifier = Modifier.size(48.dp).semantics {
@@ -62,6 +66,7 @@ fun CompactAppBar(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
+        trailing?.invoke()
         if (menu.isNotEmpty()) {
             Box {
                 IconButton(

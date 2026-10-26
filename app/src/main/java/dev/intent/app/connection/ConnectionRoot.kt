@@ -19,6 +19,14 @@ import androidx.compose.ui.platform.LocalContext
 import dev.intent.app.attachments.AttachmentMedia
 import dev.intent.app.attachments.LocalAttachmentMedia
 import dev.intent.app.cache.RoomOfflineCache
+import dev.intent.app.drawers.AgentHistoryDrawer
+import dev.intent.app.drawers.ConnectionsDrawer
+import dev.intent.app.drawers.DrawerPanels
+import dev.intent.app.drawers.LocalDrawerPanels
+import dev.intent.app.history.AgentHistoryStore
+import dev.intent.app.history.AgentVisit
+import dev.intent.app.history.HistoryNavigation
+import dev.intent.app.history.LocalHistoryNavigation
 import dev.intent.app.navigation.ChromeAction
 import dev.intent.app.navigation.CompactAppBar
 import dev.intent.app.navigation.IntentNavigation
@@ -41,6 +49,8 @@ fun ConnectionRoot(
     val state by controller.state.collectAsState()
     val notifications by preferences.notifications.collectAsState()
     val context = LocalContext.current.applicationContext
+    val history = remember(context) { AgentHistoryStore.open(context) }
+    var historyTarget by remember { mutableStateOf<AgentVisit?>(null) }
     DisposableEffect(state.session, notifications) {
         val lease = if (notifications) {
             state.session?.let {
@@ -69,7 +79,30 @@ fun ConnectionRoot(
         )
         if (state.activeId != null) add(ChromeAction("Disconnect", run = controller::disconnect))
     }
-    CompositionLocalProvider(LocalChromeActions provides actions) {
+    CompositionLocalProvider(
+        LocalChromeActions provides actions,
+        LocalHistoryNavigation provides
+            HistoryNavigation(history, state.activeId, historyTarget) { historyTarget = null },
+        LocalDrawerPanels provides DrawerPanels(
+            connections = { close ->
+                ConnectionsDrawer(state, onSelect = {
+                    close()
+                    historyTarget = null
+                    if (it != state.activeId) controller.select(it)
+                }, onManage = {
+                    close()
+                    utilities = utilities.openUtility("Connections")
+                })
+            },
+            history = { close ->
+                AgentHistoryDrawer(history, state) {
+                    close()
+                    historyTarget = it
+                    if (it.connectionId != state.activeId) controller.select(it.connectionId)
+                }
+            }
+        )
+    ) {
         Column(modifier) {
             state.error?.let { Text(it) }
             val utilityTitle = when {

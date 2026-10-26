@@ -6,6 +6,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -54,7 +55,9 @@ fun WorkspaceConversations(session: RpcSession, workspaceId: String, onBack: () 
     val scope = rememberCoroutineScope()
     var muteError by remember(session, workspaceId) { mutableStateOf<String?>(null) }
     var muting by remember(session, workspaceId) { mutableStateOf(false) }
-    var selected by rememberSaveable(session, workspaceId) { mutableStateOf<String?>(null) }
+    val historyAgent = dev.intent.app.history.LocalHistoryAgent.current
+    var selected by rememberSaveable(session, workspaceId) { mutableStateOf(historyAgent) }
+    LaunchedEffect(historyAgent) { if (historyAgent != null) selected = historyAgent }
     var creating by rememberSaveable(session, workspaceId) { mutableStateOf(false) }
     val creation = remember(session) { NewAgentOptionsStore(RpcWorkspaceOperations(session)) }
     val recentError = recentWorkspaceAgentEntry(session, workspaceId, selected, creating) {
@@ -135,6 +138,7 @@ fun WorkspaceConversations(session: RpcSession, workspaceId: String, onBack: () 
             }
             val agentState by agents.state.collectAsState()
             val agent = agentState.agents.firstOrNull { it.id == agentId }
+            dev.intent.app.history.RecordAgentVisit(workspaceId, agent)
             var action by remember(agentId) { mutableStateOf<String?>(null) }
             if (agent != null) {
                 when (action) {
