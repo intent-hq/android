@@ -10,6 +10,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import dev.intent.app.agents.AgentListRoute
@@ -26,6 +27,7 @@ import dev.intent.core.protocol.session.RpcSession
 
 @Composable
 fun WorkspaceConversations(session: RpcSession, workspaceId: String, onBack: () -> Unit) {
+    val listState = rememberSaveableStateHolder()
     val agents =
         remember(session, workspaceId) {
             AgentStore(RpcAgentSession(session, workspaceId), workspaceId)
@@ -37,7 +39,9 @@ fun WorkspaceConversations(session: RpcSession, workspaceId: String, onBack: () 
         val agentId = selected
         if (agentId == null) {
             CompositionLocalProvider(LocalChromeBack provides onBack) {
-                AgentListRoute(agents, { selected = it })
+                listState.SaveableStateProvider("agents") {
+                    AgentListRoute(agents, { selected = it })
+                }
             }
         } else {
             val conversation = remember(session, workspaceId, agentId) {

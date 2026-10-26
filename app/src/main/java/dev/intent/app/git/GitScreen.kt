@@ -18,7 +18,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import dev.intent.app.design.IntentScreen
 import dev.intent.app.design.IntentSection
 import dev.intent.app.lists.RefreshableList
-import dev.intent.app.navigation.CompactAppBar
+import dev.intent.app.navigation.WorkspaceSectionAppBar
 import dev.intent.core.protocol.models.GitCommit
 import dev.intent.core.protocol.models.GitFileStatus
 import dev.intent.core.protocol.models.GitStatus
@@ -34,7 +34,7 @@ fun GitScreen(
 ) {
     val hasStatus = !state.loading && state.error == null
     Column(Modifier.fillMaxSize()) {
-        CompactAppBar("Changes")
+        WorkspaceSectionAppBar("Changes")
         RefreshableList(state.loading, onRefresh) {
             LazyColumn(
                 Modifier.fillMaxSize(),

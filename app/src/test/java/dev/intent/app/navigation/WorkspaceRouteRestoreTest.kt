@@ -5,9 +5,13 @@ import org.junit.Test
 
 class WorkspaceRouteRestoreTest {
     @Test
+    fun legacyOverviewRestoresTheAgentsSection() {
+        assertEquals(WorkspaceDestination.Conversations, workspaceDestination("home"))
+    }
+
+    @Test
     fun everyWorkspaceRouteSurvivesUtilityNavigation() {
         val destinations = listOf(
-            WorkspaceDestination.Home,
             WorkspaceDestination.Conversations,
             WorkspaceDestination.Browser,
             WorkspaceDestination.Git,

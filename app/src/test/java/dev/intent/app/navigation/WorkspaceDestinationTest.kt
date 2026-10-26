@@ -9,7 +9,7 @@ import org.junit.Test
 
 class WorkspaceDestinationTest {
     @Test
-    fun listedNoteOpensReaderAndBackReturnsToListThenHome() {
+    fun listedNoteReturnsToSectionAndSectionsExitWorkspace() {
         val store = NoteListStore {
             CompletableFuture.completedFuture(listOf(Note("note-123", "Plan")))
         }
@@ -17,11 +17,25 @@ class WorkspaceDestinationTest {
         val selected = WorkspaceDestination.Note(store.state.value.notes.single().id)
         assertEquals("note-123", selected.id)
         assertEquals(WorkspaceDestination.Notes, selected.parent())
-        assertEquals(WorkspaceDestination.Home, selected.parent()?.parent())
-        assertNull(WorkspaceDestination.Home.parent())
-        assertEquals(WorkspaceDestination.Home, WorkspaceDestination.Terminals.parent())
-        assertEquals(WorkspaceDestination.Home, WorkspaceDestination.Git.parent())
-        assertEquals(WorkspaceDestination.Home, WorkspaceDestination.Conversations.parent())
+        assertNull(selected.parent()?.parent())
+        assertEquals(WorkspaceDestination.Conversations, WorkspaceDestination.Terminals.parent())
+        assertNull(WorkspaceDestination.Git.parent())
+        assertNull(WorkspaceDestination.Conversations.parent())
+    }
+
+    @Test
+    fun childrenReturnToTheSectionThatOpenedThem() {
+        listOf(
+            WorkspaceDestination.Conversations,
+            WorkspaceDestination.Notes,
+            WorkspaceDestination.Git
+        )
+            .forEach { origin ->
+                assertEquals(origin, WorkspaceDestination.Terminals.parent(origin))
+                assertEquals(origin, WorkspaceDestination.Browser.parent(origin))
+                assertEquals(origin, WorkspaceDestination.Note("linked").parent(origin))
+                assertNull(origin.parent(origin))
+            }
     }
 
     @Test

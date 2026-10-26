@@ -9,12 +9,14 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Modifier
 import dev.intent.app.navigation.LocalChromeBack
 import dev.intent.core.protocol.session.RpcSession
 
 @Composable
 fun WorkspaceGitRoute(session: RpcSession, workspaceId: String, onBack: () -> Unit) {
+    val listState = rememberSaveableStateHolder()
     val store = remember(session, workspaceId) { GitStore(RpcGitSession(session, workspaceId)) }
     val state by store.state.collectAsState()
     DisposableEffect(store) {
@@ -26,7 +28,9 @@ fun WorkspaceGitRoute(session: RpcSession, workspaceId: String, onBack: () -> Un
     Column(Modifier.fillMaxSize()) {
         CompositionLocalProvider(LocalChromeBack provides back) {
             if (state.selected == null) {
-                GitScreen(state, store::select, store::refresh, store::loadMore)
+                listState.SaveableStateProvider("changes") {
+                    GitScreen(state, store::select, store::refresh, store::loadMore)
+                }
             } else {
                 GitDiffScreen(state) { store.select(state.selected) }
             }

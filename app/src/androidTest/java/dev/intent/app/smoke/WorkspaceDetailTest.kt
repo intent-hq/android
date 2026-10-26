@@ -6,7 +6,6 @@ import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import dev.intent.app.design.IntentTheme
@@ -46,11 +45,9 @@ class WorkspaceDetailTest {
         listOf(
             "Agents" to WorkspaceDestination.Conversations,
             "Context" to WorkspaceDestination.Notes,
-            "Changes" to WorkspaceDestination.Git,
-            "Browser preview" to WorkspaceDestination.Browser,
-            "Terminals" to WorkspaceDestination.Terminals
+            "Changes" to WorkspaceDestination.Git
         ).forEach { (title, destination) ->
-            compose.onNodeWithText(title).performScrollTo().performClick()
+            compose.onNodeWithText(title).performClick()
             compose.runOnIdle { assertEquals(destination, selected) }
         }
     }

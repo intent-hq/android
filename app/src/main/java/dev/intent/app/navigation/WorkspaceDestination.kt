@@ -4,7 +4,6 @@ import androidx.compose.runtime.saveable.Saver
 
 sealed interface WorkspaceDestination {
     data object Browser : WorkspaceDestination
-    data object Home : WorkspaceDestination
     data object Conversations : WorkspaceDestination
     data object Git : WorkspaceDestination
     data object Terminals : WorkspaceDestination
@@ -12,11 +11,18 @@ sealed interface WorkspaceDestination {
     data class Note(val id: String) : WorkspaceDestination
 }
 
-fun WorkspaceDestination.parent(): WorkspaceDestination? = when (this) {
-    WorkspaceDestination.Home -> null
-    is WorkspaceDestination.Note -> WorkspaceDestination.Notes
-    else -> WorkspaceDestination.Home
-}
+internal fun WorkspaceDestination.isSection(): Boolean =
+    this == WorkspaceDestination.Conversations ||
+        this == WorkspaceDestination.Notes ||
+        this == WorkspaceDestination.Git
+
+fun WorkspaceDestination.parent(origin: WorkspaceDestination? = null): WorkspaceDestination? =
+    when {
+        isSection() -> null
+        origin != null -> origin
+        this is WorkspaceDestination.Note -> WorkspaceDestination.Notes
+        else -> WorkspaceDestination.Conversations
+    }
 
 internal val workspaceDestinationSaver = Saver<WorkspaceDestination, String>(
     save = { it.routeKey() },
@@ -25,7 +31,6 @@ internal val workspaceDestinationSaver = Saver<WorkspaceDestination, String>(
 
 internal fun WorkspaceDestination.routeKey(): String = when (this) {
     WorkspaceDestination.Browser -> "browser"
-    WorkspaceDestination.Home -> "home"
     WorkspaceDestination.Conversations -> "conversations"
     WorkspaceDestination.Git -> "git"
     WorkspaceDestination.Terminals -> "terminals"
@@ -42,6 +47,6 @@ internal fun workspaceDestination(key: String): WorkspaceDestination = when (key
     else -> if (key.startsWith("note:")) {
         WorkspaceDestination.Note(key.removePrefix("note:"))
     } else {
-        WorkspaceDestination.Home
+        WorkspaceDestination.Conversations
     }
 }

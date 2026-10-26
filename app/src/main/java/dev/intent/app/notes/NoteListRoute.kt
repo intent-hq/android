@@ -8,7 +8,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import dev.intent.app.lists.RefreshableList
-import dev.intent.app.navigation.CompactAppBar
+import dev.intent.app.navigation.WorkspaceSectionAppBar
 import dev.intent.core.protocol.models.NoteListResult
 import dev.intent.core.protocol.session.RpcSession
 import kotlinx.serialization.json.buildJsonObject
@@ -49,7 +49,7 @@ internal fun NoteListScreen(
     modifier: Modifier = Modifier
 ) {
     Column(modifier) {
-        CompactAppBar("Context")
+        WorkspaceSectionAppBar("Context")
         RefreshableList(state.loading, onRefresh) {
             ContextNoteList(state.notes, onSelected, loading = state.loading, error = state.error)
         }

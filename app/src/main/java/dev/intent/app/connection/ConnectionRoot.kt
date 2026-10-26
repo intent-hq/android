@@ -161,7 +161,7 @@ private fun ConnectedContent(
                 )
             }
             CompositionLocalProvider(LocalAttachmentMedia provides media) {
-                WorkspaceContent(session, workspaceId, cache, back)
+                WorkspaceContent(session, workspaceId, cache, back, sectionScope = scope)
             }
         }
     }

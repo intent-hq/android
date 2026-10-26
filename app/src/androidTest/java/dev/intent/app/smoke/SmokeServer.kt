@@ -10,19 +10,24 @@ import java.util.concurrent.CopyOnWriteArrayList
 import kotlinx.serialization.json.Json
 
 /** In-process protocol fixture. No credentials or requests leave the test process. */
-internal class SmokeServer(private val listener: WssTransport.Listener) : SessionTransport {
+internal class SmokeServer(
+    private val listener: WssTransport.Listener,
+    private val responses: Map<String, String> = emptyMap()
+) : SessionTransport {
     val requests = CopyOnWriteArrayList<JsonRpcMessage.Request>()
     override fun connect() = listener.onOpen()
     override fun close() = Unit
     override fun send(message: JsonRpcMessage): Boolean {
         val request = message as JsonRpcMessage.Request
         requests.add(request)
-        val result = when (request.method) {
+        val result = responses[request.method] ?: when (request.method) {
             "client.hello", "system.status", "workspace.unsubscribe", "events.unsubscribe" -> "{}"
             "principal.me" -> """{"id":"smoke-person"}"""
-            "workspace.subscribe", "events.subscribe" -> """{"subscriptionId":"smoke"}"""
+            "workspace.subscribe", "events.subscribe", "agent.subscribe" ->
+                """{"subscriptionId":"smoke"}"""
             "workspace.list" ->
                 """{"workspaces":[{"id":"workspace","title":"Android smoke workspace"}]}"""
+            "agent.list" -> """{"agents":[]}"""
             "agent.sendMessage" -> """{"success":true,"queued":false}"""
             else -> error("Unexpected smoke request: ${request.method}")
         }

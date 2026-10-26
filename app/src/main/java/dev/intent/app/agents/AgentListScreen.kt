@@ -30,7 +30,8 @@ import dev.intent.app.design.AgentAvatarState
 import dev.intent.app.design.IntentScreen
 import dev.intent.app.lists.ListFilters
 import dev.intent.app.lists.RefreshableList
-import dev.intent.app.navigation.CompactAppBar
+import dev.intent.app.navigation.LocalWorkspaceResources
+import dev.intent.app.navigation.WorkspaceSectionAppBar
 import dev.intent.core.protocol.models.Agent
 
 private const val MAX_VISIBLE_DEPTH = 5
@@ -49,6 +50,7 @@ fun AgentListRoute(
     AgentListScreen(state, store::refresh, onAgentSelected, modifier)
 }
 
+@Suppress("LongMethod") // Declarative agent tree, filters, and workspace resource footer.
 @Composable
 fun AgentListScreen(
     state: AgentListState,
@@ -69,8 +71,9 @@ fun AgentListScreen(
         }
     }
     val rows = tree.rows(collapsed.toSet())
+    val resources = LocalWorkspaceResources.current
     Column(modifier) {
-        CompactAppBar("Agents")
+        WorkspaceSectionAppBar("Agents")
         RefreshableList(state.isLoading, onRefresh) {
             LazyColumn(
                 Modifier.fillMaxSize(),
@@ -108,6 +111,7 @@ fun AgentListScreen(
                         onClick = { onAgentSelected(row.agent.id) }
                     )
                 }
+                if (resources != null) item { resources() }
             }
         }
     }

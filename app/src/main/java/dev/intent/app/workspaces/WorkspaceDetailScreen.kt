@@ -1,73 +1,55 @@
 package dev.intent.app.workspaces
 
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextOverflow
 import dev.intent.app.design.IntentScreen
-import dev.intent.app.design.IntentSection
+import dev.intent.app.navigation.ChromeAction
 import dev.intent.app.navigation.CompactAppBar
 import dev.intent.app.navigation.LocalWorkspaceTitle
 import dev.intent.app.navigation.WorkspaceDestination
 import dev.intent.core.protocol.models.Workspace
 
 @Composable
-internal fun WorkspaceDetailScreen(workspace: Workspace?, open: (WorkspaceDestination) -> Unit) {
-    Column(Modifier.fillMaxSize()) {
-        CompactAppBar(workspace?.title ?: LocalWorkspaceTitle.current)
-        LazyColumn(
-            contentPadding = IntentScreen.pageInsets,
-            verticalArrangement = Arrangement.spacedBy(IntentScreen.itemSpacing)
-        ) {
-            item {
-                IntentSection("Overview") {
-                    Text(workspace?.statusMessage?.takeIf { it.isNotBlank() } ?: "No summary yet.")
-                    Text(
-                        workspace?.let { workspaceStateLabel(it) } ?: "Workspace state unavailable",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = IntentScreen.secondaryText
-                    )
-                }
+internal fun WorkspaceDetailScreen(
+    workspace: Workspace?,
+    selected: WorkspaceDestination = WorkspaceDestination.Conversations,
+    actions: List<ChromeAction> = emptyList(),
+    open: (WorkspaceDestination) -> Unit
+) {
+    val sections = listOf(
+        "Agents" to WorkspaceDestination.Conversations,
+        "Context" to WorkspaceDestination.Notes,
+        "Changes" to WorkspaceDestination.Git
+    )
+    val selectedIndex = sections.indexOfFirst { it.second == selected }.coerceAtLeast(0)
+    Column {
+        CompactAppBar(workspace?.title ?: LocalWorkspaceTitle.current, actions = actions)
+        Column(Modifier.padding(horizontal = IntentScreen.sectionInsets)) {
+            workspace?.statusMessage?.takeIf { it.isNotBlank() }?.let {
+                Text(it, maxLines = 2, overflow = TextOverflow.Ellipsis)
             }
-            item {
-                WorkspaceLink("Agents", "Conversations") {
-                    open(WorkspaceDestination.Conversations)
-                }
-            }
-            item {
-                WorkspaceLink("Context", "Notes and tasks") { open(WorkspaceDestination.Notes) }
-            }
-            item {
-                WorkspaceLink("Changes", "Files and commit history") {
-                    open(WorkspaceDestination.Git)
-                }
-            }
-            item {
-                WorkspaceLink("Browser preview", "Open a workspace web app") {
-                    open(WorkspaceDestination.Browser)
-                }
-            }
-            item {
-                WorkspaceLink("Terminals", "View workspace terminal sessions") {
-                    open(WorkspaceDestination.Terminals)
-                }
+            Text(
+                workspace?.let { workspaceStateLabel(it) } ?: "Workspace state unavailable",
+                style = MaterialTheme.typography.labelMedium,
+                color = IntentScreen.secondaryText
+            )
+        }
+        TabRow(selectedTabIndex = selectedIndex) {
+            sections.forEachIndexed { index, (title, destination) ->
+                Tab(
+                    selected = index == selectedIndex,
+                    onClick = { open(destination) },
+                    text = { Text(title) }
+                )
             }
         }
-    }
-}
-
-@Composable
-private fun WorkspaceLink(title: String, description: String, open: () -> Unit) {
-    IntentSection(title, onClick = open) {
-        Text(
-            description,
-            color = IntentScreen.secondaryText,
-            style = MaterialTheme.typography.bodyMedium
-        )
     }
 }
 

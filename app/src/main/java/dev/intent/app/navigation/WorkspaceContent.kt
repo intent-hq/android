@@ -9,8 +9,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import dev.intent.app.browser.WorkspaceBrowser
 import dev.intent.app.cache.OfflineCache
 import dev.intent.app.conversation.WorkspaceConversations
@@ -29,23 +31,42 @@ fun WorkspaceContent(
     session: RpcSession,
     workspaceId: String,
     cache: OfflineCache,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    sectionScope: String = ""
 ) {
+    val context = LocalContext.current.applicationContext
+    val preferences = remember(context, sectionScope) {
+        WorkspaceSectionPreferences(context, sectionScope)
+    }
     var destination by rememberSaveable(
         session,
         workspaceId,
         stateSaver = workspaceDestinationSaver
     ) {
-        mutableStateOf<WorkspaceDestination>(WorkspaceDestination.Home)
+        mutableStateOf(preferences.load(workspaceId))
     }
+    var section by rememberSaveable(session, workspaceId, stateSaver = workspaceDestinationSaver) {
+        mutableStateOf(preferences.load(workspaceId))
+    }
+    val savedState = rememberSaveableStateHolder()
     val source = remember(session) { SessionNoteSource(session) }
     val back = {
-        val parent = destination.parent()
+        val parent = destination.parent(section)
         if (parent == null) onBack() else destination = parent
     }
     BackHandler { back() }
     CompositionLocalProvider(
         LocalChromeBack provides back,
+        LocalWorkspaceSectionHeader provides { actions ->
+            WorkspaceDetailScreen(LocalWorkspaceDetails.current, section, actions) {
+                section = it
+                destination = it
+                preferences.save(workspaceId, it)
+            }
+        },
+        LocalWorkspaceResources provides {
+            WorkspaceResources { destination = it }
+        },
         LocalChromeActions provides (
             listOf(
                 ChromeAction("Browser preview") { destination = WorkspaceDestination.Browser },
@@ -56,32 +77,33 @@ fun WorkspaceContent(
             destination = WorkspaceDestination.Note(id)
         }
     ) {
-        when (val current = destination) {
-            WorkspaceDestination.Browser -> WorkspaceBrowser(session, workspaceId, back)
-            WorkspaceDestination.Git -> WorkspaceGitRoute(session, workspaceId, back)
-            WorkspaceDestination.Terminals -> WorkspaceTerminals(session, workspaceId, back)
-            WorkspaceDestination.Conversations -> WorkspaceConversations(session, workspaceId, back)
-            else -> Column(Modifier.fillMaxSize()) {
-                when (current) {
-                    WorkspaceDestination.Home -> {
-                        WorkspaceDetailScreen(LocalWorkspaceDetails.current) {
-                            destination = it
-                        }
+        savedState.SaveableStateProvider(destination.routeKey()) {
+            when (val current = destination) {
+                WorkspaceDestination.Browser -> WorkspaceBrowser(session, workspaceId, back)
+                WorkspaceDestination.Git -> WorkspaceGitRoute(session, workspaceId, back)
+                WorkspaceDestination.Terminals -> WorkspaceTerminals(session, workspaceId, back)
+                WorkspaceDestination.Conversations -> WorkspaceConversations(
+                    session,
+                    workspaceId,
+                    back
+                )
+                else -> Column(Modifier.fillMaxSize()) {
+                    when (current) {
+                        WorkspaceDestination.Notes -> NoteListRoute(
+                            session,
+                            workspaceId,
+                            { destination = WorkspaceDestination.Note(it) },
+                            Modifier.weight(1f)
+                        )
+                        is WorkspaceDestination.Note -> NoteReaderRoute(
+                            source,
+                            workspaceId,
+                            current.id,
+                            Modifier.weight(1f),
+                            cache
+                        )
+                        else -> Unit
                     }
-                    WorkspaceDestination.Notes -> NoteListRoute(
-                        session,
-                        workspaceId,
-                        { destination = WorkspaceDestination.Note(it) },
-                        Modifier.weight(1f)
-                    )
-                    is WorkspaceDestination.Note -> NoteReaderRoute(
-                        source,
-                        workspaceId,
-                        current.id,
-                        Modifier.weight(1f),
-                        cache
-                    )
-                    else -> Unit
                 }
             }
         }
