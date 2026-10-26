@@ -4,7 +4,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasText
-import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
@@ -14,6 +13,7 @@ import dev.intent.app.design.IntentTheme
 import dev.intent.app.navigation.WorkspaceDestination
 import dev.intent.app.notes.NoteReaderScreen
 import dev.intent.app.notes.NoteReaderState
+import dev.intent.app.testing.createIntentComposeRule
 import dev.intent.app.workspaces.WorkspaceDetailScreen
 import dev.intent.core.protocol.models.Note
 import dev.intent.core.protocol.models.Workspace
@@ -24,7 +24,7 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class WorkspaceDetailTest {
-    @get:Rule val compose = createComposeRule()
+    @get:Rule val compose = createIntentComposeRule()
 
     @Test
     fun summaryStateAndToolsAreReachable() {

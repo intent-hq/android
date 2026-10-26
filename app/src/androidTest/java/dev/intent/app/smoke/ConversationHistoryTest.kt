@@ -6,7 +6,6 @@ import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performScrollToIndex
@@ -18,6 +17,7 @@ import dev.intent.app.conversation.ConversationSession
 import dev.intent.app.conversation.ConversationState
 import dev.intent.app.conversation.ConversationStore
 import dev.intent.app.design.IntentTheme
+import dev.intent.app.testing.createIntentComposeRule
 import dev.intent.core.protocol.models.ChatPush
 import dev.intent.core.protocol.models.ContentBlock
 import dev.intent.core.protocol.models.ConversationMessage
@@ -32,7 +32,7 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class ConversationHistoryTest {
-    @get:Rule val compose = createComposeRule()
+    @get:Rule val compose = createIntentComposeRule()
 
     @Test
     fun delayedPagesKeepVisibleMessageAndOffsetWithoutRefreshing() {

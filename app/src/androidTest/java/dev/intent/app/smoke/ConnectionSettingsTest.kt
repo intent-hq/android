@@ -2,7 +2,6 @@ package dev.intent.app.smoke
 
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.assertIsSelected
-import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -12,6 +11,7 @@ import dev.intent.app.connection.ConnectionState
 import dev.intent.app.connection.SavedConnection
 import dev.intent.app.design.IntentTheme
 import dev.intent.app.settings.Appearance
+import dev.intent.app.testing.createIntentComposeRule
 import dev.intent.core.protocol.pairing.PairingPayload
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -20,7 +20,7 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class ConnectionSettingsTest {
-    @get:Rule val compose = createComposeRule()
+    @get:Rule val compose = createIntentComposeRule()
 
     @Test
     fun appearanceSelectionMovesWithTheSelectedValue() {

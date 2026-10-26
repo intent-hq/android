@@ -5,7 +5,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -16,6 +15,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import dev.intent.app.conversation.ConversationScreen
 import dev.intent.app.conversation.ConversationState
 import dev.intent.app.design.IntentTheme
+import dev.intent.app.testing.createIntentComposeRule
 import dev.intent.core.protocol.models.ContentBlock
 import dev.intent.core.protocol.models.ConversationMessage
 import org.junit.Assert.assertEquals
@@ -25,7 +25,7 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class ToolActivityTest {
-    @get:Rule val compose = createComposeRule()
+    @get:Rule val compose = createIntentComposeRule()
 
     @Test
     fun adjacentMessagesCollapseAndHydrateWithOriginalIds() {

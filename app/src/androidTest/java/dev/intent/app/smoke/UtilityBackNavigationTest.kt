@@ -1,7 +1,6 @@
 package dev.intent.app.smoke
 
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -11,6 +10,7 @@ import dev.intent.app.connection.ConnectionController
 import dev.intent.app.connection.ConnectionRoot
 import dev.intent.app.connection.createConnectionSession
 import dev.intent.app.design.IntentTheme
+import dev.intent.app.testing.createIntentComposeRule
 import dev.intent.core.protocol.pairing.PairingPayload
 import org.junit.Rule
 import org.junit.Test
@@ -18,7 +18,7 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class UtilityBackNavigationTest {
-    @get:Rule val compose = createComposeRule()
+    @get:Rule val compose = createIntentComposeRule()
 
     @Test
     fun pairingReturnsThroughConnectionsAndSettingsToWorkspaceDetail() {

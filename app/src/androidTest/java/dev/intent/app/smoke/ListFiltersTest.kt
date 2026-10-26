@@ -1,7 +1,6 @@
 package dev.intent.app.smoke
 
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -13,6 +12,7 @@ import dev.intent.app.comments.CommentScreen
 import dev.intent.app.comments.CommentState
 import dev.intent.app.design.IntentTheme
 import dev.intent.app.notes.ContextNoteList
+import dev.intent.app.testing.createIntentComposeRule
 import dev.intent.core.protocol.models.Agent
 import dev.intent.core.protocol.models.Note
 import dev.intent.core.protocol.models.NoteMetadata
@@ -24,7 +24,7 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class ListFiltersTest {
-    @get:Rule val compose = createComposeRule()
+    @get:Rule val compose = createIntentComposeRule()
 
     @Test
     fun agentSearchReopensCollapsedAncestorsAndCurrentKeepsLiveWork() {

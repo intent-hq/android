@@ -13,7 +13,6 @@ import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.isToggleable
-import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
@@ -34,6 +33,7 @@ import dev.intent.app.conversation.SendStatus
 import dev.intent.app.design.IntentTheme
 import dev.intent.app.notes.NoteReaderScreen
 import dev.intent.app.notes.NoteReaderState
+import dev.intent.app.testing.createIntentComposeRule
 import dev.intent.app.workspaces.WorkspaceListScreen
 import dev.intent.app.workspaces.WorkspaceListState
 import dev.intent.core.protocol.models.Comment
@@ -55,7 +55,7 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class CoreFlowsTest {
-    @get:Rule val compose = createComposeRule()
+    @get:Rule val compose = createIntentComposeRule()
     private val dark = mutableStateOf(false)
 
     @Test

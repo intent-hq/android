@@ -6,13 +6,13 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsSelected
-import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import dev.intent.app.design.IntentTheme
+import dev.intent.app.testing.createIntentComposeRule
 import dev.intent.app.workspaces.CreationOptionsStore
 import dev.intent.app.workspaces.WorkspaceCreateScreen
 import dev.intent.app.workspaces.WorkspaceOperations
@@ -25,7 +25,7 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class WorkspaceCreateTest {
-    @get:Rule val compose = createComposeRule()
+    @get:Rule val compose = createIntentComposeRule()
 
     @Test
     fun createStaysVisibleDuringInputAndChoiceSelection() {
