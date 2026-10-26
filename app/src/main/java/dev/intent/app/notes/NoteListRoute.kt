@@ -1,15 +1,13 @@
 package dev.intent.app.notes
 
 import androidx.compose.foundation.layout.Column
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import dev.intent.app.navigation.ChromeAction
+import dev.intent.app.lists.RefreshableList
 import dev.intent.app.navigation.CompactAppBar
 import dev.intent.core.protocol.models.NoteListResult
 import dev.intent.core.protocol.session.RpcSession
@@ -40,14 +38,20 @@ fun NoteListRoute(
         store.refresh()
         onDispose { store.close() }
     }
+    NoteListScreen(state, store::refresh, onSelected, modifier)
+}
+
+@Composable
+internal fun NoteListScreen(
+    state: NoteListState,
+    onRefresh: () -> Unit,
+    onSelected: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
     Column(modifier) {
-        CompactAppBar(
-            "Context",
-            actions = listOf(ChromeAction("Refresh", !state.loading, store::refresh))
-        )
-        if (state.loading) CircularProgressIndicator()
-        state.error?.let { Text(it) }
-        if (!state.loading && state.error == null && state.notes.isEmpty()) Text("No notes")
-        ContextNoteList(state.notes, onSelected)
+        CompactAppBar("Context")
+        RefreshableList(state.loading, onRefresh) {
+            ContextNoteList(state.notes, onSelected, loading = state.loading, error = state.error)
+        }
     }
 }

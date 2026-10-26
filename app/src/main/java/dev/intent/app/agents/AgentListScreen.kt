@@ -5,11 +5,11 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -28,9 +28,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import dev.intent.app.design.AgentAvatarState
 import dev.intent.app.design.IntentScreen
-import dev.intent.app.design.intentPageInsets
 import dev.intent.app.lists.ListFilters
-import dev.intent.app.navigation.ChromeAction
+import dev.intent.app.lists.RefreshableList
 import dev.intent.app.navigation.CompactAppBar
 import dev.intent.core.protocol.models.Agent
 
@@ -71,27 +70,26 @@ fun AgentListScreen(
     }
     val rows = tree.rows(collapsed.toSet())
     Column(modifier) {
-        CompactAppBar(
-            "Agents",
-            actions = listOf(ChromeAction("Refresh", !state.isLoading, onRefresh))
-        )
-        Column(
-            Modifier.intentPageInsets(),
-            verticalArrangement = Arrangement.spacedBy(IntentScreen.itemSpacing)
-        ) {
-            if (state.isLoading) CircularProgressIndicator()
-            state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-            if (!state.isLoading &&
-                state.error == null &&
-                state.agents.isEmpty()
+        CompactAppBar("Agents")
+        RefreshableList(state.isLoading, onRefresh) {
+            LazyColumn(
+                Modifier.fillMaxSize(),
+                contentPadding = IntentScreen.pageInsets,
+                verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                Text("No agents yet")
-            }
-            ListFilters(query, currentOnly, "Search agents", { query = it }, { currentOnly = it })
-            if (rows.isEmpty() && (query.isNotBlank() || currentOnly)) {
-                Text("No matching agents. Change the search or select All.")
-            }
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                state.error?.let { item { Text(it, color = MaterialTheme.colorScheme.error) } }
+                if (!state.isLoading && state.error == null && state.agents.isEmpty()) {
+                    item { Text("No agents yet") }
+                }
+                item {
+                    ListFilters(query, currentOnly, "Search agents", { query = it }, {
+                        currentOnly =
+                            it
+                    })
+                }
+                if (rows.isEmpty() && (query.isNotBlank() || currentOnly)) {
+                    item { Text("No matching agents. Change the search or select All.") }
+                }
                 items(rows, key = { it.agent.id }) { row ->
                     AgentTreeItem(
                         row,

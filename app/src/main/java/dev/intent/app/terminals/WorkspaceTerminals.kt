@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Button
 import androidx.compose.material3.OutlinedTextField
@@ -32,7 +31,6 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.sp
 import dev.intent.app.design.IntentScreen
-import dev.intent.app.design.IntentSection
 import dev.intent.app.design.intentPageInsets
 import dev.intent.app.navigation.ChromeAction
 import dev.intent.app.navigation.CompactAppBar
@@ -50,35 +48,27 @@ fun WorkspaceTerminals(session: RpcSession, workspaceId: String, onBack: () -> U
     val back = { if (state.selected != null) store.select(null) else onBack() }
     BackHandler(onBack = back)
     Column(Modifier.fillMaxSize()) {
-        CompactAppBar("Terminals", back, listOf(ChromeAction("Refresh", run = store::refresh)))
-        Column(
-            Modifier.weight(1f).intentPageInsets(),
-            verticalArrangement = Arrangement.spacedBy(IntentScreen.itemSpacing)
-        ) {
-            state.error?.let { Text(it, color = IntentScreen.error) }
-            state.notice?.let { Text(it) }
-            if (state.loading) Text("Loading terminals…")
-            if (state.selected == null) {
-                if (!state.loading && state.error == null && state.terminals.isEmpty()) {
-                    IntentSection("No terminal sessions") {
-                        Text(
-                            "Open this workspace in Intent on the desktop and start a terminal session."
-                        )
-                        Text(
-                            "Then refresh this list to connect to that session.",
-                            color = IntentScreen.secondaryText
-                        )
-                        TextButton(onClick = store::refresh) { Text("Refresh") }
-                    }
-                }
-                LazyColumn {
-                    items(state.terminals, key = { it.id }) { terminal ->
-                        TextButton(onClick = { store.select(terminal.id) }) {
-                            Text("${terminal.name}\n${terminal.cwd}")
-                        }
-                    }
-                }
+        CompactAppBar(
+            "Terminals",
+            back,
+            if (state.selected ==
+                null
+            ) {
+                emptyList()
             } else {
+                listOf(ChromeAction("Refresh", run = store::refresh))
+            }
+        )
+        if (state.selected == null) {
+            TerminalListScreen(state, store::refresh, store::select)
+        } else {
+            Column(
+                Modifier.weight(1f).intentPageInsets(),
+                verticalArrangement = Arrangement.spacedBy(IntentScreen.itemSpacing)
+            ) {
+                state.error?.let { Text(it, color = IntentScreen.error) }
+                state.notice?.let { Text(it) }
+                if (state.loading) Text("Loading terminals…")
                 Text(state.terminals.firstOrNull { it.id == state.selected }?.name ?: "Terminal")
                 Text("Basic ANSI display. Full-screen apps have limited rendering.")
                 TerminalOutput(state.frame, store::resize, Modifier.weight(1f))

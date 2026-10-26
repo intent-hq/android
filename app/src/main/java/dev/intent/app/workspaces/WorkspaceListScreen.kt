@@ -4,11 +4,11 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -24,8 +24,7 @@ import dev.intent.app.design.IntentLightDarkPreview
 import dev.intent.app.design.IntentScreen
 import dev.intent.app.design.IntentSpacing
 import dev.intent.app.design.IntentTheme
-import dev.intent.app.design.intentPageInsets
-import dev.intent.app.navigation.ChromeAction
+import dev.intent.app.lists.RefreshableList
 import dev.intent.app.navigation.CompactAppBar
 import dev.intent.core.protocol.models.Workspace
 
@@ -51,23 +50,17 @@ fun WorkspaceListScreen(
     modifier: Modifier = Modifier
 ) {
     Column(modifier) {
-        CompactAppBar(
-            "Workspaces",
-            actions = listOf(ChromeAction("Refresh", !state.isLoading, onRefresh))
-        )
-        Column(
-            Modifier.intentPageInsets(),
-            verticalArrangement = Arrangement.spacedBy(IntentScreen.itemSpacing)
-        ) {
-            if (state.isLoading) CircularProgressIndicator()
-            state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-            if (!state.isLoading &&
-                state.error == null &&
-                state.workspaces.isEmpty()
+        CompactAppBar("Workspaces")
+        RefreshableList(state.isLoading, onRefresh) {
+            LazyColumn(
+                Modifier.fillMaxSize(),
+                contentPadding = IntentScreen.pageInsets,
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Text("No workspaces yet")
-            }
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                state.error?.let { item { Text(it, color = MaterialTheme.colorScheme.error) } }
+                if (!state.isLoading && state.error == null && state.workspaces.isEmpty()) {
+                    item { Text("No workspaces yet") }
+                }
                 items(state.workspaces, key = { it.id }) { workspace ->
                     WorkspaceRow(workspace) { onWorkspaceSelected(workspace.id) }
                 }

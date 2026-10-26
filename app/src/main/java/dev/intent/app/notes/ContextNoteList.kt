@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -37,14 +38,21 @@ import dev.intent.core.protocol.models.Note
 private const val MAX_VISIBLE_DEPTH = 4
 
 @Composable
-internal fun ContextNoteList(notes: List<Note>, onSelected: (String) -> Unit) {
+internal fun ContextNoteList(
+    notes: List<Note>,
+    onSelected: (String) -> Unit,
+    loading: Boolean = false,
+    error: String? = null
+) {
     var query by rememberSaveable { mutableStateOf("") }
     var currentOnly by rememberSaveable { mutableStateOf(false) }
     var collapsed by remember(query, currentOnly) { mutableStateOf(emptySet<String>()) }
     val rows = remember(notes, collapsed, query, currentOnly) {
         contextNoteRows(filterContextNotes(notes, query, currentOnly), collapsed)
     }
-    LazyColumn(contentPadding = IntentScreen.pageInsets) {
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = IntentScreen.pageInsets) {
+        error?.let { item { Text(it, color = IntentScreen.error) } }
+        if (!loading && error == null && notes.isEmpty()) item { Text("No notes") }
         item {
             ListFilters(query, currentOnly, "Search notes and tasks", { query = it }, {
                 currentOnly =

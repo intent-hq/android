@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -25,7 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import dev.intent.app.design.IntentScreen
-import dev.intent.app.navigation.ChromeAction
+import dev.intent.app.lists.RefreshableList
 import dev.intent.app.navigation.CompactAppBar
 import dev.intent.app.navigation.LocalChromeBack
 import dev.intent.core.protocol.models.Comment
@@ -73,55 +72,57 @@ fun CommentScreen(
     noteTitle: String = "Note"
 ) {
     Column(modifier.fillMaxSize()) {
-        CompactAppBar("Comments", actions = listOf(ChromeAction("Refresh", run = onRefresh)))
-        LazyColumn(
-            contentPadding = IntentScreen.pageInsets,
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            if (state.loading) item { CircularProgressIndicator() }
-            state.error?.let { item { Text(it, color = MaterialTheme.colorScheme.error) } }
-            val thread = state.threads.find { it.threadId == selected }
-            when {
-                selected == null -> {
-                    if (!state.loading && state.error == null && state.threads.isEmpty()) {
-                        item {
-                            Text(noteTitle, style = MaterialTheme.typography.titleMedium)
-                            Text("No comment threads for this note.")
-                            Text(
-                                "To start a thread, open this note in Intent on your computer " +
-                                    "and select text to comment on."
-                            )
-                            Text(
-                                "You can read threads and reply here. Use Refresh after you add a comment."
-                            )
+        CompactAppBar("Comments")
+        RefreshableList(state.loading, onRefresh) {
+            LazyColumn(
+                Modifier.fillMaxSize(),
+                contentPadding = IntentScreen.pageInsets,
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                state.error?.let { item { Text(it, color = MaterialTheme.colorScheme.error) } }
+                val thread = state.threads.find { it.threadId == selected }
+                when {
+                    selected == null -> {
+                        if (!state.loading && state.error == null && state.threads.isEmpty()) {
+                            item {
+                                Text(noteTitle, style = MaterialTheme.typography.titleMedium)
+                                Text("No comment threads for this note.")
+                                Text(
+                                    "To start a thread, open this note in Intent " +
+                                        "on your computer " +
+                                        "and select text to comment on."
+                                )
+                                Text(
+                                    "You can read threads and reply here. " +
+                                        "Pull down after you add a comment."
+                                )
+                            }
                         }
-                    }
-                    items(state.threads, key = { it.threadId }) { row ->
-                        TextButton(onClick = {
-                            onSelect(row.threadId)
-                        }, modifier = Modifier.fillMaxWidth()) {
-                            Column(Modifier.fillMaxWidth()) {
-                                Text(row.targetedText ?: "Note comment")
-                                Text("${row.commentCount} comments · ${row.status}")
-                                Text("${row.latestCommentAuthor} · ${row.lastActivity}")
+                        items(state.threads, key = { it.threadId }) { row ->
+                            TextButton(onClick = {
+                                onSelect(row.threadId)
+                            }, modifier = Modifier.fillMaxWidth()) {
+                                Column(Modifier.fillMaxWidth()) {
+                                    Text(row.targetedText ?: "Note comment")
+                                    Text("${row.commentCount} comments · ${row.status}")
+                                    Text("${row.latestCommentAuthor} · ${row.lastActivity}")
+                                }
                             }
                         }
                     }
-                }
-                thread == null -> item { Text("This thread is not available.") }
-                else -> {
-                    item {
-                        thread.targetedText?.let { Text("About: $it") }
-                        Text("Status: ${thread.status}")
+                    thread == null -> item { Text("This thread is not available.") }
+                    else -> {
+                        item {
+                            thread.targetedText?.let { Text("About: $it") }
+                            Text("Status: ${thread.status}")
+                        }
+                        val comments = thread.comments
+                        if (comments == null) {
+                            item { Text("Comment text is not available. Refresh to load it.") }
+                        }
+                        items(comments.orEmpty(), key = { it.id }) { CommentBody(it) }
+                        item { ReplyComposer(state, selected, onDraft, onReply) }
                     }
-                    val comments = thread.comments
-                    if (comments ==
-                        null
-                    ) {
-                        item { Text("Comment text is not available. Refresh to load it.") }
-                    }
-                    items(comments.orEmpty(), key = { it.id }) { CommentBody(it) }
-                    item { ReplyComposer(state, selected, onDraft, onReply) }
                 }
             }
         }
