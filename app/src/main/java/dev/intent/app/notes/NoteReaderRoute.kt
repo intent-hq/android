@@ -47,7 +47,12 @@ fun NoteReaderRoute(
         val comments = remember(commentSource, workspaceId, noteId) {
             CommentStore(commentSource.comments(workspaceId, noteId), noteId)
         }
-        CommentRoute(comments, onBack = { showComments = false }, modifier = modifier)
+        CommentRoute(
+            comments,
+            onBack = { showComments = false },
+            modifier = modifier,
+            noteTitle = state.note?.title ?: noteId
+        )
     } else {
         Column(modifier.fillMaxSize()) {
             val actions = if (commentSource != null) {

@@ -20,6 +20,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -30,15 +31,29 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import dev.intent.app.design.IntentSpacing
+import dev.intent.app.lists.ListFilters
 import dev.intent.core.protocol.models.Note
 
 private const val MAX_VISIBLE_DEPTH = 4
 
 @Composable
 internal fun ContextNoteList(notes: List<Note>, onSelected: (String) -> Unit) {
-    var collapsed by remember { mutableStateOf(emptySet<String>()) }
-    val rows = remember(notes, collapsed) { contextNoteRows(notes, collapsed) }
+    var query by rememberSaveable { mutableStateOf("") }
+    var currentOnly by rememberSaveable { mutableStateOf(false) }
+    var collapsed by remember(query, currentOnly) { mutableStateOf(emptySet<String>()) }
+    val rows = remember(notes, collapsed, query, currentOnly) {
+        contextNoteRows(filterContextNotes(notes, query, currentOnly), collapsed)
+    }
     LazyColumn(contentPadding = PaddingValues(IntentSpacing.content)) {
+        item {
+            ListFilters(query, currentOnly, "Search notes and tasks", { query = it }, {
+                currentOnly =
+                    it
+            })
+        }
+        if (rows.isEmpty() && notes.isNotEmpty()) {
+            item { Text("No matching notes or tasks. Change the search or select All.") }
+        }
         items(rows, key = { it.note.id }) { row ->
             ContextRow(row, row.note.id in collapsed, onSelected) {
                 collapsed =

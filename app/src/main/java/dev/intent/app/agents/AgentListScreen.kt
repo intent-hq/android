@@ -18,6 +18,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -26,6 +27,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import dev.intent.app.design.AgentAvatarState
+import dev.intent.app.lists.ListFilters
 import dev.intent.app.navigation.ChromeAction
 import dev.intent.app.navigation.CompactAppBar
 import dev.intent.core.protocol.models.Agent
@@ -53,8 +55,19 @@ fun AgentListScreen(
     onAgentSelected: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var collapsed by rememberSaveable { mutableStateOf(arrayListOf<String>()) }
-    val rows = state.tree.rows(collapsed.toSet())
+    var query by rememberSaveable { mutableStateOf("") }
+    var currentOnly by rememberSaveable { mutableStateOf(false) }
+    var collapsed by rememberSaveable(query, currentOnly) { mutableStateOf(arrayListOf<String>()) }
+    val tree = remember(state.agents, query, currentOnly) {
+        if (query.isBlank() &&
+            !currentOnly
+        ) {
+            state.tree
+        } else {
+            AgentTree(filterAgents(state.agents, query, currentOnly))
+        }
+    }
+    val rows = tree.rows(collapsed.toSet())
     Column(modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         CompactAppBar(
             "Agents",
@@ -67,6 +80,10 @@ fun AgentListScreen(
             state.agents.isEmpty()
         ) {
             Text("No agents yet")
+        }
+        ListFilters(query, currentOnly, "Search agents", { query = it }, { currentOnly = it })
+        if (rows.isEmpty() && (query.isNotBlank() || currentOnly)) {
+            Text("No matching agents. Change the search or select All.")
         }
         LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             items(rows, key = { it.agent.id }) { row ->

@@ -38,7 +38,6 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.longOrNull
 
 @Suppress("LongMethod")
@@ -95,11 +94,7 @@ fun WorkspaceTransferScreen(
             Text("Before you transfer", style = MaterialTheme.typography.titleSmall)
             Text("Transfer stops active agents. Keep both hosts connected until it finishes.")
             (plan?.get("warnings") as? JsonArray)?.forEach { warning ->
-                val message = (
-                    (warning as? JsonObject)?.get(
-                        "message"
-                    ) as? JsonPrimitive
-                    )?.contentOrNull
+                val message = (warning as? JsonObject)?.let(::transferWarningText)
                 if (!message.isNullOrBlank()) Text(message)
             }
         }

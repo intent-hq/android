@@ -31,7 +31,12 @@ import dev.intent.core.protocol.models.Comment
 import dev.intent.core.protocol.models.CommentThreadSummary
 
 @Composable
-fun CommentRoute(store: CommentStore, onBack: () -> Unit, modifier: Modifier = Modifier) {
+fun CommentRoute(
+    store: CommentStore,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier,
+    noteTitle: String = "Note"
+) {
     val state by store.state.collectAsState()
     var selected by remember(store) { mutableStateOf<String?>(null) }
     DisposableEffect(store) {
@@ -49,7 +54,7 @@ fun CommentRoute(store: CommentStore, onBack: () -> Unit, modifier: Modifier = M
         ) {
             CommentScreen(state, selected, {
                 selected = it
-            }, store::refresh, store::draft, store::reply)
+            }, store::refresh, store::draft, store::reply, noteTitle = noteTitle)
         }
     }
 }
@@ -63,7 +68,8 @@ fun CommentScreen(
     onRefresh: () -> Unit,
     onDraft: (String, String) -> Unit,
     onReply: (String) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    noteTitle: String = "Note"
 ) {
     LazyColumn(modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         item {
@@ -74,7 +80,19 @@ fun CommentScreen(
         val thread = state.threads.find { it.threadId == selected }
         when {
             selected == null -> {
-                if (!state.loading && state.threads.isEmpty()) item { Text("No comment threads.") }
+                if (!state.loading && state.error == null && state.threads.isEmpty()) {
+                    item {
+                        Text(noteTitle, style = MaterialTheme.typography.titleMedium)
+                        Text("No comment threads for this note.")
+                        Text(
+                            "To start a thread, open this note in Intent on your computer " +
+                                "and select text to comment on."
+                        )
+                        Text(
+                            "You can read threads and reply here. Use Refresh after you add a comment."
+                        )
+                    }
+                }
                 items(state.threads, key = { it.threadId }) { row ->
                     TextButton(onClick = {
                         onSelect(row.threadId)

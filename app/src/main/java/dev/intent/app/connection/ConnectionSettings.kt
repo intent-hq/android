@@ -23,6 +23,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import dev.intent.app.BuildConfig
 import dev.intent.app.design.IntentScreen
 import dev.intent.app.design.IntentSection
 import dev.intent.app.design.intentPageInsets
@@ -116,6 +117,9 @@ private fun SettingsDescription(text: String) {
 private fun AboutSection() {
     IntentSection("About") {
         Text("Intent for Android", style = MaterialTheme.typography.bodyLarge)
+        SettingsDescription(
+            "Version ${BuildConfig.VERSION_NAME} (build ${BuildConfig.VERSION_CODE})"
+        )
         SettingsDescription("Android companion app — under development")
     }
 }
