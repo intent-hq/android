@@ -1,8 +1,9 @@
 package dev.intent.app.agents
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -11,6 +12,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -41,14 +44,15 @@ private const val MAX_VISIBLE_DEPTH = 5
 fun AgentListRoute(
     store: AgentStore,
     onAgentSelected: (String) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onMute: ((Agent) -> Unit)? = null
 ) {
     val state by store.state.collectAsState()
     DisposableEffect(store) {
         store.start()
         onDispose { store.stop() }
     }
-    AgentListScreen(state, store::refresh, onAgentSelected, modifier)
+    AgentListScreen(state, store::refresh, onAgentSelected, modifier, onMute)
 }
 
 @Suppress("LongMethod") // Declarative agent tree, filters, and workspace resource footer.
@@ -57,7 +61,8 @@ fun AgentListScreen(
     state: AgentListState,
     onRefresh: () -> Unit,
     onAgentSelected: (String) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onMute: ((Agent) -> Unit)? = null
 ) {
     var query by rememberSaveable { mutableStateOf("") }
     var currentOnly by rememberSaveable { mutableStateOf(false) }
@@ -112,7 +117,8 @@ fun AgentListScreen(
                                     }
                                 )
                             },
-                            onClick = { onAgentSelected(row.agent.id) }
+                            onClick = { onAgentSelected(row.agent.id) },
+                            onMute = onMute
                         )
                     }
                     if (resources != null) item { resources() }
@@ -127,7 +133,8 @@ private fun AgentTreeItem(
     row: AgentTreeRow,
     expanded: Boolean,
     onToggle: () -> Unit,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onMute: ((Agent) -> Unit)?
 ) {
     val primary = row.agent.isCoordinator()
     val color = if (primary) {
@@ -156,14 +163,38 @@ private fun AgentTreeItem(
                 }
             }
         }
-        AgentRow(row.agent, onClick)
+        AgentRowMenu(row.agent, onClick, onMute)
     }
 }
 
 @Composable
-private fun AgentRow(agent: Agent, onClick: () -> Unit) {
+private fun AgentRowMenu(agent: Agent, onClick: () -> Unit, onMute: ((Agent) -> Unit)?) {
+    var expanded by remember(agent.id) { mutableStateOf(false) }
+    Box {
+        AgentRow(agent, onClick) { if (onMute != null) expanded = true }
+        DropdownMenu(expanded, onDismissRequest = { expanded = false }) {
+            DropdownMenuItem(
+                text = {
+                    Text(
+                        agent.muteActionLabel()
+                    )
+                },
+                onClick = {
+                    expanded = false
+                    onMute?.invoke(agent)
+                }
+            )
+        }
+    }
+}
+
+@Composable
+private fun AgentRow(agent: Agent, onClick: () -> Unit, onLongClick: () -> Unit) {
     Row(
-        Modifier.fillMaxWidth().clickable(
+        Modifier.fillMaxWidth().combinedClickable(
+            onLongClick = onLongClick,
+            onLongClickLabel =
+            agent.muteActionLabel(),
             onClick = onClick
         ).padding(horizontal = 12.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -178,7 +209,7 @@ private fun AgentRow(agent: Agent, onClick: () -> Unit) {
                 overflow = TextOverflow.Ellipsis
             )
             Text(
-                agent.rowStatus(),
+                agent.rowStatus() + if (agent.notificationsMuted) " · Notifications muted" else "",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -226,3 +257,6 @@ private fun AgentListPreview() {
         )
     }
 }
+
+private fun Agent.muteActionLabel(): String =
+    if (notificationsMuted) "Unmute notifications" else "Mute notifications"

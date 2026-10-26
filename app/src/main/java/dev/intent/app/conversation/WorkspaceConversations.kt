@@ -2,6 +2,7 @@ package dev.intent.app.conversation
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Column
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
@@ -9,11 +10,15 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import dev.intent.app.agents.AgentActionDialog
+import dev.intent.app.agents.AgentControls
 import dev.intent.app.agents.AgentListRoute
+import dev.intent.app.agents.AgentModelDialog
 import dev.intent.app.agents.AgentStore
 import dev.intent.app.agents.LocalConversationAgent
 import dev.intent.app.agents.NewAgentOptionsStore
@@ -21,6 +26,7 @@ import dev.intent.app.agents.NewAgentScreen
 import dev.intent.app.agents.RpcAgentSession
 import dev.intent.app.attachments.AndroidPhotoSource
 import dev.intent.app.attachments.PhotoAttachmentStore
+import dev.intent.app.design.IntentScreen
 import dev.intent.app.navigation.ChromeAction
 import dev.intent.app.navigation.CompactAppBar
 import dev.intent.app.navigation.LocalChromeActions
@@ -29,8 +35,12 @@ import dev.intent.app.workspaces.RpcWorkspaceOperations
 import dev.intent.core.protocol.attachments.AttachmentUploadService
 import dev.intent.core.protocol.attachments.RpcAttachmentClient
 import dev.intent.core.protocol.session.RpcSession
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
-@Suppress("LongMethod") // List, creation, and conversation destinations share selection state.
+@Suppress("LongMethod", "TooGenericExceptionCaught") // Route lifetime and RPC error presentation.
 @Composable
 fun WorkspaceConversations(session: RpcSession, workspaceId: String, onBack: () -> Unit) {
     val listState = rememberSaveableStateHolder()
@@ -38,6 +48,11 @@ fun WorkspaceConversations(session: RpcSession, workspaceId: String, onBack: () 
         remember(session, workspaceId) {
             AgentStore(RpcAgentSession(session, workspaceId), workspaceId)
         }
+    val operations = remember(session) { RpcWorkspaceOperations(session) }
+    val controls = remember(operations, workspaceId) { AgentControls(operations, workspaceId) }
+    val scope = rememberCoroutineScope()
+    var muteError by remember(session, workspaceId) { mutableStateOf<String?>(null) }
+    var muting by remember(session, workspaceId) { mutableStateOf(false) }
     var selected by rememberSaveable(session, workspaceId) { mutableStateOf<String?>(null) }
     var creating by rememberSaveable(session, workspaceId) { mutableStateOf(false) }
     val creation = remember(session) { NewAgentOptionsStore(RpcWorkspaceOperations(session)) }
@@ -52,6 +67,7 @@ fun WorkspaceConversations(session: RpcSession, workspaceId: String, onBack: () 
                 selected = it
             }
         } else if (agentId == null) {
+            muteError?.let { Text(it, color = IntentScreen.error) }
             CompositionLocalProvider(
                 LocalChromeBack provides onBack,
                 LocalChromeActions provides
@@ -61,7 +77,26 @@ fun WorkspaceConversations(session: RpcSession, workspaceId: String, onBack: () 
                         )
             ) {
                 listState.SaveableStateProvider("agents") {
-                    AgentListRoute(agents, { selected = it })
+                    AgentListRoute(agents, { selected = it }, onMute = { agent ->
+                        if (!muting) {
+                            muting = true
+                            muteError = null
+                            scope.launch {
+                                try {
+                                    val updated =
+                                        withContext(Dispatchers.IO) { controls.mute(agent) }
+                                    agents.changed(updated)
+                                } catch (cancelled: CancellationException) {
+                                    throw cancelled
+                                } catch (failure: Exception) {
+                                    muteError =
+                                        failure.message ?: "Notification setting was not saved."
+                                } finally {
+                                    muting = false
+                                }
+                            }
+                        }
+                    })
                 }
             }
         } else {
@@ -91,6 +126,32 @@ fun WorkspaceConversations(session: RpcSession, workspaceId: String, onBack: () 
                 }
             }
             val agentState by agents.state.collectAsState()
+            val agent = agentState.agents.firstOrNull { it.id == agentId }
+            var action by remember(agentId) { mutableStateOf<String?>(null) }
+            if (agent != null) {
+                when (action) {
+                    "Model settings" -> AgentModelDialog(
+                        agent,
+                        operations,
+                        controls,
+                        agents::changed
+                    ) {
+                        action =
+                            null
+                    }
+                    "Rename agent", "Delete agent" -> AgentActionDialog(
+                        action!!,
+                        agent,
+                        controls,
+                        agents::changed,
+                        onDeleted = {
+                            agents.removed(agentId)
+                            selected = null
+                        },
+                        onDismiss = { action = null }
+                    )
+                }
+            }
             CompositionLocalProvider(
                 LocalConversationAgent provides agentState.agents.firstOrNull {
                     it.id == agentId
@@ -98,7 +159,14 @@ fun WorkspaceConversations(session: RpcSession, workspaceId: String, onBack: () 
             ) {
                 CompactAppBar(
                     agentState.agents.firstOrNull { it.id == agentId }?.name ?: "Conversation",
-                    onBack = { selected = null }
+                    onBack = { selected = null },
+                    actions = listOf(
+                        "Model settings",
+                        "Rename agent",
+                        "Delete agent"
+                    ).map { label ->
+                        ChromeAction(label, enabled = agent != null) { action = label }
+                    }
                 )
                 ConversationRoute(conversation, sends, photos = photos)
             }

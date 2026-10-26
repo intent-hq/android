@@ -104,6 +104,20 @@ class AgentStore(private val session: AgentSession, private val workspaceId: Str
     }
 
     @Synchronized
+    fun changed(agent: Agent) {
+        if (closed) return
+        revision++
+        publish(state.value.agents.map { if (it.id == agent.id) agent else it })
+    }
+
+    @Synchronized
+    fun removed(agentId: String) {
+        if (closed) return
+        revision++
+        publish(state.value.agents.filterNot { it.id == agentId })
+    }
+
+    @Synchronized
     fun stop() {
         subscriptionGeneration++
         revision++

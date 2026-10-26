@@ -39,6 +39,23 @@ class NotificationTriggerTest {
         assertNull(alert("agent:stream:activity"))
     }
 
+    @Test fun mutedAgentCannotPostAttentionQuestionOrCompletion() {
+        val muted = listOf(Agent("agent", "Muted", notificationsMuted = true))
+        for (type in listOf("agent:attention-requested", "agent:updated", "agent:idle")) {
+            val candidate = alert(type, """, "pendingQuestionsMessageId":"question"""")!!
+            assertTrue(suppressAgentAlert(candidate.subjectId, muted, type == "agent:idle"))
+            assertFalse(
+                suppressAgentAlert(
+                    candidate.subjectId,
+                    muted.map {
+                        it.copy(notificationsMuted = false)
+                    },
+                    type == "agent:idle"
+                )
+            )
+        }
+    }
+
     @Test fun freshAgentListSuppressesPrematureCompletion() {
         assertTrue(suppressAgentAlert("a", listOf(Agent("b", "Other", status = "active")), true))
         assertTrue(
