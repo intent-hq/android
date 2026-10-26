@@ -2,7 +2,11 @@ package dev.intent.app.workspaces
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
@@ -55,65 +59,70 @@ fun WorkspaceCreateScreen(
                 }
         }
     }
-    Column(
-        Modifier.verticalScroll(rememberScrollState()).intentPageInsets(),
-        verticalArrangement = Arrangement.spacedBy(IntentScreen.sectionSpacing)
-    ) {
-        Text(
-            "Workspace creation is under development.",
-            style = MaterialTheme.typography.bodySmall,
-            color = IntentScreen.secondaryText
-        )
-        IntentSection("Workspace") {
-            OutlinedTextField(draft.title, {
-                draft = draft.copy(title = it)
-            }, modifier = Modifier.fillMaxWidth(), label = { Text("Title") }, enabled = !busy)
-            OutlinedTextField(draft.repositoryPath, {
-                draft = draft.copy(repositoryPath = it)
-            }, modifier = Modifier.fillMaxWidth(), label = {
-                Text("Repository path on host (optional)")
-            }, enabled = !busy)
-            OutlinedTextField(draft.baseRef, {
-                draft = draft.copy(baseRef = it)
-            }, modifier = Modifier.fillMaxWidth(), label = {
-                Text("Base branch (optional)")
-            }, enabled = !busy)
-        }
-        IntentSection("Initial prompt") {
-            OutlinedTextField(draft.prompt, {
-                draft = draft.copy(prompt = it)
-            }, modifier = Modifier.fillMaxWidth(), label = {
-                Text("Prompt (optional)")
-            }, enabled = !busy)
-        }
-        CreationChoices("Provider", draft.provider, options?.providers.orEmpty(), !busy) {
-            draft = draft.copy(provider = it, model = "")
-        }
-        CreationChoices("Model", draft.model, models, !busy) { draft = draft.copy(model = it) }
-        CreationChoices("Specialist", draft.specialist, options?.specialists.orEmpty(), !busy) {
-            draft = draft.copy(specialist = it)
-        }
-        error?.let { Text(it, color = IntentScreen.error) }
-        Button(onClick = {
-            busy = true
-            onBusy(true)
-            error = null
-            scope.launch {
-                runCatching { withContext(Dispatchers.IO) { store.create(draft) } }
-                    .onSuccess(onCreated)
-                    .onFailure {
-                        error =
-                            "Creation was not confirmed. Check the workspace list before retrying."
-                    }
-                busy = false
-                onBusy(false)
+    Column(Modifier.fillMaxSize().imePadding()) {
+        Column(
+            Modifier.weight(1f).verticalScroll(rememberScrollState()).intentPageInsets(),
+            verticalArrangement = Arrangement.spacedBy(IntentScreen.sectionSpacing)
+        ) {
+            Text(
+                "Workspace creation is under development.",
+                style = MaterialTheme.typography.bodySmall,
+                color = IntentScreen.secondaryText
+            )
+            IntentSection("Workspace") {
+                OutlinedTextField(draft.title, {
+                    draft = draft.copy(title = it)
+                }, modifier = Modifier.fillMaxWidth(), label = { Text("Title") }, enabled = !busy)
+                OutlinedTextField(draft.repositoryPath, {
+                    draft = draft.copy(repositoryPath = it)
+                }, modifier = Modifier.fillMaxWidth(), label = {
+                    Text("Repository path on host (optional)")
+                }, enabled = !busy)
+                OutlinedTextField(draft.baseRef, {
+                    draft = draft.copy(baseRef = it)
+                }, modifier = Modifier.fillMaxWidth(), label = {
+                    Text("Base branch (optional)")
+                }, enabled = !busy)
             }
-        }, enabled = !busy && draft.title.isNotBlank()) {
-            Text(if (busy) "Creating…" else "Create workspace")
+            IntentSection("Initial prompt") {
+                OutlinedTextField(draft.prompt, {
+                    draft = draft.copy(prompt = it)
+                }, modifier = Modifier.fillMaxWidth(), label = {
+                    Text("Prompt (optional)")
+                }, enabled = !busy)
+            }
+            CreationChoices("Provider", draft.provider, options?.providers.orEmpty(), !busy) {
+                draft = draft.copy(provider = it, model = "")
+            }
+            CreationChoices("Model", draft.model, models, !busy) { draft = draft.copy(model = it) }
+            CreationChoices("Specialist", draft.specialist, options?.specialists.orEmpty(), !busy) {
+                draft = draft.copy(specialist = it)
+            }
+        }
+        Column(Modifier.fillMaxWidth().intentPageInsets()) {
+            error?.let { Text(it, color = IntentScreen.error) }
+            Button(onClick = {
+                busy = true
+                onBusy(true)
+                error = null
+                scope.launch {
+                    runCatching { withContext(Dispatchers.IO) { store.create(draft) } }
+                        .onSuccess(onCreated)
+                        .onFailure {
+                            error =
+                                "Creation was not confirmed. Check the workspace list before retrying."
+                        }
+                    busy = false
+                    onBusy(false)
+                }
+            }, modifier = Modifier.fillMaxWidth(), enabled = !busy && draft.title.isNotBlank()) {
+                Text(if (busy) "Creating…" else "Create workspace")
+            }
         }
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun CreationChoices(
     title: String,
@@ -123,13 +132,15 @@ private fun CreationChoices(
     onSelect: (String) -> Unit
 ) {
     IntentSection(title) {
-        (listOf(CreationChoice("", "Host default")) + choices).forEach { choice ->
-            FilterChip(
-                selected = selected == choice.id,
-                onClick = { onSelect(choice.id) },
-                label = { Text(choice.name) },
-                enabled = enabled
-            )
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(IntentScreen.itemSpacing)) {
+            (listOf(CreationChoice("", "Host default")) + choices).forEach { choice ->
+                FilterChip(
+                    selected = selected == choice.id,
+                    onClick = { onSelect(choice.id) },
+                    label = { Text(choice.name) },
+                    enabled = enabled
+                )
+            }
         }
     }
 }
