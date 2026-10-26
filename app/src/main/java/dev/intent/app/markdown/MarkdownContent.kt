@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -21,6 +22,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
@@ -118,31 +120,46 @@ private fun MarkdownList(node: Node, start: Int?) {
 
 @Composable
 private fun MarkdownTable(node: TableBlock) {
-    Column(Modifier.horizontalScroll(rememberScrollState())) {
-        node.children().flatMap { it.children() }.forEach { row ->
-            Row(Modifier.height(IntrinsicSize.Min)) {
-                row.children().filterIsInstance<TableCell>().forEach { cell ->
-                    Surface(
-                        color = if (cell.isHeader) {
-                            MaterialTheme.colorScheme.surfaceVariant
-                        } else {
-                            MaterialTheme.colorScheme.surface
-                        },
-                        modifier = Modifier.width(
-                            180.dp
-                        ).border(1.dp, MaterialTheme.colorScheme.outlineVariant)
-                    ) {
-                        Column(Modifier.padding(8.dp)) {
-                            MarkdownInline(
-                                cell,
-                                MaterialTheme.typography.bodyMedium.copy(
-                                    textAlign = when (cell.alignment) {
-                                        TableCell.Alignment.CENTER -> TextAlign.Center
-                                        TableCell.Alignment.RIGHT -> TextAlign.End
-                                        else -> TextAlign.Start
-                                    }
+    val scroll = rememberScrollState()
+    Column {
+        if (scroll.maxValue > 0) {
+            Text(
+                "↔ Scroll horizontally for more columns",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(bottom = 4.dp)
+            )
+        }
+        Column(Modifier.horizontalScroll(scroll)) {
+            node.children().flatMap { it.children() }.forEachIndexed { rowIndex, row ->
+                Row(Modifier.height(IntrinsicSize.Min)) {
+                    row.children().filterIsInstance<TableCell>().forEachIndexed {
+                            columnIndex,
+                            cell
+                        ->
+                        Surface(
+                            color = if (cell.isHeader) {
+                                MaterialTheme.colorScheme.surfaceVariant
+                            } else {
+                                MaterialTheme.colorScheme.surface
+                            },
+                            modifier = Modifier.width(180.dp)
+                                .fillMaxHeight()
+                                .border(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                                .testTag("markdown-cell-$rowIndex-$columnIndex")
+                        ) {
+                            Column(Modifier.padding(8.dp)) {
+                                MarkdownInline(
+                                    cell,
+                                    MaterialTheme.typography.bodyMedium.copy(
+                                        textAlign = when (cell.alignment) {
+                                            TableCell.Alignment.CENTER -> TextAlign.Center
+                                            TableCell.Alignment.RIGHT -> TextAlign.End
+                                            else -> TextAlign.Start
+                                        }
+                                    )
                                 )
-                            )
+                            }
                         }
                     }
                 }
