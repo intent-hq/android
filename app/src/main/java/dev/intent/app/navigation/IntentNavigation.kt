@@ -11,6 +11,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import dev.intent.app.cache.OfflineCache
@@ -52,7 +53,7 @@ fun IntentNavigation(
         return
     }
     val store = remember(session, cache) { WorkspaceStore(RpcWorkspaceSession(session), cache) }
-    var selectedWorkspace by remember(session, initialWorkspace) {
+    var selectedWorkspace by rememberSaveable(session, initialWorkspace) {
         mutableStateOf(initialWorkspace)
     }
     DisposableEffect(store) {
@@ -60,8 +61,8 @@ fun IntentNavigation(
         onDispose { store.close() }
     }
     val workspaceState by store.state.collectAsState()
-    var creating by remember(session) { mutableStateOf(false) }
-    var transferring by remember(session) { mutableStateOf(false) }
+    var creating by rememberSaveable(session) { mutableStateOf(false) }
+    var transferring by rememberSaveable(session) { mutableStateOf(false) }
     var operationBusy by remember(session) { mutableStateOf(false) }
     val creation = remember(session) { CreationOptionsStore(RpcWorkspaceOperations(session)) }
     val selected = selectedWorkspace

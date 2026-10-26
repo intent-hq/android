@@ -16,9 +16,17 @@ class ConnectionPresentationTest {
     fun numericAndTunnelConnectionsHaveSafeFallbackNames() {
         val numeric = saved(listOf("192.168.1.2"))
         val tunnel = saved(emptyList())
-        assertEquals("Saved computer", numeric.displayName)
-        assertEquals("Saved computer", tunnel.displayName)
-        assertEquals("Tunnel connection", tunnel.displayAddress)
+        assertEquals("192.168.1.2:443", numeric.displayName)
+        assertEquals("Tunnel connection (one)", tunnel.displayName)
+        assertEquals("Tunnel connection (one)", tunnel.displayAddress)
+    }
+
+    @Test
+    fun unnamedConnectionsAndIpv6HaveDistinctAddressNames() {
+        assertEquals("192.168.1.3:443", saved(listOf("192.168.1.3")).displayName)
+        assertEquals("[fe80::abcd]:443", saved(listOf("fe80::abcd")).displayName)
+        val tunnel = saved(emptyList()).copy(id = "two")
+        assertEquals("Tunnel connection (two)", tunnel.displayName)
     }
 
     @Test

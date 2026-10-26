@@ -51,7 +51,8 @@ fun ConnectionScreen(
             title = { Text("Forget ${connection.displayName}?") },
             text = {
                 Text(
-                    "This removes the saved connection from this device. You must pair again to reconnect."
+                    "${connection.displayAddress}\n\n" +
+                        "This removes the saved connection from this device. You must pair again to reconnect."
                 )
             },
             confirmButton = {

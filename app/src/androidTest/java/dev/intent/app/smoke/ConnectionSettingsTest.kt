@@ -52,6 +52,10 @@ class ConnectionSettingsTest {
         compose.runOnIdle { assertEquals("one", selected) }
         compose.onNodeWithText("Manage").performClick()
         compose.onNodeWithText("Forget connection").performClick()
+        compose.onNodeWithText(
+            "desktop.local:443\n\n" +
+                "This removes the saved connection from this device. You must pair again to reconnect."
+        ).assertExists()
         compose.runOnIdle { assertEquals(null, forgotten) }
         compose.onNodeWithText("Cancel").performClick()
         compose.runOnIdle { assertEquals(null, forgotten) }

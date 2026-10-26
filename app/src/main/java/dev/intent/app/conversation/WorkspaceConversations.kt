@@ -9,6 +9,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import dev.intent.app.agents.AgentListRoute
@@ -29,7 +30,7 @@ fun WorkspaceConversations(session: RpcSession, workspaceId: String, onBack: () 
         remember(session, workspaceId) {
             AgentStore(RpcAgentSession(session, workspaceId), workspaceId)
         }
-    var selected by remember(session, workspaceId) { mutableStateOf<String?>(null) }
+    var selected by rememberSaveable(session, workspaceId) { mutableStateOf<String?>(null) }
     DisposableEffect(agents) { onDispose { agents.close() } }
     BackHandler(selected != null) { selected = null }
     Column {

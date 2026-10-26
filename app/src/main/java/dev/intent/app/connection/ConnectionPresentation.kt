@@ -5,14 +5,14 @@ internal val SavedConnection.displayName: String
     get() {
         val host = payload.hosts.firstOrNull { candidate ->
             ':' !in candidate && candidate.any(Char::isLetter)
-        } ?: return "Saved computer"
+        } ?: return displayAddress
         return host.substringBefore('.').replace('-', ' ').replace('_', ' ')
             .replaceFirstChar { it.titlecase() }
     }
 
 internal val SavedConnection.displayAddress: String
     get() {
-        val host = payload.hosts.firstOrNull() ?: return "Tunnel connection"
+        val host = payload.hosts.firstOrNull() ?: return "Tunnel connection ($id)"
         val address = if (':' in host) "[${host.removeSurrounding("[", "]")}]" else host
         return "$address:${payload.port}"
     }

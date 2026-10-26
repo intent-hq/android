@@ -15,6 +15,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -37,7 +38,11 @@ fun WorkspaceContent(
     cache: OfflineCache,
     onBack: () -> Unit
 ) {
-    var destination by remember(session, workspaceId) {
+    var destination by rememberSaveable(
+        session,
+        workspaceId,
+        stateSaver = workspaceDestinationSaver
+    ) {
         mutableStateOf<WorkspaceDestination>(WorkspaceDestination.Home)
     }
     val source = remember(session) { SessionNoteSource(session) }

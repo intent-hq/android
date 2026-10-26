@@ -11,6 +11,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -49,27 +51,20 @@ fun ConnectionRoot(
         }
         onDispose { lease?.close() }
     }
-    var showConnections by remember { mutableStateOf(false) }
-    var showSettings by remember { mutableStateOf(false) }
-    var showPairing by remember { mutableStateOf(false) }
-    val utilityOpen = showConnections || showPairing || showSettings
-    BackHandler(utilityOpen) {
-        showPairing = false
-        showConnections = false
-        showSettings = false
-    }
+    var utilities by rememberSaveable { mutableStateOf(emptyList<String>()) }
+    val utility = utilities.lastOrNull()
+    val back = { utilities = utilities.dropLast(1) }
+    val contentState = rememberSaveableStateHolder()
+    BackHandler(utilities.isNotEmpty(), onBack = back)
     val actions = buildList {
         add(
             ChromeAction("Settings") {
-                showSettings = true
-                showConnections = false
+                utilities = utilities.openUtility("Settings")
             }
         )
         add(
             ChromeAction("Connections") {
-                showConnections = true
-                showSettings = false
-                showPairing = false
+                utilities = utilities.openUtility("Connections")
             }
         )
         if (state.activeId != null) add(ChromeAction("Disconnect", run = controller::disconnect))
@@ -78,60 +73,53 @@ fun ConnectionRoot(
         Column(modifier) {
             state.error?.let { Text(it) }
             val utilityTitle = when {
-                showSettings -> "Settings"
-                showPairing || state.connections.isEmpty() -> "Pair connection"
-                showConnections || state.session == null -> "Connections"
+                utility == "Settings" -> "Settings"
+                utility == "Pair connection" || state.connections.isEmpty() -> "Pair connection"
+                utility == "Connections" || state.session == null -> "Connections"
                 else -> null
             }
             if (utilityTitle != null) {
                 CompactAppBar(
                     utilityTitle,
-                    onBack = if (state.session != null || utilityOpen
-                    ) {
-                        {
-                            showSettings = false
-                            showConnections = false
-                            showPairing = false
-                        }
-                    } else {
-                        null
-                    }
+                    onBack = if (utilities.isNotEmpty()) back else null
                 )
             }
             when {
-                showSettings -> ConnectionSettings(
+                utility == "Settings" -> ConnectionSettings(
                     controller.diagnostics,
                     Modifier.weight(1f),
                     preferences
                 ) {
-                    showSettings = false
-                    showConnections = true
+                    utilities = utilities.openUtility("Connections")
                 }
-                showPairing || state.connections.isEmpty() -> PairingScreen(
+                utility == "Pair connection" || state.connections.isEmpty() -> PairingScreen(
                     state.busy,
                     onScan,
                     controller::prepareManual,
                     Modifier.weight(1f)
                 )
-                showConnections || state.session == null -> ConnectionScreen(
+                utility == "Connections" || state.session == null -> ConnectionScreen(
                     state,
                     onSelect = {
                         controller.select(it)
-                        showConnections = false
+                        utilities = emptyList()
                     },
                     onForget = controller::forget,
-                    onAdd = { showPairing = true },
+                    onAdd = { utilities = utilities.openUtility("Pair connection") },
                     modifier = Modifier.weight(1f)
                 )
-                else -> ConnectedContent(state, Modifier.weight(1f), notificationWorkspace)
+                else -> key(state.session, state.cacheScope) {
+                    contentState.SaveableStateProvider(state.cacheScope ?: "connected") {
+                        ConnectedContent(state, Modifier.weight(1f), notificationWorkspace)
+                    }
+                }
             }
         }
     }
     state.pending?.let { payload ->
         PairingConfirmation(payload, state.busy, controller::probeCertificate, {
             controller.confirmPairing()
-            showPairing = false
-            showConnections = false
+            utilities = emptyList()
         }, controller::cancelPairing)
     }
 }

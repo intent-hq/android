@@ -10,6 +10,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import dev.intent.app.cache.OfflineCache
@@ -40,7 +41,7 @@ fun NoteReaderRoute(
             store.close()
         }
     }
-    var showComments by remember(source, workspaceId, noteId) { mutableStateOf(false) }
+    var showComments by rememberSaveable(workspaceId, noteId) { mutableStateOf(false) }
     val commentSource = source as? SessionNoteSource
     if (showComments && commentSource != null) {
         val comments = remember(commentSource, workspaceId, noteId) {
