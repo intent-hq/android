@@ -1,6 +1,7 @@
 package dev.intent.core.protocol.models
 
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.Transient
 
 @Serializable
 data class GitFileStatus(
@@ -9,7 +10,8 @@ data class GitFileStatus(
     val staged: Boolean,
     val mode: String? = null,
     val oldSha: String? = null,
-    val newSha: String? = null
+    val newSha: String? = null,
+    @Transient val metadata: GitChangeMetadata? = null
 )
 
 @Serializable
@@ -56,10 +58,15 @@ data class GitCommit(
     val date: String = "",
     val message: String = "",
     val agentId: String? = null,
-    val linkedNoteId: String? = null
+    val linkedNoteId: String? = null,
+    val isPushed: Boolean? = null
 )
 
 @Serializable
-data class GitCommitPage(val items: List<GitCommit> = emptyList(), val nextToken: String? = null)
+data class GitCommitPage(
+    val items: List<GitCommit> = emptyList(),
+    val nextToken: String? = null,
+    val boundarySha: String? = null
+)
 
 private const val SHORT_HASH_LENGTH = 7

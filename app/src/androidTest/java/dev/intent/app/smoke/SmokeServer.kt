@@ -27,6 +27,8 @@ internal class SmokeServer(
                 """{"subscriptionId":"smoke"}"""
             "workspace.list" ->
                 """{"workspaces":[{"id":"workspace","title":"Android smoke workspace"}]}"""
+            "gitRoot.list" -> """{"gitRoots":[]}"""
+            "file-tracking.getChanges" -> """{"changes":[],"truncated":false}"""
             "agent.list" -> """{"agents":[]}"""
             "agent.sendMessage" -> """{"success":true,"queued":false}"""
             else -> error("Unexpected smoke request: ${request.method}")

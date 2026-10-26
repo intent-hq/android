@@ -35,15 +35,15 @@ class GitSessionTest {
             assertEquals(emptyList<Any>(), diff.get(2, TimeUnit.SECONDS))
             val history = source.commits("cursor")
             val page = server.request()
-            assertEquals("git.commits", page.method)
+            assertEquals("file-tracking.loadCommits", page.method)
             assertEquals(JsonPrimitive("cursor"), page.params!!.jsonObject["nextToken"])
-            server.reply(page, """{"items":[]}""")
+            server.reply(page, """{"commits":[]}""")
             assertEquals(emptyList<Any>(), history.get(2, TimeUnit.SECONDS).items)
         }
     }
 
     @Test
-    fun eventsIgnoreOtherWorkspacesAndSecondaryRootsAndCloseLease() {
+    fun eventsIgnoreOtherWorkspacesAndIncludeRootChangesAndCloseLease() {
         val transports = LinkedBlockingQueue<GitTestTransport>()
         RpcSession({
             GitTestTransport(it).also(transports::add)
@@ -61,6 +61,7 @@ class GitSessionTest {
             server.event("""{"workspaceId":"ws","gitRootId":"secondary"}""", 1)
             server.event("""{"workspaceId":"ws"}""", 2)
             assertEquals(true, refreshed.poll(2, TimeUnit.SECONDS))
+            assertEquals(true, refreshed.poll(2, TimeUnit.SECONDS))
             lease.close()
             assertEquals("events.unsubscribe", server.request().method)
             assertEquals(0, refreshed.size)
@@ -68,7 +69,7 @@ class GitSessionTest {
     }
 }
 
-private class GitTestTransport(val listener: WssTransport.Listener) : SessionTransport {
+internal class GitTestTransport(val listener: WssTransport.Listener) : SessionTransport {
     private val sent = LinkedBlockingQueue<JsonRpcMessage.Request>()
     override fun connect() = listener.onOpen()
     override fun send(message: JsonRpcMessage) = sent.add(message as JsonRpcMessage.Request)

@@ -61,7 +61,7 @@ fun GitDiffScreen(state: GitState, onRetry: () -> Unit) {
 }
 
 @Composable
-private fun DiffLine(line: GitDiffLine) {
+internal fun DiffLine(line: GitDiffLine) {
     val (prefix, color) = when (line.type) {
         "Addition" -> "+" to AdditionColor
         "Deletion" -> "-" to MaterialTheme.colorScheme.error

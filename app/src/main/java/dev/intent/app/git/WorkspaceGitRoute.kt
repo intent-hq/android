@@ -23,14 +23,30 @@ fun WorkspaceGitRoute(session: RpcSession, workspaceId: String, onBack: () -> Un
         store.start()
         onDispose { store.close() }
     }
-    val back = { if (state.selected == null) onBack() else store.select(null) }
+    val back = {
+        if (state.selected == null &&
+            state.selectedCommit == null
+        ) {
+            onBack()
+        } else {
+            store.select(null)
+        }
+    }
     BackHandler(onBack = back)
     Column(Modifier.fillMaxSize()) {
         CompositionLocalProvider(LocalChromeBack provides back) {
-            if (state.selected == null) {
+            if (state.selected == null && state.selectedCommit == null) {
                 listState.SaveableStateProvider("changes") {
-                    GitScreen(state, store::select, store::refresh, store::loadMore)
+                    GitScreen(
+                        state,
+                        store::select,
+                        store::refresh,
+                        store::loadMore,
+                        navigation = GitNavigation(store::selectRoot, store::selectCommit)
+                    )
                 }
+            } else if (state.selectedCommit != null) {
+                GitCommitScreen(state, store::selectCommit, store::selectCommitFile)
             } else {
                 GitDiffScreen(state) { store.select(state.selected) }
             }

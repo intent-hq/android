@@ -1,9 +1,11 @@
 package dev.intent.app.git
 
 import dev.intent.core.protocol.models.GitCommit
+import dev.intent.core.protocol.models.GitCommitFile
 import dev.intent.core.protocol.models.GitCommitPage
 import dev.intent.core.protocol.models.GitDiff
 import dev.intent.core.protocol.models.GitFileStatus
+import dev.intent.core.protocol.models.GitRoot
 import dev.intent.core.protocol.models.GitStatus
 import java.io.Closeable
 import java.util.concurrent.CompletableFuture
@@ -108,7 +110,7 @@ class GitStoreTest {
     }
 }
 
-private class FakeGitSession : GitSession {
+internal class FakeGitSession : GitSession {
     val statusReads = mutableListOf<CompletableFuture<GitStatus>>()
     val pages = mutableListOf<CompletableFuture<GitCommitPage>>()
     val tokens = mutableListOf<String?>()
@@ -116,15 +118,28 @@ private class FakeGitSession : GitSession {
     val diffs = mutableListOf<CompletableFuture<List<GitDiff>>>()
     var refresh: () -> Unit = {}
     var closed = false
-    override fun status() = CompletableFuture<GitStatus>().also { statusReads.add(it) }
-    override fun commits(nextToken: String?) = CompletableFuture<GitCommitPage>().also {
-        tokens.add(nextToken)
-        pages.add(it)
+    var roots = listOf(GitRoot("secondary", "/secondary"))
+    val requestedRoots = mutableListOf<GitRoot?>()
+    val commitReads = mutableListOf<CompletableFuture<List<GitCommitFile>>>()
+    override fun roots() = CompletableFuture.completedFuture(roots)
+    override fun commitFiles(hash: String, root: GitRoot?) =
+        CompletableFuture<List<GitCommitFile>>().also { commitReads.add(it) }
+    override fun commitDiff(hash: String, path: String, root: GitRoot?) =
+        CompletableFuture<List<GitDiff>>().also { diffs.add(it) }
+    override fun status(root: GitRoot?) = CompletableFuture<GitStatus>().also {
+        statusReads.add(it)
+        requestedRoots.add(root)
     }
-    override fun diff(file: GitFileStatus) = CompletableFuture<List<GitDiff>>().also {
-        files.add(file)
-        diffs.add(it)
-    }
+    override fun commits(nextToken: String?, root: GitRoot?) =
+        CompletableFuture<GitCommitPage>().also {
+            tokens.add(nextToken)
+            pages.add(it)
+        }
+    override fun diff(file: GitFileStatus, root: GitRoot?) =
+        CompletableFuture<List<GitDiff>>().also {
+            files.add(file)
+            diffs.add(it)
+        }
     override fun watch(onRefresh: () -> Unit, onError: (Throwable) -> Unit): Closeable {
         refresh = onRefresh
         return Closeable { closed = true }

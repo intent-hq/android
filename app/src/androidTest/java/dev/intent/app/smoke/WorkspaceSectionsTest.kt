@@ -227,7 +227,7 @@ class WorkspaceSectionsTest {
             "chat.unsubscribe" to "{}",
             "git.status" to """{"branch":"main","files":[
                 {"path":"app.kt","status":"M","staged":false}]}""",
-            "git.commits" to """{"items":[${(1..40).joinToString {
+            "file-tracking.loadCommits" to """{"commits":[${(1..40).joinToString {
                 """{"hash":"commit-$it","message":"Commit $it"}"""
             }}]}""",
             "git.diffs" to "[]",
