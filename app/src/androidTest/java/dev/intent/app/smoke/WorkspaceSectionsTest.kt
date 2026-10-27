@@ -167,7 +167,7 @@ class WorkspaceSectionsTest {
         )
         compose.onNodeWithText("Plan 1").performClick()
         screenshot("note-header")
-        menu(listOf("Refresh"), listOf("Transfer workspace", "Settings", "Connections"))
+        menu(listOf("Refresh", "Comments"), listOf("Transfer workspace", "Settings", "Connections"))
         back()
         compose.onNodeWithText("Changes").performClick()
         screenshot("changes-header")
@@ -183,6 +183,31 @@ class WorkspaceSectionsTest {
         compose.onNodeWithText("Terminals").performClick()
         screenshot("terminals-header")
         compose.onNodeWithContentDescription("More actions").assertDoesNotExist()
+    }
+
+    @Test
+    fun sessionNoteOpensCommentsAndReturnsWithoutParentActions() = connected {
+        openWorkspace()
+        compose.onNodeWithText("Context").performClick()
+        waitForText("Plan 1")
+        compose.onNodeWithText("Plan 1").performClick()
+        compose.onNodeWithText("Note body").assertIsDisplayed()
+        menu(
+            listOf("Refresh", "Comments"),
+            listOf("Transfer workspace", "Settings", "Connections", "Disconnect")
+        )
+        compose.onNodeWithContentDescription("More actions").performClick()
+        compose.onNodeWithText("Comments").performClick()
+        waitForText("No comment threads for this note.")
+        compose.onNodeWithText("Comments").assertIsDisplayed()
+        compose.onNodeWithContentDescription("More actions").assertDoesNotExist()
+        screenshot("note-comments-route")
+        back()
+        compose.onNodeWithText("Note body").assertIsDisplayed()
+        menu(
+            listOf("Refresh", "Comments"),
+            listOf("Transfer workspace", "Settings", "Connections")
+        )
     }
 
     private fun menu(present: List<String>, absent: List<String>) {
@@ -292,7 +317,7 @@ class WorkspaceSectionsTest {
             "note.get" to
                 """{"note":{"id":"note-1","title":"Plan 1","content":"Note body"}}""",
             "note.listTasks" to "[]",
-            "comment.list" to """{"threads":[]}""",
+            "comment.list" to """{"threads":[],"totalThreads":0,"totalComments":0}""",
             "comment.subscribe" to """{"subscriptionId":"comments"}""",
             "comment.unsubscribe" to "{}",
             "agent.getQueue" to """{"success":true,"queue":[]}""",
