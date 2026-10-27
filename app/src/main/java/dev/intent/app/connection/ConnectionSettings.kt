@@ -36,6 +36,7 @@ fun ConnectionSettings(
     diagnostics: ConnectionDiagnostics,
     modifier: Modifier = Modifier,
     preferences: AppPreferences,
+    state: ConnectionState = ConnectionState(),
     onConnections: () -> Unit
 ) {
     val context = LocalContext.current
@@ -72,7 +73,7 @@ fun ConnectionSettings(
                 )
             }) { Text("Android notification settings") }
         }
-        ConnectionsSection(onConnections)
+        ConnectionsSection(state, onConnections)
         IntentSection("Diagnostics") {
             SettingsDescription("Connection diagnostics — under development")
             TextButton(onClick = { report = diagnostics.report() }) { Text("View diagnostics") }
@@ -125,8 +126,12 @@ private fun AboutSection() {
 }
 
 @Composable
-private fun ConnectionsSection(onConnections: () -> Unit) {
+private fun ConnectionsSection(state: ConnectionState, onConnections: () -> Unit) {
     IntentSection("Connections") {
+        state.connections.firstOrNull { it.id == state.activeId }?.let {
+            Text(it.displayName)
+            ConnectionPathBadge(state, it.id)
+        }
         SettingsDescription("Connect to a saved computer or add a connection.")
         TextButton(onClick = onConnections) { Text("Manage connections") }
     }

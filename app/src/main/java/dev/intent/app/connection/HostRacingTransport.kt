@@ -28,7 +28,8 @@ internal class HostRacingTransport(
             requireNotNull(payload.certFingerprint)
         )(callbacks)
     },
-    private val timeoutMillis: Long = 15_000
+    private val timeoutMillis: Long = 15_000,
+    private val onRoute: (ConnectionPath) -> Unit = {}
 ) : SessionTransport {
     private val events = Executors.newSingleThreadScheduledExecutor()
     private val closed = AtomicBoolean()
@@ -47,12 +48,20 @@ internal class HostRacingTransport(
         check(!closed.get() && started.compareAndSet(false, true))
         dispatch {
             payload.hosts.distinct().forEachIndexed { index, host ->
-                candidates.add(Candidate(connectionEndpoint(host, payload.port), "direct-$index"))
+                candidates.add(
+                    Candidate(
+                        connectionEndpoint(host, payload.port),
+                        "direct-$index",
+                        directPath(host, payload.port)
+                    )
+                )
             }
             if (payload.tcAddress != null &&
                 tunnels.available
             ) {
-                candidates.add(Candidate(null, "tunnel"))
+                candidates.add(
+                    Candidate(null, "tunnel", tunnelPath(requireNotNull(payload.tcAddress)))
+                )
             }
             if (payload.tcAddress != null && !tunnels.available) {
                 RouteDiagnostics.record("tunnel", "candidate", "unavailable")
@@ -128,6 +137,7 @@ internal class HostRacingTransport(
             it.failed = true
             it.transport?.close()
         }
+        onRoute(candidate.path)
         listener.onOpen()
     }
 
@@ -149,7 +159,11 @@ internal class HostRacingTransport(
         }
     }
 
-    private class Candidate(@Volatile var endpoint: String?, val route: String) {
+    private class Candidate(
+        @Volatile var endpoint: String?,
+        val route: String,
+        val path: ConnectionPath
+    ) {
         var transport: SessionTransport? = null
         var failed = false
     }

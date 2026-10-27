@@ -23,7 +23,8 @@ class HostRacingTransportTest {
     fun `first successful direct host wins and late losers cannot deliver events`() {
         val sockets = LinkedBlockingQueue<FakeSocket>()
         val events = Events()
-        race(events, sockets).use { race ->
+        val paths = LinkedBlockingQueue<ConnectionPath>()
+        race(events, sockets, onRoute = { paths.add(it) }).use { race ->
             race.connect()
             val first = sockets.next()
             val second = sockets.next()
@@ -31,6 +32,7 @@ class HostRacingTransportTest {
             assertEquals("open", events.queue.next())
             assertTrue(first.closed.await(2, TimeUnit.SECONDS))
             assertEquals(second.endpoint, race.endpoint)
+            assertEquals(directPath("second.local", 443), paths.next())
             first.listener.onOpen()
             first.listener.onFailure(IOException("late"))
             first.listener.onMessage(JsonRpcMessage.Notification("ignored"))
@@ -38,6 +40,7 @@ class HostRacingTransportTest {
             second.listener.onMessage(message)
             assertEquals(message, events.queue.next())
             assertNull(events.queue.poll())
+            assertNull(paths.poll())
             assertTrue(race.send(message))
             assertEquals(message, second.sent.next())
         }
@@ -66,13 +69,15 @@ class HostRacingTransportTest {
         val sockets = LinkedBlockingQueue<FakeSocket>()
         val events = Events()
         val tunnel = FakeTunnel()
-        race(events, sockets, tunnel).use { race ->
+        val paths = LinkedBlockingQueue<ConnectionPath>()
+        race(events, sockets, tunnel, onRoute = { paths.add(it) }).use { race ->
             race.connect()
             val candidates = List(3) { sockets.next() }
             val winner = candidates.single { "127.0.0.1" in it.endpoint }
             winner.listener.onOpen()
             assertEquals("open", events.queue.next())
             assertEquals("wss://127.0.0.1:54321/ws", race.endpoint)
+            assertEquals(tunnelPath("tc-capability"), paths.next())
             assertEquals("tc-capability", tunnel.address.next())
             assertEquals(443, tunnel.port.next())
             candidates.filter { it !== winner }.forEach {
@@ -169,13 +174,15 @@ class HostRacingTransportTest {
         events: Events,
         sockets: LinkedBlockingQueue<FakeSocket>,
         tunnel: TunnelClientFactory = UnavailableTunnelClientFactory,
-        timeoutMillis: Long = 5000
+        timeoutMillis: Long = 5000,
+        onRoute: (ConnectionPath) -> Unit = {}
     ) = HostRacingTransport(
         payload(),
         events,
         tunnel,
         { endpoint, listener -> FakeSocket(endpoint, listener, sockets) },
-        timeoutMillis
+        timeoutMillis,
+        onRoute
     )
 
     private fun payload() = PairingPayload(

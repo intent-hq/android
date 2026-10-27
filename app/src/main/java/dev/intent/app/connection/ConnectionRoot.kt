@@ -121,7 +121,8 @@ fun ConnectionRoot(
                 utility == "Settings" -> ConnectionSettings(
                     controller.diagnostics,
                     Modifier.weight(1f),
-                    preferences
+                    preferences,
+                    state
                 ) {
                     utilities = utilities.openUtility("Connections")
                 }

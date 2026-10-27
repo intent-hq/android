@@ -21,20 +21,15 @@ data class ConnectionState(
     val busy: Boolean = false,
     val error: String? = null,
     val session: RpcSession? = null,
-    val cacheScope: String? = null
+    val cacheScope: String? = null,
+    val activePath: ConnectionPath? = null
 )
 
 /** Serializes storage, pairing, and session replacement; stale callbacks cannot admit another server. */
 @Suppress("TooManyFunctions")
 class ConnectionController(
     private val repository: ConnectionRepository,
-    private val sessionFactory: (SavedConnection, (SessionState) -> Unit) -> RpcSession =
-        { connection, callback ->
-            createConnectionSession(connection, callback, latestPayload = {
-                repository.list().firstOrNull { it.id == connection.id }?.payload
-                    ?: connection.payload
-            })
-        },
+    private val sessionFactory: ((SavedConnection, (SessionState) -> Unit) -> RpcSession)? = null,
     private val probe: (
         String,
         Int
@@ -47,6 +42,8 @@ class ConnectionController(
     private var current: RpcSession? = null
     private var generation = 0L
     private var admission = 0L
+    private var selectedPath: ConnectionPath? = null
+    private var namedAdmission = -1L
     val diagnostics = ConnectionDiagnostics()
 
     fun restore() = submit {
@@ -115,17 +112,31 @@ class ConnectionController(
         val ticket = generation
         mutableState.value =
             state.value.copy(activeId = connection.id, status = "Connecting", error = null)
-        current = sessionFactory(connection) { status ->
+        val callback: (SessionState) -> Unit = { status ->
             submit {
                 if (ticket == generation) sessionChanged(connection, status, ticket)
             }
         }
+        current = sessionFactory?.invoke(connection, callback) ?: createConnectionSession(
+            connection,
+            callback,
+            latestPayload = {
+                repository.list().firstOrNull { it.id == connection.id }?.payload
+                    ?: connection.payload
+            },
+            onRoute = { path -> submit { if (ticket == generation) selectedPath = path } }
+        )
         current?.connect()
     }
 
     private fun sessionChanged(connection: SavedConnection, status: SessionState, ticket: Long) {
         if (ticket != generation) return
         admission++
+        if (status == SessionState.CONNECTING ||
+            status == SessionState.DISCONNECTED
+        ) {
+            selectedPath = null
+        }
         diagnostics.record(ConnectionEvent.valueOf(status.name))
         if (status == SessionState.CLOSED) {
             stopSession()
@@ -137,6 +148,7 @@ class ConnectionController(
         // Preserve the admitted session and Compose ownership during a transport retry.
         // RpcSession validates the same principal before restoring subscriptions.
         mutableState.value = state.value.copy(
+            activePath = selectedPath.takeIf { status == SessionState.READY },
             status = when (status) {
                 SessionState.READY -> "Connected"
                 SessionState.CONNECTING, SessionState.HANDSHAKING -> "Connecting"
@@ -153,7 +165,32 @@ class ConnectionController(
                     cacheScope = connectionCacheScope(connection.payload, principal),
                     error = null
                 )
+                val saved = repository.list().firstOrNull { it.id == connection.id }
+                if (saved != null) {
+                    repository.updateMetadata(
+                        saved,
+                        saved.metadata.copy(lastConnectedAt = System.currentTimeMillis())
+                    )
+                }
+                mutableState.value = state.value.copy(connections = repository.list())
+                refreshName(connection.id, ticket, admission)
                 refreshHosts(connection.id, ticket, admission)
+            }
+        }
+    }
+
+    private fun refreshName(id: String, ticket: Long, admitted: Long) {
+        val session = current ?: return
+        session.request("host.status").whenComplete { result, _ ->
+            submit {
+                if (ticket == generation && admitted == admission && current === session) {
+                    val saved = repository.list().firstOrNull { it.id == id } ?: return@submit
+                    val name = reportedConnectionName(result) ?: return@submit
+                    if (repository.updateMetadata(saved, saved.metadata.copy(name = name))) {
+                        namedAdmission = admitted
+                        mutableState.value = state.value.copy(connections = repository.list())
+                    }
+                }
             }
         }
     }
@@ -167,6 +204,11 @@ class ConnectionController(
                     if (error != null) {
                         diagnostics.record(ConnectionEvent.HOST_REFRESH_FAILED)
                     } else if (repository.refresh(saved, refreshedPayload(saved.payload, result))) {
+                        val updated = repository.list().firstOrNull { it.id == id }
+                        val name = reportedConnectionName(result, shared = true)
+                        if (updated != null && namedAdmission != admitted && name != null) {
+                            repository.updateMetadata(updated, updated.metadata.copy(name = name))
+                        }
                         mutableState.value = state.value.copy(connections = repository.list())
                         diagnostics.record(ConnectionEvent.HOSTS_REFRESHED)
                     }
@@ -177,12 +219,14 @@ class ConnectionController(
 
     private fun stopSession() {
         generation++
+        selectedPath = null
         current?.close()
         current = null
         mutableState.value = state.value.copy(
             activeId = null,
             session = null,
             cacheScope = null,
+            activePath = null,
             status = "Not connected"
         )
     }

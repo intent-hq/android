@@ -21,6 +21,7 @@ internal class SmokeServer(
         val request = message as JsonRpcMessage.Request
         requests.add(request)
         val result = responses[request.method] ?: when (request.method) {
+            "host.status" -> "{}"
             "client.hello", "system.status", "workspace.unsubscribe", "events.unsubscribe" -> "{}"
             "principal.me" -> """{"id":"smoke-person"}"""
             "workspace.subscribe", "events.subscribe", "agent.subscribe" ->

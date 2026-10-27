@@ -19,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import dev.intent.app.connection.ConnectionPathBadge
 import dev.intent.app.connection.ConnectionState
 import dev.intent.app.connection.connectionStatus
 import dev.intent.app.connection.displayAddress
@@ -45,6 +46,7 @@ fun ConnectionsDrawer(state: ConnectionState, onSelect: (String) -> Unit, onMana
                 Text(connection.displayName)
                 Text(connection.displayAddress, style = MaterialTheme.typography.bodySmall)
                 Text(connectionStatus(connection.id, state), color = IntentScreen.secondaryText)
+                ConnectionPathBadge(state, connection.id)
             }
         }
         item { TextButton(onClick = onManage) { Text("Manage connections") } }

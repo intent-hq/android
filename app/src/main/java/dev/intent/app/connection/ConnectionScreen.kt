@@ -33,6 +33,7 @@ fun ConnectionScreen(
     modifier: Modifier = Modifier
 ) {
     var forgetId by rememberSaveable { mutableStateOf<String?>(null) }
+    var detailsId by rememberSaveable { mutableStateOf<String?>(null) }
     LazyColumn(
         modifier,
         contentPadding = IntentScreen.pageInsets,
@@ -42,8 +43,17 @@ fun ConnectionScreen(
             Button(onClick = onAdd, enabled = !state.busy) { Text("Add connection") }
         }
         items(state.connections, key = { it.id }) { connection ->
-            SavedConnectionSection(connection, state, onSelect) { forgetId = connection.id }
+            SavedConnectionSection(
+                connection,
+                state,
+                onSelect,
+                onDetails = { detailsId = connection.id },
+                onForget = { forgetId = connection.id }
+            )
         }
+    }
+    state.connections.firstOrNull { it.id == detailsId }?.let { connection ->
+        ConnectionDetails(connection, state) { detailsId = null }
     }
     state.connections.firstOrNull { it.id == forgetId }?.let { connection ->
         AlertDialog(
@@ -73,6 +83,7 @@ private fun SavedConnectionSection(
     connection: SavedConnection,
     state: ConnectionState,
     onSelect: (String) -> Unit,
+    onDetails: () -> Unit,
     onForget: () -> Unit
 ) {
     var menuOpen by rememberSaveable { mutableStateOf(false) }
@@ -93,6 +104,7 @@ private fun SavedConnectionSection(
                 style = MaterialTheme.typography.labelMedium
             )
         }
+        ConnectionPathBadge(state, connection.id)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             TextButton(onClick = { onSelect(connection.id) }, enabled = !state.busy) {
                 Text(if (state.activeId == connection.id) "Reconnect" else "Connect")
@@ -100,6 +112,13 @@ private fun SavedConnectionSection(
             Box {
                 TextButton(onClick = { menuOpen = true }) { Text("Manage") }
                 DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                    DropdownMenuItem(
+                        text = { Text("Connection details") },
+                        onClick = {
+                            menuOpen = false
+                            onDetails()
+                        }
+                    )
                     DropdownMenuItem(
                         text = { Text("Forget connection", color = IntentScreen.error) },
                         onClick = {

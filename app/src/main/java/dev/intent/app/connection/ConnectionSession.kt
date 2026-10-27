@@ -36,11 +36,13 @@ fun connectionCacheScope(payload: PairingPayload, principalId: String): String {
         .joinToString("") { "%02x".format(it) }
 }
 
+@Suppress("LongParameterList") // Keep transport injection separate from the public route observer.
 fun createConnectionSession(
     connection: SavedConnection,
     onState: (SessionState) -> Unit,
     latestPayload: () -> PairingPayload = { connection.payload },
     tunnels: TunnelClientFactory = Tailcat,
+    onRoute: (ConnectionPath) -> Unit = {},
     transport: ((WssTransport.Listener) -> SessionTransport)? = null
 ): RpcSession {
     val active = AtomicReference<HostRacingTransport>()
@@ -50,7 +52,9 @@ fun createConnectionSession(
                 token = connection.payload.token,
                 certFingerprint = connection.payload.certFingerprint
             )
-            HostRacingTransport(routes, listener, tunnels).also { active.set(it) }
+            HostRacingTransport(routes, listener, tunnels, onRoute = onRoute).also {
+                active.set(it)
+            }
         },
         buildJsonObject {
             put("clientId", "android-${connection.id}")

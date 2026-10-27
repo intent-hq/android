@@ -1,14 +1,8 @@
 package dev.intent.app.connection
 
-/** Display identity uses hosts only; pairing credentials never enter UI labels. */
+/** Only daemon-reported names are names; DNS guesses can misidentify a computer. */
 internal val SavedConnection.displayName: String
-    get() {
-        val host = payload.hosts.firstOrNull { candidate ->
-            ':' !in candidate && candidate.any(Char::isLetter)
-        } ?: return displayAddress
-        return host.substringBefore('.').replace('-', ' ').replace('_', ' ')
-            .replaceFirstChar { it.titlecase() }
-    }
+    get() = metadata.name?.trim()?.takeIf { it.isNotEmpty() } ?: displayAddress
 
 internal val SavedConnection.displayAddress: String
     get() {

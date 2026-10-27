@@ -8,8 +8,11 @@ import java.io.File
 import java.util.UUID
 
 /** Each immutable record gets its own encrypted payload. IDs contain no server or token data. */
-data class SavedConnection(val id: String, val payload: PairingPayload) {
-    val label: String get() = "${payload.hosts.firstOrNull().orEmpty()}:${payload.port}"
+data class SavedConnection(
+    val id: String,
+    val payload: PairingPayload,
+    val metadata: ConnectionMetadata = ConnectionMetadata()
+) {
     override fun toString(): String = "SavedConnection($id)"
 }
 
@@ -19,6 +22,7 @@ interface ConnectionRepository {
     fun select(id: String?)
     fun add(payload: PairingPayload): SavedConnection
     fun remove(id: String)
+    fun updateMetadata(expected: SavedConnection, metadata: ConnectionMetadata): Boolean = false
     fun refresh(expected: SavedConnection, payload: PairingPayload): Boolean = false
 }
 
@@ -26,10 +30,12 @@ class SavedConnections(
     private val ids: () -> List<String>,
     private val store: (String) -> CredentialStore,
     private val readActive: () -> String?,
-    private val writeActive: (String?) -> Unit
+    private val writeActive: (String?) -> Unit,
+    private val readMetadata: (String) -> ConnectionMetadata = { ConnectionMetadata() },
+    private val writeMetadata: (String, ConnectionMetadata?) -> Unit = { _, _ -> }
 ) : ConnectionRepository {
     override fun list(): List<SavedConnection> = ids().mapNotNull { id ->
-        store(id).load()?.let { SavedConnection(id, it) }
+        store(id).load()?.let { SavedConnection(id, it, readMetadata(id)) }
     }
 
     override fun activeId(): String? = readActive()
@@ -52,7 +58,14 @@ class SavedConnections(
         return true
     }
 
+    override fun updateMetadata(expected: SavedConnection, metadata: ConnectionMetadata): Boolean {
+        if (activeId() != expected.id || store(expected.id).load() != expected.payload) return false
+        writeMetadata(expected.id, metadata)
+        return true
+    }
+
     override fun remove(id: String) {
+        writeMetadata(id, null)
         store(id).clear()
         if (activeId() == id) select(null)
     }
@@ -74,6 +87,18 @@ class SavedConnections(
                     createCredentialStore(app, "connections/$id.enc")
                 },
                 readActive = { preferences.getString("id", null) },
+                readMetadata = { id ->
+                    ConnectionMetadata(
+                        preferences.getString("name.$id", null),
+                        preferences.getLong("last.$id", 0L).takeIf { it > 0 }
+                    )
+                },
+                writeMetadata = { id, value ->
+                    check(
+                        preferences.edit().putString("name.$id", value?.name)
+                            .putLong("last.$id", value?.lastConnectedAt ?: 0L).commit()
+                    )
+                },
                 writeActive = { id ->
                     check(preferences.edit().putString("id", id).commit()) {
                         "Cannot save the active connection"

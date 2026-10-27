@@ -26,6 +26,85 @@ import org.junit.Test
 
 class ConnectionControllerTest {
     @Test
+    fun `admission saves reported name and last connection time without changing credentials`() {
+        val repository = repository()
+        val saved = repository.add(payload())
+        val transports = LinkedBlockingQueue<FakeTransport>()
+        val report = JsonObject(mapOf("prettyHostname" to JsonPrimitive(" Studio Mac ")))
+        controller(repository, transports, report).use { controller ->
+            controller.select(saved.id)
+            admit(transports.next(), "person-a")
+            await {
+                controller.state.value.connections.singleOrNull()?.metadata?.name ==
+                    "Studio Mac"
+            }
+            val persisted = repository.list().single()
+            assertEquals(saved.payload, persisted.payload)
+            assertTrue(requireNotNull(persisted.metadata.lastConnectedAt) > 0L)
+            controller.disconnect()
+            await { controller.state.value.activeId == null }
+            assertEquals(persisted.metadata, repository.list().single().metadata)
+            controller.forget(saved.id)
+            await { repository.list().isEmpty() }
+        }
+    }
+
+    @Test
+    fun `system status refreshes a saved name when host status has no name`() {
+        val repository = repository()
+        val saved = repository.add(payload())
+        repository.select(saved.id)
+        repository.updateMetadata(saved, ConnectionMetadata("Old shared name"))
+        val transports = LinkedBlockingQueue<FakeTransport>()
+        ConnectionController(repository, { connection, callback ->
+            createConnectionSession(connection, callback) { listener ->
+                FakeTransport(
+                    listener,
+                    hostStatus = JsonObject(
+                        mapOf("collaborationName" to JsonPrimitive("New name"))
+                    ),
+                    nameStatus = JsonObject(emptyMap())
+                ).also(transports::add)
+            }
+        }).use { controller ->
+            controller.restore()
+            admit(transports.next(), "person-a")
+            await {
+                controller.state.value.connections.singleOrNull()?.metadata?.name == "New name"
+            }
+            assertEquals("New name", repository.list().single().displayName)
+        }
+    }
+
+    @Test
+    fun `late name response cannot rename a newly selected connection`() {
+        val repository = repository()
+        val first = repository.add(payload())
+        val second = repository.add(payload().copy(hosts = listOf("second.local")))
+        val transports = LinkedBlockingQueue<FakeTransport>()
+        ConnectionController(repository, { saved, callback ->
+            createConnectionSession(saved, callback) { listener ->
+                FakeTransport(listener, deferName = true).also(transports::add)
+            }
+        }).use { controller ->
+            controller.select(first.id)
+            val old = transports.next()
+            admit(old, "person-a")
+            val delayed = old.requests.next()
+            assertEquals("host.status", delayed.method)
+            controller.select(second.id)
+            val next = transports.next()
+            admit(next, "person-a")
+            val currentName = next.requests.next()
+            old.reply(delayed, JsonObject(mapOf("prettyHostname" to JsonPrimitive("Old Mac"))))
+            next.reply(currentName, JsonObject(mapOf("prettyHostname" to JsonPrimitive("New Mac"))))
+            await { controller.state.value.connections.any { it.metadata.name == "New Mac" } }
+            assertNull(repository.list().first { it.id == first.id }.metadata.name)
+            assertEquals("New Mac", repository.list().first { it.id == second.id }.metadata.name)
+        }
+    }
+
+    @Test
     fun `deep link requires confirmation before persistence or connection`() {
         val repository = repository()
         val transports = LinkedBlockingQueue<FakeTransport>()
@@ -347,7 +426,7 @@ class ConnectionControllerTest {
                     controller.state.value.cacheScope
                 )
                 assertEquals(
-                    listOf("client.hello", "principal.me", "system.status"),
+                    listOf("client.hello", "principal.me", "host.status", "system.status"),
                     old.methods.toList()
                 )
                 assertTrue(staleStore.state.value.workspaces.isEmpty())
@@ -369,11 +448,14 @@ class ConnectionControllerTest {
         val key = KeyGenerator.getInstance("AES").apply { init(256) }.generateKey()
         val records = mutableMapOf<String, Bytes>()
         var active: String? = null
+        val metadata = mutableMapOf<String, ConnectionMetadata>()
         return SavedConnections(
             { records.filterValues { it.value != null }.keys.toList() },
             { id -> CredentialStore(records.getOrPut(id) { Bytes() }) { key } },
             { active },
-            { active = it }
+            { active = it },
+            { metadata[it] ?: ConnectionMetadata() },
+            { id, value -> if (value == null) metadata.remove(id) else metadata[id] = value }
         )
     }
 
@@ -403,15 +485,19 @@ class ConnectionControllerTest {
 
     private class FakeTransport(
         val listener: WssTransport.Listener,
-        val hostStatus: JsonObject = JsonObject(emptyMap())
+        val hostStatus: JsonObject = JsonObject(emptyMap()),
+        val deferName: Boolean = false,
+        val nameStatus: JsonObject = hostStatus
     ) : SessionTransport {
         val requests = LinkedBlockingQueue<JsonRpcMessage.Request>()
         val methods = LinkedBlockingQueue<String>()
         override fun connect() = listener.onOpen()
         override fun send(message: JsonRpcMessage): Boolean {
             methods.add((message as JsonRpcMessage.Request).method)
-            if (message.method == "system.status") {
-                reply(message, hostStatus)
+            if (message.method == "system.status" ||
+                (message.method == "host.status" && !deferName)
+            ) {
+                reply(message, if (message.method == "host.status") nameStatus else hostStatus)
             } else {
                 requests.add(message)
             }

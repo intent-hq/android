@@ -23,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import dev.intent.app.connection.SavedConnection
 import dev.intent.app.connection.createConnectionSession
+import dev.intent.app.connection.displayName
 import dev.intent.app.design.IntentScreen
 import dev.intent.app.design.IntentSection
 import dev.intent.app.design.IntentWarning
@@ -133,7 +134,7 @@ fun WorkspaceTransferScreen(
                         onBusy(false)
                     }
                 }, enabled = plan != null && !busy && !finished) {
-                    Text("Transfer to ${destination.label}")
+                    Text("Transfer to ${destination.displayName}")
                 }
             }
         }

@@ -6,9 +6,10 @@ import org.junit.Test
 
 class ConnectionPresentationTest {
     @Test
-    fun nameUsesReadableHostWhileAddressKeepsTheEndpoint() {
+    fun nameUsesDaemonNameWhileAddressKeepsTheEndpoint() {
         val connection = saved(listOf("192.168.1.2", "sams-mac.local"))
-        assertEquals("Sams mac", connection.displayName)
+            .copy(metadata = ConnectionMetadata("Sam’s Mac Studio"))
+        assertEquals("Sam’s Mac Studio", connection.displayName)
         assertEquals("192.168.1.2:443", connection.displayAddress)
     }
 
