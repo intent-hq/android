@@ -235,6 +235,13 @@ class ConversationSendStore(
         return true
     }
 
+    /** Suggestions never read or consume composer text or attachments. */
+    @Synchronized
+    fun sendSuggestedPrompt(prompt: String): Boolean {
+        if (state.value.attempts.isNotEmpty()) return false
+        return send(prompt)
+    }
+
     @Synchronized
     fun answer(messageId: String, answers: Map<String, QuestionAnswer>): Boolean {
         val set = state.value.questions?.takeIf { it.messageId == messageId } ?: return false

@@ -113,9 +113,9 @@ class ConversationTranscriptTest {
     }
 
     @Test
-    fun suggestedPromptChipsHideMarkupAndPrefillWithoutSending() {
-        val draft = ComposerDraft()
-        var sent = false
+    fun suggestedPromptChipsSendAndPreserveDraft() {
+        val draft = ComposerDraft().apply { text = "My unfinished draft" }
+        var sent: String? = null
         val reply = ConversationMessage(
             "suggestions",
             "assistant",
@@ -134,12 +134,15 @@ class ConversationTranscriptTest {
                         {},
                         { _, _ -> },
                         {},
-                        onSuggestedPrompt = { draft.text = it }
+                        onSuggestedPrompt = {
+                            sent = it
+                            true
+                        }
                     ) {
                         ConversationComposer(
                             ConversationSendState(),
                             {
-                                sent = true
+                                sent = it
                                 true
                             },
                             {},
@@ -153,10 +156,40 @@ class ConversationTranscriptTest {
         compose.onNodeWithText("Done.").assertIsDisplayed()
         compose.onNodeWithText("<!-- suggested-prompts", substring = true).assertDoesNotExist()
         compose.onNodeWithText("Run tests").performClick()
-        compose.onNodeWithText("Message").assertTextEquals("Message", "Run tests")
-        compose.runOnIdle { assertEquals(false, sent) }
-        compose.onNodeWithText("Send").performClick()
-        compose.runOnIdle { assertEquals(true, sent) }
+        compose.onNodeWithText("Message").assertTextEquals("Message", "My unfinished draft")
+        compose.runOnIdle { assertEquals("Run tests", sent) }
+        compose.onNodeWithText("Run tests").assertDoesNotExist()
+        compose.onNodeWithText("Review code").assertDoesNotExist()
+    }
+
+    @Test
+    fun userMessageHighlightInLightAndDark() {
+        val dark = mutableStateOf(false)
+        val rows = listOf(
+            ConversationMessage(
+                "human",
+                "user",
+                listOf(ContentBlock("text", text = "Run the project tests."))
+            ),
+            ConversationMessage(
+                "reply",
+                "assistant",
+                listOf(ContentBlock("text", text = "I will run the tests and report the result."))
+            )
+        )
+        compose.setContent {
+            IntentTheme(darkTheme = dark.value) {
+                Surface(Modifier.fillMaxSize()) {
+                    ConversationScreen(ConversationState(messages = rows, isLoading = false), {
+                    }, { _, _ -> }, {})
+                }
+            }
+        }
+        compose.onNodeWithTag("user-message-human").assertIsDisplayed()
+        screenshot("user-highlight-light")
+        compose.runOnIdle { dark.value = true }
+        compose.onNodeWithTag("user-message-human").assertIsDisplayed()
+        screenshot("user-highlight-dark")
     }
 
     @Test

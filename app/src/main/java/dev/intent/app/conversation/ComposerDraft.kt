@@ -4,7 +4,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 
-/** Shared by the composer and transcript chips; selecting a chip never sends without review. */
+/** Composer text stays independent of suggested prompt sends. */
 class ComposerDraft {
     var text by mutableStateOf("")
 }

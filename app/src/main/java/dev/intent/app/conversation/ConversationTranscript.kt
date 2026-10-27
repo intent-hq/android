@@ -45,7 +45,8 @@ internal fun ConversationTranscript(
     onHydrate: (String, String) -> Unit,
     onRefresh: () -> Unit,
     modifier: Modifier = Modifier,
-    onSuggestedPrompt: (String) -> Unit = {}
+    onSuggestedPrompt: (String) -> Boolean = { false },
+    suggestionsEnabled: Boolean = true
 ) {
     val list = rememberLazyListState()
     val grouping = remember { TranscriptRowGrouping() }
@@ -113,7 +114,14 @@ internal fun ConversationTranscript(
             verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.Bottom)
         ) {
             items(rows.asReversed(), key = { it.id }) { row ->
-                TranscriptMessage(row, state.hydrating, onHydrate, onSuggestedPrompt)
+                TranscriptMessage(
+                    row,
+                    state.hydrating,
+                    onHydrate,
+                    onSuggestedPrompt,
+                    suggestionsEnabled,
+                    row.messages.last().id == state.messages.lastOrNull()?.id
+                )
             }
         }
         if (canRefresh) {

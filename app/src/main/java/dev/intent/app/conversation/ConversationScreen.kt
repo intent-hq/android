@@ -1,11 +1,12 @@
 package dev.intent.app.conversation
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -17,6 +18,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
@@ -48,10 +50,18 @@ fun ConversationRoute(
             sends.stop()
         }
     }
-    ConversationScreen(state, store::loadOlder, store::hydrate, {
-        store.refresh()
-        sends.refresh()
-    }, modifier, onSuggestedPrompt = { draft.text = it }) {
+    ConversationScreen(
+        state,
+        store::loadOlder,
+        store::hydrate,
+        {
+            store.refresh()
+            sends.refresh()
+        },
+        modifier,
+        onSuggestedPrompt = sends::sendSuggestedPrompt,
+        suggestionsEnabled = sending.attempts.isEmpty()
+    ) {
         ConversationComposer(sending, { text ->
             val ready = photos?.state?.value
             if (ready?.ready == false) {
@@ -78,7 +88,8 @@ fun ConversationScreen(
     onHydrate: (String, String) -> Unit,
     onRefresh: () -> Unit,
     modifier: Modifier = Modifier,
-    onSuggestedPrompt: (String) -> Unit = {},
+    onSuggestedPrompt: (String) -> Boolean = { false },
+    suggestionsEnabled: Boolean = true,
     composer: @Composable () -> Unit = {}
 ) {
     Column(modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -88,18 +99,22 @@ fun ConversationScreen(
             onHydrate,
             onRefresh,
             Modifier.weight(1f),
-            onSuggestedPrompt
+            onSuggestedPrompt,
+            suggestionsEnabled
         )
         composer()
     }
 }
 
+@Suppress("LongParameterList")
 @Composable
 internal fun TranscriptMessage(
     row: TranscriptRow,
     hydrating: Set<String>,
     onHydrate: (String, String) -> Unit,
-    onSuggestedPrompt: (String) -> Unit
+    onSuggestedPrompt: (String) -> Boolean,
+    suggestionsEnabled: Boolean,
+    showSuggestions: Boolean
 ) {
     val message = row.messages.first()
     val activity = message.isToolActivity()
@@ -132,7 +147,14 @@ internal fun TranscriptMessage(
                             block.id?.let { id -> onHydrate(it.id, id) }
                         }
                     } else {
-                        TranscriptMessageContents(it, hydrating, onHydrate, onSuggestedPrompt)
+                        TranscriptMessageContents(
+                            it,
+                            hydrating,
+                            onHydrate,
+                            onSuggestedPrompt,
+                            suggestionsEnabled,
+                            showSuggestions
+                        )
                     }
                 }
             }
@@ -141,12 +163,15 @@ internal fun TranscriptMessage(
     }
 }
 
+@Suppress("LongParameterList")
 @Composable
 private fun TranscriptMessageContents(
     message: ConversationMessage,
     hydrating: Set<String>,
     onHydrate: (String, String) -> Unit,
-    onSuggestedPrompt: (String) -> Unit
+    onSuggestedPrompt: (String) -> Boolean,
+    suggestionsEnabled: Boolean,
+    showSuggestions: Boolean
 ) {
     val presentation = remember(message.contentBlocks, message.isStreaming) {
         if (message.role == "assistant") {
@@ -155,7 +180,20 @@ private fun TranscriptMessageContents(
             PromptPresentation(message.contentBlocks, emptyList())
         }
     }
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    var promptSent by androidx.compose.runtime.saveable.rememberSaveable(message.id) {
+        mutableStateOf(false)
+    }
+    val highlight = if (message.role == "user") {
+        Modifier.fillMaxWidth().testTag("user-message-${message.id}")
+            .background(
+                MaterialTheme.colorScheme.surfaceContainerHigh,
+                MaterialTheme.shapes.extraLarge
+            )
+            .padding(12.dp)
+    } else {
+        Modifier
+    }
+    Column(highlight, verticalArrangement = Arrangement.spacedBy(4.dp)) {
         TranscriptMetadata(message)
         val sections = remember(presentation.blocks, message.isStreaming) {
             if (message.role == "assistant") {
@@ -178,10 +216,10 @@ private fun TranscriptMessageContents(
                 }
             }
         }
-        presentation.prompts.forEach { prompt ->
-            SuggestionChip(onClick = {
-                onSuggestedPrompt(prompt)
-            }, label = { Text(PromptLinks.visible(prompt)) })
+        if (showSuggestions && !promptSent) {
+            PromptChips(presentation.prompts, suggestionsEnabled) { prompt ->
+                if (!promptSent) promptSent = onSuggestedPrompt(prompt)
+            }
         }
         if (message.isStreaming == true) Text("Response in progress…")
         message.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }

@@ -25,6 +25,24 @@ class ConversationSendStoreTest {
     private val store = ConversationSendStore(commands, "agent")
 
     @Test
+    fun suggestionSendsOnlyPromptAndRejectsDuplicateUntilReconciled() {
+        val draft = ComposerDraft().apply { text = "Unfinished draft" }
+        assertTrue(store.sendSuggestedPrompt("Run tests"))
+        assertFalse(store.sendSuggestedPrompt("Run tests"))
+        val sent = commands.sent.single()
+        assertEquals("Run tests", sent.content)
+        assertNull(sent.metadata)
+        assertTrue(commands.images.isEmpty())
+        assertTrue(store.state.value.attempts.single().files.isEmpty())
+        assertEquals("Unfinished draft", draft.text)
+        sent.result.completeExceptionally(IllegalStateException("timeout"))
+        assertFalse(store.sendSuggestedPrompt("Run tests"))
+        assertEquals(SendStatus.UNCONFIRMED, store.state.value.attempts.single().status)
+        store.observe(listOf(ConversationMessage("echo", "user", appMessageId = sent.id)))
+        assertTrue(store.sendSuggestedPrompt("Review code"))
+    }
+
+    @Test
     fun sendsOnceAndEchoWinsOverLateFailure() {
         store.send("Hello")
         val sent = commands.sent.single()
