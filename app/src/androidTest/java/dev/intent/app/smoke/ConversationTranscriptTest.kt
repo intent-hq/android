@@ -6,6 +6,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -160,6 +161,46 @@ class ConversationTranscriptTest {
         compose.runOnIdle { assertEquals("Run tests", sent) }
         compose.onNodeWithText("Run tests").assertDoesNotExist()
         compose.onNodeWithText("Review code").assertDoesNotExist()
+    }
+
+    @Test
+    fun suggestedPromptsWrapInLightAndDarkAndDisableDuringSend() {
+        val dark = mutableStateOf(false)
+        val enabled = mutableStateOf(true)
+        val longPrompt = "Review the changes and explain how the updated conversation " +
+            "handles suggested prompts, long text, and pending messages."
+        val reply = ConversationMessage(
+            "suggestions",
+            "assistant",
+            listOf(
+                ContentBlock(
+                    "text",
+                    text = "Next steps.\n<!-- suggested-prompts\n" +
+                        "Run tests\n$longPrompt\n-->"
+                )
+            )
+        )
+        compose.setContent {
+            IntentTheme(darkTheme = dark.value) {
+                Surface(Modifier.fillMaxSize()) {
+                    ConversationScreen(
+                        ConversationState(messages = listOf(reply), isLoading = false),
+                        {},
+                        { _, _ -> },
+                        {},
+                        suggestionsEnabled = enabled.value
+                    )
+                }
+            }
+        }
+        compose.onNodeWithText(longPrompt).assertIsDisplayed()
+        screenshot("suggestion-spacing-light")
+        compose.runOnIdle { dark.value = true }
+        compose.onNodeWithText(longPrompt).assertIsDisplayed()
+        screenshot("suggestion-spacing-dark")
+        compose.runOnIdle { enabled.value = false }
+        compose.onNodeWithText("Run tests").assertIsNotEnabled()
+        compose.onNodeWithText(longPrompt).assertIsNotEnabled()
     }
 
     @Test
