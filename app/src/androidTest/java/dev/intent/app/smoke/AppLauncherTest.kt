@@ -9,13 +9,16 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.click
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.performTouchInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import dev.intent.app.design.IntentTheme
@@ -86,28 +89,9 @@ class AppLauncherTest {
         InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
         compose.onNodeWithContentDescription("Close app launcher").assertDoesNotExist()
         compose.onNodeWithContentDescription("Open app launcher").performClick()
-        val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
-        val now = android.os.SystemClock.uptimeMillis()
-        val down = android.view.MotionEvent.obtain(
-            now,
-            now,
-            android.view.MotionEvent.ACTION_DOWN,
-            10f,
-            100f,
-            0
-        )
-        val up = android.view.MotionEvent.obtain(
-            now,
-            now + 50,
-            android.view.MotionEvent.ACTION_UP,
-            10f,
-            100f,
-            0
-        )
-        automation.injectInputEvent(down, true)
-        automation.injectInputEvent(up, true)
-        down.recycle()
-        up.recycle()
+        compose.onNodeWithContentDescription("Dismiss app launcher").performTouchInput {
+            click(Offset(center.x, height / 4f))
+        }
         compose.waitUntil(5_000) {
             compose.onAllNodes(androidx.compose.ui.test.hasContentDescription("Close app launcher"))
                 .fetchSemanticsNodes().isEmpty()

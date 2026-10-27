@@ -1,6 +1,7 @@
 package dev.intent.app.navigation
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,21 +25,18 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import androidx.compose.ui.window.DialogWindowProvider
 
 @Composable
 internal fun WorkspaceActionLauncher(actions: LauncherActions, modifier: Modifier = Modifier) {
@@ -52,9 +50,15 @@ internal fun WorkspaceActionLauncher(actions: LauncherActions, modifier: Modifie
             onDismissRequest = { open = false },
             properties = DialogProperties(usePlatformDefaultWidth = false)
         ) {
-            val window = (LocalView.current.parent as? DialogWindowProvider)?.window
-            SideEffect { window?.setGravity(android.view.Gravity.BOTTOM) }
-            LauncherTiles(actions, { open = false })
+            Box(Modifier.fillMaxSize()) {
+                Box(
+                    Modifier.matchParentSize().clickable { open = false }
+                        .semantics { contentDescription = "Dismiss app launcher" }
+                )
+                Box(Modifier.align(Alignment.BottomCenter)) {
+                    LauncherTiles(actions, { open = false })
+                }
+            }
         }
     }
 }
