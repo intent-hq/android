@@ -39,7 +39,7 @@ fun MermaidFence(language: String, code: String): Boolean {
     if (!failed) {
         key(code, dark) {
             androidx.compose.foundation.layout.Column {
-                androidx.compose.material3.TextButton(onClick = { expanded = true }) {
+                dev.intent.app.design.IntentTextButton(onClick = { expanded = true }) {
                     androidx.compose.material3.Text("Expand diagram")
                 }
                 MermaidView(code, dark) { failed = true }
@@ -55,7 +55,7 @@ fun MermaidFence(language: String, code: String): Boolean {
         ) {
             androidx.compose.material3.Surface(Modifier.fillMaxSize()) {
                 androidx.compose.foundation.layout.Column {
-                    androidx.compose.material3.TextButton(onClick = { expanded = false }) {
+                    dev.intent.app.design.IntentTextButton(onClick = { expanded = false }) {
                         androidx.compose.material3.Text("Close diagram")
                     }
                     MermaidView(code, dark, Modifier.weight(1f).fillMaxSize()) { failed = true }

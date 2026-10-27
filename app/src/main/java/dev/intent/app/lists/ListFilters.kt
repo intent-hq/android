@@ -5,12 +5,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import dev.intent.app.design.IntentSpacing
+import dev.intent.app.design.IntentTextButton as TextButton
+import dev.intent.app.design.IntentTextField as OutlinedTextField
 
 @Composable
 internal fun ListFilters(

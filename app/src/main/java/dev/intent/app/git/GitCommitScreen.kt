@@ -10,7 +10,6 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -19,6 +18,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import dev.intent.app.design.IntentScreen
+import dev.intent.app.design.IntentTextButton as TextButton
 import dev.intent.app.navigation.CompactAppBar
 import dev.intent.core.protocol.models.GitCommit
 import dev.intent.core.protocol.models.GitCommitFile

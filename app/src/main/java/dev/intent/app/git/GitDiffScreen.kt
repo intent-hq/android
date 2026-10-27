@@ -51,7 +51,7 @@ fun GitDiffScreen(state: GitState, onRetry: () -> Unit) {
                     Text(
                         "@@ -${hunk.oldStart},${hunk.oldLines} +${hunk.newStart},${hunk.newLines} @@",
                         fontFamily = FontFamily.Monospace,
-                        color = MaterialTheme.colorScheme.primary
+                        color = MaterialTheme.colorScheme.onTertiaryContainer
                     )
                 }
                 items(hunk.lines) { line -> DiffLine(line) }

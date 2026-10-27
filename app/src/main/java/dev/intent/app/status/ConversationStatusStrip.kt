@@ -17,7 +17,6 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -33,6 +32,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
 import dev.intent.app.agents.avatarState
 import dev.intent.app.design.AgentAvatarState
+import dev.intent.app.design.IntentTextButton as TextButton
 import dev.intent.core.protocol.models.Agent
 import java.time.Instant
 import kotlinx.coroutines.delay

@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -23,6 +22,7 @@ import dev.intent.app.attachments.MediaReference
 import dev.intent.app.attachments.decodePhoto
 import dev.intent.app.attachments.openMedia
 import dev.intent.app.design.IntentScreen
+import dev.intent.app.design.IntentTextButton as TextButton
 import dev.intent.app.navigation.CompactAppBar
 import dev.intent.app.navigation.LocalChromeActions
 import java.io.File

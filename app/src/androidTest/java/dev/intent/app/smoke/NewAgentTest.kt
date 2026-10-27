@@ -51,7 +51,7 @@ class NewAgentTest {
             compose.onNodeWithText("high").performScrollTo().performClick()
             compose.onNodeWithText("Create agent").performClick()
             waitFor("Message")
-            compose.onNodeWithText("Message").assertIsDisplayed()
+            compose.onNodeWithContentDescription("Message").assertIsDisplayed()
             val request = server.requests.single {
                 it.method == "agent.create"
             }.params as JsonObject

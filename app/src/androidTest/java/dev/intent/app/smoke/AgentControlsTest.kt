@@ -50,12 +50,12 @@ class AgentControlsTest {
         assertEquals("Renamed agent", request("agent.rename")["name"]?.jsonPrimitive?.content)
         menu("Delete agent")
         compose.onNodeWithText("Cancel").performClick()
-        compose.onNodeWithText("Message").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Message").assertIsDisplayed()
         assertFalse(server.requests.any { it.method == "agent.delete" })
         menu("Delete agent")
         compose.onNodeWithText("Delete").performClick()
         waitFor("No agents yet")
-        compose.onNodeWithText("Message").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Message").assertDoesNotExist()
         request("agent.delete")
     }
 

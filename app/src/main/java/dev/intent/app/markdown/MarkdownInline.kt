@@ -95,7 +95,7 @@ private fun MarkdownTextRuns(runs: List<MarkdownRun>, style: TextStyle) {
     val onNote = LocalMarkdownNoteLink.current
     val linkStyle = TextLinkStyles(
         SpanStyle(
-            color = MaterialTheme.colorScheme.primary,
+            color = MaterialTheme.colorScheme.onSurface,
             textDecoration = TextDecoration.Underline
         )
     )

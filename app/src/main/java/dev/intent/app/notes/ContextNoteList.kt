@@ -16,7 +16,6 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -33,6 +32,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import dev.intent.app.design.IntentScreen
 import dev.intent.app.design.IntentSpacing
+import dev.intent.app.design.IntentTextButton as TextButton
 import dev.intent.app.lists.ListFilters
 import dev.intent.core.protocol.models.Note
 

@@ -2,9 +2,7 @@ package dev.intent.app.agents
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -13,6 +11,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.window.DialogProperties
 import dev.intent.app.design.IntentScreen
+import dev.intent.app.design.IntentTextButton as TextButton
+import dev.intent.app.design.IntentTextField as OutlinedTextField
 import dev.intent.core.protocol.models.Agent
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers

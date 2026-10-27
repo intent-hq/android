@@ -1,5 +1,6 @@
 package dev.intent.app.navigation
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -7,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.IconButton
@@ -74,6 +76,7 @@ fun CompactAppBar(
                     modifier = Modifier.size(48.dp).semantics {
                         contentDescription = "More actions"
                     }
+                        .background(MaterialTheme.colorScheme.surface, CircleShape)
                 ) { Text("⋮", style = MaterialTheme.typography.headlineSmall) }
                 DropdownMenu(expanded, onDismissRequest = { expanded = false }) {
                     menu.forEach { action ->

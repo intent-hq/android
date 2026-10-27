@@ -5,6 +5,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
@@ -54,17 +55,17 @@ class SuggestedPromptRouteTest {
                         }
                     }
                 }
-                compose.onNodeWithText("Message").performTextInput("Keep my draft")
+                compose.onNodeWithContentDescription("Message").performTextInput("Keep my draft")
                 compose.onNodeWithText("Run tests").performClick()
                 compose.onNodeWithText("Review code").assertDoesNotExist()
                 compose.onNodeWithText("Sending…").assertIsDisplayed()
-                compose.onNodeWithText("Message").assertTextEquals("Message", "Keep my draft")
+                compose.onNodeWithContentDescription("Message").assertTextEquals("Keep my draft")
                 compose.runOnIdle {
                     assertEquals(listOf("Run tests"), source.sent)
                     assertEquals(before, photos.state.value)
                     source.reply.completeExceptionally(IllegalStateException("timeout"))
                 }
-                compose.onNodeWithText("Message").assertTextEquals("Message", "Keep my draft")
+                compose.onNodeWithContentDescription("Message").assertTextEquals("Keep my draft")
                 compose.runOnIdle { assertEquals(before, photos.state.value) }
             }
         }

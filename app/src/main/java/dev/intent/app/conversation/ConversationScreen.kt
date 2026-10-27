@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -26,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import dev.intent.app.attachments.MediaPreview
 import dev.intent.app.attachments.MediaReference
 import dev.intent.app.attachments.PhotoAttachmentStore
+import dev.intent.app.design.IntentTextButton as TextButton
 import dev.intent.app.markdown.MarkdownContent
 import dev.intent.core.protocol.attachments.messageBlock
 import dev.intent.core.protocol.models.ContentBlock
@@ -94,7 +94,10 @@ fun ConversationScreen(
     suggestionsEnabled: Boolean = true,
     composer: @Composable () -> Unit = {}
 ) {
-    Column(modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(
+        modifier.padding(horizontal = dev.intent.app.design.IntentSpacing.page, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
         ConversationTranscript(
             state,
             onLoadOlder,

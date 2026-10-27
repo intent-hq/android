@@ -2,7 +2,6 @@ package dev.intent.app.navigation
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Column
-import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -17,6 +16,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import dev.intent.app.cache.OfflineCache
 import dev.intent.app.connection.SavedConnection
+import dev.intent.app.design.IntentButton as Button
 import dev.intent.app.drawers.WorkspaceDrawers
 import dev.intent.app.git.LocalWorkspaceRepository
 import dev.intent.app.git.repositoryLabel

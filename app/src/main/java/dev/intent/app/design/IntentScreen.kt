@@ -1,6 +1,5 @@
 package dev.intent.app.design
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -13,7 +12,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.dp
 
 /** Apply inside the screen's scroll container; Scaffold owns system-bar insets. */
 object IntentScreen {
@@ -21,7 +19,7 @@ object IntentScreen {
         PaddingValues(horizontal = IntentSpacing.page, vertical = IntentSpacing.content)
     val sectionSpacing = IntentSpacing.page
     val itemSpacing = IntentSpacing.row
-    val sectionInsets = IntentSpacing.content
+    val sectionInsets = IntentSpacing.page
 
     val canvas: Color @Composable get() = MaterialTheme.colorScheme.background
     val surface: Color @Composable get() = MaterialTheme.colorScheme.surface
@@ -49,7 +47,7 @@ fun IntentSection(
     IntentCard(modifier) { SectionContent(title, content) }
 }
 
-/** Clickable sections use the same neutral surface and border as static sections. */
+/** Clickable sections share the same filled surface as static sections. */
 @Composable
 fun IntentSection(
     title: String,
@@ -62,8 +60,7 @@ fun IntentSection(
         modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
         color = IntentScreen.surface,
-        contentColor = IntentScreen.text,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+        contentColor = IntentScreen.text
     ) { SectionContent(title, content) }
 }
 
@@ -74,7 +71,6 @@ private fun IntentCard(modifier: Modifier, content: @Composable () -> Unit) {
         shape = MaterialTheme.shapes.large,
         color = IntentScreen.surface,
         contentColor = IntentScreen.text,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         content = content
     )
 }

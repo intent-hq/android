@@ -181,8 +181,8 @@ private fun MarkdownCode(code: String, language: String) {
                         withStyle(
                             SpanStyle(
                                 color = when (token.kind) {
-                                    "keyword" -> colors.primary
-                                    "string" -> colors.tertiary
+                                    "keyword" -> colors.onSurface
+                                    "string" -> colors.onTertiaryContainer
                                     "number" -> colors.secondary
                                     "comment" -> colors.onSurfaceVariant
                                     else -> colors.onSurface

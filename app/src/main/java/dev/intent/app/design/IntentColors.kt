@@ -1,10 +1,10 @@
-@file:Suppress("MagicNumber") // Literal design tokens from the iOS source of truth.
+@file:Suppress("MagicNumber") // Brand and mobile component color tokens.
 
 package dev.intent.app.design
 
 import androidx.compose.ui.graphics.Color
 
-/** Color values from iOS Assets.xcassets; keep light and dark pairs together. */
+/** Figma mobile surfaces with neutral theme pairs; avatar colors retain their status meaning. */
 internal object IntentColors {
     val agentAvatarActiveStrokeStrongLight = Color(0x9934C759)
     val agentAvatarActiveStrokeStrongDark = Color(0x9930D158)
@@ -26,24 +26,27 @@ internal object IntentColors {
     val agentAvatarSurfaceFailedDark = Color(0xFFEF7676)
     val agentAvatarSurfaceWaitingLight = Color(0xFFC4A7F2)
     val agentAvatarSurfaceWaitingDark = Color(0xFFB096E8)
-    val themeBackgroundLight = Color(0xFFFFFFFF)
-    val themeBackgroundDark = Color(0xFF1C1C24)
-    val themeBorderLight = Color(0xFFD9D9D9)
-    val themeBorderDark = Color(0xFF474552)
+    val themeBackgroundLight = Color(0xFFF0F0F0)
+    val themeBackgroundDark = Color(0xFF161616)
+    val themeBorderLight = Color(0x1A000000)
+    val themeBorderDark = Color(0x26FFFFFF)
     val themeCardLight = Color(0xFFFFFFFF)
-    val themeCardDark = Color(0xFF121217)
+    val themeCardDark = Color(0xFF272727)
     val themeDestructiveLight = Color(0xFFEB4040)
     val themeDestructiveDark = Color(0xFFE03838)
-    val themeForegroundLight = Color(0xFF171717)
-    val themeForegroundDark = Color(0xFFF7F7F7)
-    val themeMutedLight = Color(0xFFE8E8E8)
-    val themeMutedDark = Color(0xFF000000)
-    val themeMutedForegroundLight = Color(0xFF474747)
-    val themeMutedForegroundDark = Color(0xFFADA8C2)
-    val themePrimaryLight = Color(0xFF00996B)
-    val themePrimaryDark = Color(0xFF00996B)
-    val themeSidebarLight = Color(0xFFF2F2F7)
-    val themeSidebarDark = Color(0xFF0A0A0F)
-    val themeSidebarSelectionLight = Color(0xFFD9D9DE)
-    val themeSidebarSelectionDark = Color(0xFF3B3B40)
+    val themeForegroundLight = Color(0xFF080808)
+    val themeForegroundDark = Color(0xFFF0F0F0)
+    val themeMutedLight = Color(0xFFE1E1E1)
+    val themeMutedDark = Color(0xFF141414)
+    val themeMutedForegroundLight = Color(0xFF525252)
+    val themeMutedForegroundDark = Color(0xFFBABABA)
+    val themePrimaryLight = Color(0xFFDDEC61)
+    val themePrimaryDark = Color(0xFFDDEC61)
+    val themeSidebarLight = Color(0xFFFFFFFF)
+    val themeSidebarDark = Color(0xFF272727)
+    val themeSidebarSelectionLight = Color(0xFFE1E1E1)
+    val themeSidebarSelectionDark = Color(0xFF3B3B3B)
+    val statusWorking = Color(0xFFD3DE5D)
+    val statusComplete = Color(0xFF6FA356)
+    val statusAttention = Color(0xFFFAA755)
 }

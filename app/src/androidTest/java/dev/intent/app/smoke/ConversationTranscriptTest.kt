@@ -7,6 +7,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -156,7 +157,7 @@ class ConversationTranscriptTest {
         compose.onNodeWithText("Done.").assertIsDisplayed()
         compose.onNodeWithText("<!-- suggested-prompts", substring = true).assertDoesNotExist()
         compose.onNodeWithText("Run tests").performClick()
-        compose.onNodeWithText("Message").assertTextEquals("Message", "My unfinished draft")
+        compose.onNodeWithContentDescription("Message").assertTextEquals("My unfinished draft")
         compose.runOnIdle { assertEquals("Run tests", sent) }
         compose.onNodeWithText("Run tests").assertDoesNotExist()
         compose.onNodeWithText("Review code").assertDoesNotExist()

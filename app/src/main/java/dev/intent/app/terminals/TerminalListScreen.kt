@@ -5,11 +5,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import dev.intent.app.design.IntentScreen
 import dev.intent.app.design.IntentSection
+import dev.intent.app.design.IntentTextButton as TextButton
 import dev.intent.app.lists.RefreshableList
 
 @Composable
