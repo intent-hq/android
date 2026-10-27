@@ -5,17 +5,20 @@ import android.content.pm.ActivityInfo
 import android.view.KeyEvent
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextContains
+import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performScrollToNode
@@ -44,12 +47,23 @@ class WorkspaceSectionsTest {
     fun sectionsKeepSearchScrollAndSelectionAcrossRotationAndTheme() = connected {
         openWorkspace()
         compose.onNodeWithText("Agents").assertIsSelected()
+        compose.waitUntil(TIMEOUT) {
+            compose.onAllNodes(androidx.compose.ui.test.hasContentDescription("Search agents"))
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithContentDescription("Search agents").performClick()
         compose.onNodeWithText("Search agents").performTextInput("Agent")
         compose.onNode(hasScrollAction()).performScrollToNode(hasText("Agent 35"))
         compose.onNodeWithText("Agent 35").assertIsDisplayed()
         val agentAnchor = firstVisibleRow("Agent ")
         compose.onNodeWithText("Context").performClick()
-        waitForText("Search notes and tasks")
+        compose.waitUntil(TIMEOUT) {
+            compose.onAllNodes(
+                androidx.compose.ui.test.hasContentDescription("Search notes and tasks")
+            )
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithContentDescription("Search notes and tasks").performClick()
         compose.onNodeWithText("Search notes and tasks").performTextInput("Plan")
         compose.onNode(hasScrollAction()).performScrollToNode(hasText("Plan 35"))
         compose.onNodeWithText("Plan 35").assertIsDisplayed()
@@ -123,6 +137,73 @@ class WorkspaceSectionsTest {
         compose.onNodeWithText("Changes").assertIsDisplayed()
         back()
         compose.onNodeWithText("Workspaces").assertIsDisplayed()
+    }
+
+    @Test
+    fun menusOnlyContainActionsForTheCurrentPage() = connected {
+        screenshot("workspaces-header")
+        menu(
+            listOf("Show archived"),
+            listOf("Settings", "Connections", "Disconnect", "Create workspace")
+        )
+        openWorkspace()
+        screenshot("agents-header")
+        menu(
+            listOf("New agent", "Transfer workspace", "Rename workspace"),
+            listOf("Settings", "Connections", "Disconnect")
+        )
+        compose.onNodeWithText("Agent 1").performClick()
+        screenshot("conversation-header")
+        menu(
+            listOf("Model settings", "Rename agent", "Delete agent"),
+            listOf("Transfer workspace", "Settings", "Connections", "Terminals")
+        )
+        back()
+        compose.onNodeWithText("Context").performClick()
+        screenshot("context-header")
+        menu(
+            listOf("Transfer workspace", "Rename workspace"),
+            listOf("Settings", "Disconnect", "Model settings")
+        )
+        compose.onNodeWithText("Plan 1").performClick()
+        screenshot("note-header")
+        menu(listOf("Refresh"), listOf("Transfer workspace", "Settings", "Connections"))
+        back()
+        compose.onNodeWithText("Changes").performClick()
+        screenshot("changes-header")
+        menu(
+            listOf("Transfer workspace", "Rename workspace"),
+            listOf("Settings", "Disconnect", "Model settings")
+        )
+        compose.onNodeWithText("M  app.kt").performClick()
+        screenshot("diff-header")
+        menu(listOf("Refresh diff"), listOf("Transfer workspace", "Settings", "Connections"))
+        back()
+        compose.onNodeWithContentDescription("More actions").performClick()
+        compose.onNodeWithText("Terminals").performClick()
+        screenshot("terminals-header")
+        compose.onNodeWithContentDescription("More actions").assertDoesNotExist()
+    }
+
+    private fun menu(present: List<String>, absent: List<String>) {
+        compose.onNodeWithContentDescription("More actions").performClick()
+        present.forEach { compose.onNodeWithText(it).assertIsDisplayed() }
+        absent.forEach { compose.onNodeWithText(it).assertDoesNotExist() }
+        InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
+    }
+
+    private fun screenshot(name: String) {
+        compose.waitForIdle()
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val directory = InstrumentationRegistry.getArguments().getString("additionalTestOutputDir")
+            ?.let { java.io.File(it) }
+            ?: java.io.File(instrumentation.targetContext.cacheDir, "screenshots")
+        check(directory.mkdirs() || directory.isDirectory)
+        val bitmap = compose.onRoot().captureToImage().asAndroidBitmap()
+        java.io.File(directory, "$name.png").outputStream().use {
+            check(bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it))
+        }
+        bitmap.recycle()
     }
 
     private fun firstVisibleRow(prefix: String): String {

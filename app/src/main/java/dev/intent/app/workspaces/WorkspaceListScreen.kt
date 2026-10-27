@@ -71,9 +71,16 @@ fun WorkspaceListScreen(
     onAction: (Workspace, WorkspaceAction) -> Unit = { _, _ -> },
     updatingId: String? = null
 ) {
+    var query by rememberSaveable { mutableStateOf("") }
     var showArchived by rememberSaveable { mutableStateOf(false) }
     var revealedId by rememberSaveable { mutableStateOf<String?>(null) }
-    val rows = state.workspaces.filter { showArchived || !it.status.equals("Archived", true) }
+    val rows = state.workspaces.filter {
+        (showArchived || !it.status.equals("Archived", true)) &&
+            (
+                it.title.contains(query.trim(), true) ||
+                    it.statusMessage.orEmpty().contains(query.trim(), true)
+                )
+    }
     val drawerButtons = dev.intent.app.drawers.LocalDrawerButtons.current
     Column(modifier) {
         CompactAppBar(
@@ -91,26 +98,44 @@ fun WorkspaceListScreen(
                 }
             )
         )
-        RefreshableList(state.isLoading, onRefresh) {
-            LazyColumn(
-                Modifier.fillMaxSize(),
-                contentPadding = IntentScreen.pageInsets,
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                state.error?.let { item { Text(it, color = MaterialTheme.colorScheme.error) } }
-                if (!state.isLoading && state.error == null && rows.isEmpty()) {
-                    item { Text("No workspaces yet") }
-                }
-                items(rows, key = { it.id }) { workspace ->
-                    WorkspaceSwipeRow(
-                        workspace = workspace,
-                        enabled = updatingId != workspace.id,
-                        revealed = revealedId == workspace.id,
-                        onReveal = { revealedId = if (it) workspace.id else null },
-                        onClick = { onWorkspaceSelected(workspace.id) },
-                        onOpenRecent = { onOpenRecent(workspace.id) },
-                        onAction = { onAction(workspace, it) }
-                    ) { WorkspaceRow(workspace) }
+        dev.intent.app.lists.SearchableList(
+            query,
+            {
+                query = it
+            },
+            "Search workspaces",
+            state.workspaces.isNotEmpty(),
+            launcher = dev.intent.app.navigation.LocalLauncherActions.current
+        ) {
+            RefreshableList(state.isLoading, onRefresh) {
+                LazyColumn(
+                    Modifier.fillMaxSize(),
+                    contentPadding = IntentScreen.pageInsets,
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    state.error?.let { item { Text(it, color = MaterialTheme.colorScheme.error) } }
+                    if (!state.isLoading && state.error == null && rows.isEmpty()) {
+                        item {
+                            Text(
+                                if (query.isBlank()) {
+                                    "No workspaces yet"
+                                } else {
+                                    "No matching workspaces"
+                                }
+                            )
+                        }
+                    }
+                    items(rows, key = { it.id }) { workspace ->
+                        WorkspaceSwipeRow(
+                            workspace = workspace,
+                            enabled = updatingId != workspace.id,
+                            revealed = revealedId == workspace.id,
+                            onReveal = { revealedId = if (it) workspace.id else null },
+                            onClick = { onWorkspaceSelected(workspace.id) },
+                            onOpenRecent = { onOpenRecent(workspace.id) },
+                            onAction = { onAction(workspace, it) }
+                        ) { WorkspaceRow(workspace) }
+                    }
                 }
             }
         }

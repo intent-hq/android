@@ -47,11 +47,21 @@ class ListFiltersTest {
         }
         compose.onNodeWithText("▾ Hide 2 delegated agents").performClick()
         compose.onNodeWithText("Fix search").assertDoesNotExist()
+        compose.waitUntil(5_000) {
+            compose.onAllNodes(androidx.compose.ui.test.hasContentDescription("Search agents"))
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithContentDescription("Search agents").performClick()
         compose.onNodeWithText("Search agents").performTextInput("SEARCH")
         compose.onNodeWithText("Coordinator").assertIsDisplayed()
         compose.onNodeWithText("Fix search").performClick()
         compose.runOnIdle { assertEquals("current", selected) }
-        compose.onNodeWithText("Clear").performClick()
+        compose.onNodeWithContentDescription("Clear search").performClick()
+        compose.waitUntil(5_000) {
+            compose.onAllNodes(androidx.compose.ui.test.hasContentDescription("Search agents"))
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithContentDescription("Search agents").performClick()
         compose.onNodeWithText("Current").performClick()
         compose.onNodeWithText("Old work").assertDoesNotExist()
         compose.onNodeWithText("Fix search").assertIsDisplayed()
@@ -86,11 +96,25 @@ class ListFiltersTest {
         }
         compose.onNodeWithContentDescription("Collapse child notes for Plan").performClick()
         compose.onNodeWithText("Fix search").assertDoesNotExist()
+        compose.waitUntil(5_000) {
+            compose.onAllNodes(
+                androidx.compose.ui.test.hasContentDescription("Search notes and tasks")
+            )
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithContentDescription("Search notes and tasks").performClick()
         compose.onNodeWithText("Search notes and tasks").performTextInput("SEARCH")
         compose.onNodeWithText("Plan").assertIsDisplayed()
         compose.onNodeWithText("Fix search").performClick()
         compose.runOnIdle { assertEquals("current", selected) }
-        compose.onNodeWithText("Clear").performClick()
+        compose.onNodeWithContentDescription("Clear search").performClick()
+        compose.waitUntil(5_000) {
+            compose.onAllNodes(
+                androidx.compose.ui.test.hasContentDescription("Search notes and tasks")
+            )
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithContentDescription("Search notes and tasks").performClick()
         compose.onNodeWithText("Current").performClick()
         compose.onNodeWithText("Old work").assertDoesNotExist()
         compose.onNodeWithText("All").performClick()
@@ -119,5 +143,6 @@ class ListFiltersTest {
                 "and select text to comment on."
         ).assertIsDisplayed()
         compose.onNodeWithText("Send reply").assertDoesNotExist()
+        compose.onNodeWithContentDescription("More actions").assertDoesNotExist()
     }
 }

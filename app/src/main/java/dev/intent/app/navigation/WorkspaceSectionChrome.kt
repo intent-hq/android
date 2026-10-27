@@ -13,7 +13,8 @@ internal val LocalWorkspaceResources = staticCompositionLocalOf<(@Composable () 
 @Composable
 internal fun WorkspaceSectionAppBar(title: String, actions: List<ChromeAction> = emptyList()) {
     val header = LocalWorkspaceSectionHeader.current
-    if (header == null) CompactAppBar(title, actions = actions) else header(actions)
+    val menu = actions + LocalChromeActions.current
+    if (header == null) CompactAppBar(title, actions = menu) else header(menu)
 }
 
 @Composable

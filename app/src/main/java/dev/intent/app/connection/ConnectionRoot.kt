@@ -27,10 +27,8 @@ import dev.intent.app.history.AgentHistoryStore
 import dev.intent.app.history.AgentVisit
 import dev.intent.app.history.HistoryNavigation
 import dev.intent.app.history.LocalHistoryNavigation
-import dev.intent.app.navigation.ChromeAction
 import dev.intent.app.navigation.CompactAppBar
 import dev.intent.app.navigation.IntentNavigation
-import dev.intent.app.navigation.LocalChromeActions
 import dev.intent.app.navigation.WorkspaceContent
 import dev.intent.app.notifications.LocalNotifications
 import dev.intent.app.settings.AppPreferences
@@ -66,21 +64,19 @@ fun ConnectionRoot(
     val back = { utilities = utilities.dropLast(1) }
     val contentState = rememberSaveableStateHolder()
     BackHandler(utilities.isNotEmpty(), onBack = back)
-    val actions = buildList {
-        add(
-            ChromeAction("Settings") {
-                utilities = utilities.openUtility("Settings")
-            }
-        )
-        add(
-            ChromeAction("Connections") {
-                utilities = utilities.openUtility("Connections")
-            }
-        )
-        if (state.activeId != null) add(ChromeAction("Disconnect", run = controller::disconnect))
-    }
+    val appearance by preferences.appearance.collectAsState()
+    val launcher = dev.intent.app.navigation.LauncherActions(
+        state.connections.size,
+        appearance,
+        onAppearance = {
+            val modes = dev.intent.app.settings.Appearance.entries
+            preferences.setAppearance(modes[(appearance.ordinal + 1) % modes.size])
+        },
+        onConnections = { utilities = utilities.openUtility("Connections") },
+        onSettings = { utilities = utilities.openUtility("Settings") }
+    )
     CompositionLocalProvider(
-        LocalChromeActions provides actions,
+        dev.intent.app.navigation.LocalLauncherActions provides launcher,
         LocalHistoryNavigation provides
             HistoryNavigation(history, state.activeId, historyTarget) { historyTarget = null },
         LocalDrawerPanels provides DrawerPanels(
@@ -122,7 +118,8 @@ fun ConnectionRoot(
                     controller.diagnostics,
                     Modifier.weight(1f),
                     preferences,
-                    state
+                    state,
+                    onDisconnect = controller::disconnect
                 ) {
                     utilities = utilities.openUtility("Connections")
                 }

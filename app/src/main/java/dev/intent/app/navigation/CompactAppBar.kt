@@ -7,8 +7,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -40,7 +44,7 @@ fun CompactAppBar(
     trailing: (@Composable () -> Unit)? = null
 ) {
     var expanded by remember(title) { mutableStateOf(false) }
-    val menu = actions + LocalChromeActions.current
+    val menu = actions
     Row(
         Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(horizontal = 8.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -54,7 +58,7 @@ fun CompactAppBar(
                     contentDescription = "Back"
                 }
             ) {
-                Text("‹", style = MaterialTheme.typography.headlineSmall)
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
             }
         } else {
             Spacer(Modifier.size(48.dp))
@@ -63,7 +67,7 @@ fun CompactAppBar(
             title,
             Modifier.weight(1f).padding(horizontal = 8.dp),
             style = MaterialTheme.typography.titleMedium,
-            maxLines = 1,
+            maxLines = 2,
             overflow = TextOverflow.Ellipsis
         )
         trailing?.invoke()
@@ -74,7 +78,7 @@ fun CompactAppBar(
                     modifier = Modifier.size(48.dp).semantics {
                         contentDescription = "More actions"
                     }
-                ) { Text("⋮", style = MaterialTheme.typography.headlineSmall) }
+                ) { Icon(Icons.Default.MoreVert, contentDescription = null) }
                 DropdownMenu(expanded, onDismissRequest = { expanded = false }) {
                     menu.forEach { action ->
                         DropdownMenuItem(
