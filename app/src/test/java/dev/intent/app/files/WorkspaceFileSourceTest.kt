@@ -111,7 +111,7 @@ class WorkspaceFileSourceTest {
             }.isFailure
         )
         assertEquals(WorkspacePreviewKind.IMAGE, workspacePreviewKind("a.PNG"))
-        assertEquals(WorkspacePreviewKind.UNSUPPORTED, workspacePreviewKind("a.pdf"))
+        assertEquals(WorkspacePreviewKind.PDF, workspacePreviewKind("a.pdf"))
         assertEquals(WorkspacePreviewKind.TEXT, workspacePreviewKind("Makefile"))
     }
 

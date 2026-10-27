@@ -5,6 +5,7 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.material3.MaterialTheme
@@ -34,14 +35,46 @@ fun MermaidFence(language: String, code: String): Boolean {
     if (language != "mermaid" || code.isBlank() || code.length > MAX_SOURCE_LENGTH) return false
     val dark = MaterialTheme.colorScheme.surface.luminance() < DARK_LUMINANCE_THRESHOLD
     var failed by remember(code, dark) { mutableStateOf(false) }
-    if (!failed) key(code, dark) { MermaidView(code, dark) { failed = true } }
+    var expanded by remember(code) { mutableStateOf(false) }
+    if (!failed) {
+        key(code, dark) {
+            androidx.compose.foundation.layout.Column {
+                androidx.compose.material3.TextButton(onClick = { expanded = true }) {
+                    androidx.compose.material3.Text("Expand diagram")
+                }
+                MermaidView(code, dark) { failed = true }
+            }
+        }
+    }
+    if (expanded) {
+        androidx.compose.ui.window.Dialog(
+            onDismissRequest = { expanded = false },
+            properties = androidx.compose.ui.window.DialogProperties(
+                usePlatformDefaultWidth = false
+            )
+        ) {
+            androidx.compose.material3.Surface(Modifier.fillMaxSize()) {
+                androidx.compose.foundation.layout.Column {
+                    androidx.compose.material3.TextButton(onClick = { expanded = false }) {
+                        androidx.compose.material3.Text("Close diagram")
+                    }
+                    MermaidView(code, dark, Modifier.weight(1f).fillMaxSize()) { failed = true }
+                }
+            }
+        }
+    }
     return !failed
 }
 
 // Only bundled scripts can load; all network requests are denied.
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
-private fun MermaidView(code: String, dark: Boolean, onFailure: () -> Unit) {
+private fun MermaidView(
+    code: String,
+    dark: Boolean,
+    modifier: Modifier? = null,
+    onFailure: () -> Unit
+) {
     var height by remember { mutableIntStateOf(INITIAL_HEIGHT) }
     var complete by remember { mutableStateOf(false) }
     val lifetime = remember { MermaidLifetime() }
@@ -51,7 +84,7 @@ private fun MermaidView(code: String, dark: Boolean, onFailure: () -> Unit) {
         if (!complete) onFailure()
     }
     AndroidView(
-        modifier = Modifier.fillMaxWidth().height(height.dp),
+        modifier = modifier ?: Modifier.fillMaxWidth().height(height.dp),
         factory = { context ->
             WebView(context).apply {
                 settings.javaScriptEnabled = true

@@ -50,7 +50,13 @@ class AttachmentMedia(
                     val temporary = File.createTempFile("media-", ".part", directory)
                     try {
                         if (reference.path != null) {
-                            readPath(reference.path, temporary)
+                            readPath(
+                                reference.path,
+                                temporary,
+                                dev.intent.app.files.previewByteLimit(
+                                    mediaPreviewKind(reference)
+                                ).toLong()
+                            )
                         } else {
                             val data = requireNotNull(reference.data)
                             check(data.length <= MAX_ENCODED_BYTES)
@@ -66,7 +72,7 @@ class AttachmentMedia(
         }
     }
 
-    private fun readPath(path: String, target: File) {
+    private fun readPath(path: String, target: File, limit: Long) {
         require(safeWorkspacePath(path))
         var offset = 0L
         var expectedSize: Long? = null
@@ -82,7 +88,7 @@ class AttachmentMedia(
                     }
                 ).join()
                 val size = chunk.getValue("size").jsonPrimitive.long
-                check(size in 0..MAX_MEDIA_BYTES && (expectedSize == null || expectedSize == size))
+                check(size in 0..limit && (expectedSize == null || expectedSize == size))
                 expectedSize = size
                 val bytes = Base64.getDecoder().decode(
                     chunk.getValue("content").jsonPrimitive.content
@@ -126,5 +132,4 @@ fun openMedia(context: Context, file: File, reference: MediaReference) {
 private fun digest(value: String): String = MessageDigest.getInstance("SHA-256")
     .digest(value.toByteArray()).joinToString("") { "%02x".format(it) }
 private const val READ_BYTES = 1024 * 1024
-private const val MAX_MEDIA_BYTES = 30L * 1024 * 1024
 private const val MAX_ENCODED_BYTES = 40 * 1024 * 1024

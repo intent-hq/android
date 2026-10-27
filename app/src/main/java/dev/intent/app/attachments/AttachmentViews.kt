@@ -5,6 +5,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.heightIn
@@ -25,7 +26,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -108,7 +108,8 @@ fun MediaPreview(
     source: MediaSource? = LocalAttachmentMedia.current,
     actions: Boolean = true
 ) {
-    val context = LocalContext.current
+    val isImage = mediaPreviewKind(reference) == dev.intent.app.files.WorkspacePreviewKind.IMAGE
+    var viewer by remember(reference, source) { mutableStateOf(false) }
     val store = remember(reference, source) { source?.let { MediaLoadStore(it, reference) } }
     val state = store?.state?.collectAsState()?.value ?: MediaLoadState()
     var bitmap by remember(reference, source) { mutableStateOf<Bitmap?>(null) }
@@ -116,24 +117,36 @@ fun MediaPreview(
     androidx.compose.runtime.LaunchedEffect(state.file) {
         bitmap = null
         error = null
-        state.file?.takeIf { reference.image }?.let { file ->
+        state.file?.takeIf { isImage }?.let { file ->
             val result = withContext(Dispatchers.IO) { runCatching { decodePhoto(file) } }
             bitmap = result.getOrNull()
             if (result.isFailure) error = "Cannot decode image. Open it in another app."
         }
     }
     DisposableEffect(store) {
-        if (reference.image) store?.load()
+        if (isImage) store?.load()
         onDispose { store?.close() }
     }
     Column {
         Text(reference.name)
-        MediaStatus(state.loading, error ?: state.error, bitmap, actions)
+        MediaStatus(state.loading, error ?: state.error, bitmap, actions) {
+            if (actions) {
+                viewer =
+                    true
+            }
+        }
         if (source == null) Text("Connect to load attachment")
         val failed = state.error != null || error != null
-        val needsDownload = !reference.image && state.file == null
+        val needsDownload = !isImage && state.file == null
         if (failed || needsDownload) {
-            TextButton(onClick = { store?.load() }, enabled = !state.loading && source != null) {
+            TextButton(
+                onClick = {
+                    viewer = actions
+                    store?.load()
+                },
+                enabled =
+                !state.loading && source != null
+            ) {
                 Text(
                     if (state.error !=
                         null ||
@@ -141,33 +154,39 @@ fun MediaPreview(
                     ) {
                         "Retry"
                     } else {
-                        "Download"
+                        "Open attachment"
                     }
                 )
             }
         }
         if (actions && state.file != null) {
-            TextButton(onClick = {
-                runCatching {
-                    openMedia(context, requireNotNull(state.file), reference)
-                }.onFailure {
-                    error =
-                        "No app can open this attachment."
-                }
-            }) { Text("Open") }
+            TextButton(onClick = { viewer = true }) { Text("Open") }
         }
     }
+    if (viewer) state.file?.let { MediaViewerRoute(it, reference) { viewer = false } }
 }
 
 @Composable
-private fun MediaStatus(loading: Boolean, error: String?, bitmap: Bitmap?, fullSize: Boolean) {
+private fun MediaStatus(
+    loading: Boolean,
+    error: String?,
+    bitmap: Bitmap?,
+    fullSize: Boolean,
+    onOpen: () -> Unit = {}
+) {
     if (loading) CircularProgressIndicator(Modifier.size(24.dp))
     error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
     bitmap?.let {
         Image(
             it.asImageBitmap(),
             "Attached image",
-            if (fullSize) Modifier.heightIn(max = 320.dp) else Modifier.size(64.dp)
+            if (fullSize) {
+                Modifier.heightIn(
+                    max = 320.dp
+                ).clickable(onClick = onOpen)
+            } else {
+                Modifier.size(64.dp)
+            }
         )
     }
 }

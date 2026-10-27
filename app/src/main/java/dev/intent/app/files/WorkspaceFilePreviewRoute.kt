@@ -54,10 +54,13 @@ fun WorkspaceFilePreviewRoute(source: WorkspaceFileSource, path: String, onBack:
 internal sealed interface FilePreviewContent {
     data class TextFile(val text: String) : FilePreviewContent
     data class ImageFile(val bitmap: Bitmap) : FilePreviewContent
+    data class PdfFile(val file: File) : FilePreviewContent
+    data class VideoFile(val file: File) : FilePreviewContent
+    data class HtmlFile(val text: String) : FilePreviewContent
     data object Unsupported : FilePreviewContent
 }
 
-private data class PreviewState(
+internal data class PreviewState(
     val file: File? = null,
     val content: FilePreviewContent? = null,
     val error: String? = null
@@ -101,13 +104,24 @@ private fun FilePreviewBody(source: WorkspaceFileSource, path: String, modifier:
             }) { Text("Open in another app") }
         }
         openError?.let { Text(it, color = IntentScreen.error) }
+        if (state.content is FilePreviewContent.ImageFile) {
+            state.file?.let {
+                dev.intent.app.attachments.ImageFileActions(
+                    it,
+                    MediaReference(it.name, true, path = path)
+                )
+            }
+        }
         PreviewContent(state) { attempt++ }
     }
 }
 
 @Composable
-private fun ColumnScope.PreviewContent(state: PreviewState, onRetry: () -> Unit) {
+internal fun ColumnScope.PreviewContent(state: PreviewState, onRetry: () -> Unit) {
     when (val content = state.content) {
+        is FilePreviewContent.PdfFile -> WorkspacePdfPreview(content.file, Modifier.weight(1f))
+        is FilePreviewContent.VideoFile -> WorkspaceVideoPreview(content.file, Modifier.weight(1f))
+        is FilePreviewContent.HtmlFile -> WorkspaceHtmlPreview(content.text, Modifier.weight(1f))
         is FilePreviewContent.TextFile -> WorkspaceTextPreview(
             content.text,
             Modifier.weight(1f)
@@ -136,15 +150,17 @@ private fun loadPreview(source: WorkspaceFileSource, path: String, directory: Fi
     val file = source.download(
         path,
         directory,
-        if (kind ==
-            WorkspacePreviewKind.TEXT
-        ) {
-            TEXT_MAX_BYTES
-        } else {
-            IMAGE_MAX_BYTES
-        }
+        previewByteLimit(kind)
     )
-    val content = when (kind) {
+    return PreviewState(file, previewContent(file, kind))
+}
+
+internal fun previewContent(file: File, kind: WorkspacePreviewKind): FilePreviewContent {
+    check(file.length() <= previewByteLimit(kind))
+    return when (kind) {
+        WorkspacePreviewKind.PDF -> FilePreviewContent.PdfFile(file)
+        WorkspacePreviewKind.VIDEO -> FilePreviewContent.VideoFile(file)
+        WorkspacePreviewKind.HTML -> FilePreviewContent.HtmlFile(readWorkspaceText(file))
         WorkspacePreviewKind.IMAGE -> FilePreviewContent.ImageFile(
             decodePhoto(file, IMAGE_MAX_EDGE)
         )
@@ -154,7 +170,6 @@ private fun loadPreview(source: WorkspaceFileSource, path: String, directory: Fi
             .getOrElse { FilePreviewContent.Unsupported }
         WorkspacePreviewKind.UNSUPPORTED -> FilePreviewContent.Unsupported
     }
-    return PreviewState(file, content)
 }
 
 private fun previewError(path: String): String = when (workspacePreviewKind(path)) {
@@ -163,5 +178,9 @@ private fun previewError(path: String): String = when (workspacePreviewKind(path
             "Text previews support UTF-8 files up to 5 MiB."
     else ->
         "Cannot load file. Check your connection and retry. " +
-            "This preview supports files up to 32 MiB."
+            "Preview size limit: ${previewByteLimit(
+                workspacePreviewKind(path)
+            ) / BYTES_PER_MIB} MiB."
 }
+
+private const val BYTES_PER_MIB = 1024 * 1024

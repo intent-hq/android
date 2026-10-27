@@ -97,8 +97,8 @@ class WorkspaceFilesTest {
             hasScrollAction()
         ).performScrollToNode(androidx.compose.ui.test.hasText("Empty folder"))
         compose.onNodeWithText("Empty folder").assertIsDisplayed()
-        scrollTo("files.file.report.pdf")
-        compose.onNodeWithTag("files.file.report.pdf").performClick()
+        scrollTo("files.file.archive.zip")
+        compose.onNodeWithTag("files.file.archive.zip").performClick()
         compose.waitUntil(TIMEOUT) {
             compose.onAllNodes(
                 androidx.compose.ui.test.hasText("Preview not available yet for this file.")
@@ -175,7 +175,7 @@ private class FilesTestServer(private val listener: WssTransport.Listener) : Ses
             "file.list" -> when (path) {
                 "." ->
                     """[{"name":"src","type":"directory"},{"name":"empty","type":"directory"},
-                    {"name":"picture.png","type":"file"},{"name":"report.pdf","type":"file"}]"""
+                    {"name":"picture.png","type":"file"},{"name":"archive.zip","type":"file"}]"""
                 "src" -> """[{"name":"readme.txt","type":"file"}]"""
                 else -> "[]"
             }

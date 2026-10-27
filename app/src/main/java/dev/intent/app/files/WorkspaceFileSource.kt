@@ -20,12 +20,23 @@ internal const val TEXT_MAX_BYTES = 5 * 1024 * 1024
 internal const val IMAGE_MAX_BYTES = 32 * 1024 * 1024
 internal const val IMAGE_MAX_EDGE = 2048
 
-enum class WorkspacePreviewKind { TEXT, IMAGE, UNSUPPORTED }
+enum class WorkspacePreviewKind { TEXT, IMAGE, PDF, VIDEO, HTML, UNSUPPORTED }
+
+internal const val DOCUMENT_MAX_BYTES = 200 * 1024 * 1024
+
+internal fun previewByteLimit(kind: WorkspacePreviewKind): Int = when (kind) {
+    WorkspacePreviewKind.TEXT, WorkspacePreviewKind.HTML -> TEXT_MAX_BYTES
+    WorkspacePreviewKind.PDF, WorkspacePreviewKind.VIDEO -> DOCUMENT_MAX_BYTES
+    else -> IMAGE_MAX_BYTES
+}
 
 fun workspacePreviewKind(path: String): WorkspacePreviewKind =
     when (path.substringAfterLast('.', "").lowercase()) {
         "png", "jpg", "jpeg", "gif", "webp" -> WorkspacePreviewKind.IMAGE
-        "pdf", "html", "htm", "mp4", "webm", "mov", "m4v", "zip", "gz", "tar",
+        "pdf" -> WorkspacePreviewKind.PDF
+        "html", "htm" -> WorkspacePreviewKind.HTML
+        "mp4", "webm", "mov", "m4v" -> WorkspacePreviewKind.VIDEO
+        "zip", "gz", "tar",
         "woff", "woff2", "ttf", "exe", "so", "aar" ->
             WorkspacePreviewKind.UNSUPPORTED
         else -> WorkspacePreviewKind.TEXT
