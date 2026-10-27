@@ -100,7 +100,7 @@ fun ConversationScreen(
             onLoadOlder,
             onHydrate,
             onRefresh,
-            Modifier.weight(1f),
+            Modifier.weight(1f).then(dev.intent.app.drawers.LocalTranscriptDrawerGesture.current),
             onSuggestedPrompt,
             suggestionsEnabled
         )

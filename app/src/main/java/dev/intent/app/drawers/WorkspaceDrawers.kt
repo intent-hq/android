@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.systemGestures
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -28,7 +29,12 @@ import androidx.compose.ui.AbsoluteAlignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
@@ -49,18 +55,22 @@ class DrawerPanels(
 )
 
 val LocalDrawerPanels = staticCompositionLocalOf<DrawerPanels?> { null }
+val LocalTranscriptDrawerGesture = staticCompositionLocalOf<Modifier> { Modifier }
+val LocalCurrentHistoryAgent = staticCompositionLocalOf<String?> { null }
 val LocalDrawerButtons = staticCompositionLocalOf<DrawerButtons?> { null }
 class DrawerButtons(val connections: () -> Unit, val history: () -> Unit)
 
 /** Physical left/right panels. Child row gestures win through normal pointer consumption. */
 @Suppress("LongMethod", "CyclomaticComplexMethod")
 @Composable
-fun WorkspaceDrawers(content: @Composable () -> Unit) {
+fun WorkspaceDrawers(historyOnly: Boolean = false, content: @Composable () -> Unit) {
     val panels = LocalDrawerPanels.current
     if (panels == null) {
         content()
         return
     }
+    var transcriptBounds by remember { mutableStateOf<Rect?>(null) }
+    var drawerOrigin by remember { mutableStateOf(Offset.Zero) }
     var side by rememberSaveable { mutableStateOf<String?>(null) }
     var drag by remember { mutableFloatStateOf(0f) }
     var dragging by remember { mutableStateOf(false) }
@@ -89,7 +99,10 @@ fun WorkspaceDrawers(content: @Composable () -> Unit) {
             backProgress = 0f
         }
     }
-    BoxWithConstraints(Modifier.fillMaxSize().clipToBounds().testTag("workspace.drawers")) {
+    BoxWithConstraints(
+        Modifier.fillMaxSize().clipToBounds().testTag("workspace.drawers")
+            .onGloballyPositioned { drawerOrigin = it.positionInRoot() }
+    ) {
         val density = LocalDensity.current
         val reveal = minOf(320.dp, (maxWidth - 82.dp).coerceAtLeast(0.dp))
         val width = with(density) { reveal.toPx() }
@@ -125,37 +138,44 @@ fun WorkspaceDrawers(content: @Composable () -> Unit) {
                     offset < 0 -> "Agent history"
                     else -> null
                 }
-        Box(
-            Modifier.fillMaxSize().background(
-                IntentScreen.surface
-            ).pointerInput(side, width, leftInset, rightInset) {
-                drawerGestures(
-                    leftInset,
-                    rightInset,
-                    onCancel = {
-                        drag = 0f
-                        dragging = false
-                    },
-                    onEnd = {
-                        dragging = false
-                        val end = (base + drag).coerceIn(-width, width)
-                        side = if (abs(end) > width / 2) {
-                            if (end > 0) "Connections" else "Agent history"
-                        } else {
-                            null
-                        }
-                        drag = 0f
-                    },
-                    onDrag = { amount ->
-                        dragging = true
-                        drag = when (side) {
-                            "Connections" -> (drag + amount).coerceIn(-width, 0f)
-                            "Agent history" -> (drag + amount).coerceIn(0f, width)
-                            else -> (drag + amount).coerceIn(-width, width)
-                        }
+        val gesture = Modifier.pointerInput(side, width, leftInset, rightInset, historyOnly) {
+            drawerGestures(
+                canStart = { position ->
+                    position.x > leftInset &&
+                        position.x < size.width - rightInset &&
+                        (
+                            !historyOnly ||
+                                side != null ||
+                                transcriptBounds?.contains(position + drawerOrigin) == true
+                            )
+                },
+                onCancel = {
+                    drag = 0f
+                    dragging = false
+                },
+                onEnd = {
+                    dragging = false
+                    val end = (base + drag).coerceIn(-width, width)
+                    side = if (abs(end) > width / 2) {
+                        if (end > 0) "Connections" else "Agent history"
+                    } else {
+                        null
                     }
-                )
-            }
+                    drag = 0f
+                },
+                onDrag = { amount ->
+                    dragging = true
+                    drag = when (side) {
+                        "Connections" -> (drag + amount).coerceIn(-width, 0f)
+                        "Agent history" -> (drag + amount).coerceIn(0f, width)
+                        else -> (drag + amount).coerceIn(-width, if (historyOnly) 0f else width)
+                    }
+                }
+            )
+        }
+        Box(
+            Modifier.fillMaxSize().background(IntentScreen.surface)
+                .then(gesture)
         ) {
             if (visible != null) {
                 Box(
@@ -171,12 +191,12 @@ fun WorkspaceDrawers(content: @Composable () -> Unit) {
                         .width(reveal).semantics { paneTitle = visible }
                         .testTag("drawer.$visible")
                 ) {
-                    if (visible ==
-                        "Connections"
-                    ) {
-                        panels.connections(close)
-                    } else {
-                        panels.history(close)
+                    CompositionLocalProvider(LocalContentColor provides IntentScreen.text) {
+                        if (visible == "Connections") {
+                            panels.connections(close)
+                        } else {
+                            panels.history(close)
+                        }
                     }
                 }
             }
@@ -187,6 +207,9 @@ fun WorkspaceDrawers(content: @Composable () -> Unit) {
             ) {
                 Box(if (visible != null) Modifier.clearAndSetSemantics {} else Modifier) {
                     CompositionLocalProvider(
+                        LocalContentColor provides IntentScreen.text,
+                        LocalTranscriptDrawerGesture provides
+                            Modifier.onGloballyPositioned { transcriptBounds = it.boundsInRoot() },
                         LocalDrawerButtons provides DrawerButtons(
                             { side = "Connections" },
                             { side = "Agent history" }

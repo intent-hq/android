@@ -72,9 +72,11 @@ fun IntentNavigation(
         mutableStateOf(initialWorkspace)
     }
     val history = LocalHistoryNavigation.current
+    var historySelection by rememberSaveable(session) { mutableStateOf(0L) }
     var historyAgent by rememberSaveable(session) { mutableStateOf<String?>(null) }
     LaunchedEffect(history?.target, session) {
         history?.target?.takeIf { it.connectionId == history.connectionId }?.let {
+            historySelection += 1
             historyAgent = it.agentId
             openRecent = false
             selectedWorkspace = it.workspaceId
@@ -126,6 +128,7 @@ fun IntentNavigation(
         dev.intent.app.history.LocalHistoryWorkspaceTitles provides
             workspaceState.workspaces.associate { it.id to it.title },
         LocalHistoryAgent provides historyAgent,
+        dev.intent.app.history.LocalHistorySelection provides historySelection,
         LocalOpenRecentWorkspaceAgent provides openRecent,
         LocalChromeActions provides (lifecycleActions + listOf(workspaceAction) + inheritedActions),
         LocalWorkspaceRepository provides

@@ -58,7 +58,7 @@ fun WorkspaceContent(
         )
     }
     val historyAgent = dev.intent.app.history.LocalHistoryAgent.current
-    LaunchedEffect(historyAgent) {
+    LaunchedEffect(historyAgent, dev.intent.app.history.LocalHistorySelection.current) {
         if (historyAgent != null) {
             destination = WorkspaceDestination.Conversations
             section = WorkspaceDestination.Conversations
