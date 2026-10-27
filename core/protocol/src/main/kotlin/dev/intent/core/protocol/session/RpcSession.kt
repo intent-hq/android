@@ -48,6 +48,10 @@ class RpcSession(
     @Volatile
     var principalId: String? = null
         private set
+
+    @Volatile
+    var serverCapabilities: JsonObject = JsonObject(emptyMap())
+        private set
     private val closed = AtomicBoolean()
     private var state = SessionState.DISCONNECTED
     private var transport: SessionTransport? = null
@@ -212,12 +216,14 @@ class RpcSession(
         changeState(SessionState.HANDSHAKING)
         val reply = CompletableFuture<JsonElement>()
         val current = generation
-        reply.whenComplete { _, error ->
+        reply.whenComplete { result, error ->
             if (current == generation) {
                 if (error != null) {
                     // Includes startup-not-ready: never hydrate or replay while hello is gated.
                     disconnected()
                 } else {
+                    serverCapabilities = ((result as? JsonObject)?.get("server") as? JsonObject)
+                        ?.get("capabilities") as? JsonObject ?: JsonObject(emptyMap())
                     if (verifyPrincipal) verifyIdentity(current) else ready()
                 }
             }

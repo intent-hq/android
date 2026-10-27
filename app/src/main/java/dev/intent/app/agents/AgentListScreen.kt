@@ -213,6 +213,15 @@ private fun AgentRow(agent: Agent, onClick: () -> Unit, onLongClick: () -> Unit)
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+            if (agent.avatarState() == AgentAvatarState.Idle &&
+                dev.intent.app.status.LocalWatchState.current.isWaiting(agent.id)
+            ) {
+                Text(
+                    "Waiting on watches",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
             agent.rowPreview()?.let {
                 Text(
                     it,

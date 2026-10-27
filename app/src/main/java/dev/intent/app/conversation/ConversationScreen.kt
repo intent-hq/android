@@ -36,7 +36,8 @@ fun ConversationRoute(
     store: ConversationStore,
     sends: ConversationSendStore,
     modifier: Modifier = Modifier,
-    photos: PhotoAttachmentStore? = null
+    photos: PhotoAttachmentStore? = null,
+    statusStrip: @Composable () -> Unit = {}
 ) {
     val draft = remember(store) { ComposerDraft() }
     val state by store.state.collectAsState()
@@ -62,6 +63,7 @@ fun ConversationRoute(
         onSuggestedPrompt = sends::sendSuggestedPrompt,
         suggestionsEnabled = sending.attempts.isEmpty()
     ) {
+        statusStrip()
         ConversationComposer(sending, { text ->
             val ready = photos?.state?.value
             if (ready?.ready == false) {

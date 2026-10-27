@@ -31,6 +31,8 @@ internal class SmokeServer(
             "gitRoot.list" -> """{"gitRoots":[]}"""
             "file-tracking.getChanges" -> """{"changes":[],"truncated":false}"""
             "file.list" -> "[]"
+            "hook.list" -> """{"hooks":[]}"""
+            "prMonitor.list" -> """{"monitors":[]}"""
             "agent.list" -> """{"agents":[]}"""
             "agent.sendMessage" -> """{"success":true,"queued":false}"""
             else -> error("Unexpected smoke request: ${request.method}")

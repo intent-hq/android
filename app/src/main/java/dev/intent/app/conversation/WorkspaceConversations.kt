@@ -32,6 +32,12 @@ import dev.intent.app.navigation.ChromeAction
 import dev.intent.app.navigation.CompactAppBar
 import dev.intent.app.navigation.LocalChromeActions
 import dev.intent.app.navigation.LocalChromeBack
+import dev.intent.app.status.ConversationStatusStrip
+import dev.intent.app.status.LocalWatchState
+import dev.intent.app.status.RpcWatchSource
+import dev.intent.app.status.ScriptWatchSheet
+import dev.intent.app.status.WatchFamily
+import dev.intent.app.status.WatchStore
 import dev.intent.app.workspaces.RpcWorkspaceOperations
 import dev.intent.app.workspaces.recentWorkspaceAgentEntry
 import dev.intent.core.protocol.attachments.AttachmentUploadService
@@ -42,9 +48,17 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-@Suppress("LongMethod", "TooGenericExceptionCaught") // Route lifetime and RPC error presentation.
+// Route lifetime and RPC error presentation.
+@Suppress("LongMethod", "TooGenericExceptionCaught", "CyclomaticComplexMethod")
 @Composable
 fun WorkspaceConversations(session: RpcSession, workspaceId: String, onBack: () -> Unit) {
+    val watches =
+        remember(session, workspaceId) { WatchStore(RpcWatchSource(session, workspaceId)) }
+    val watchState by watches.state.collectAsState()
+    DisposableEffect(watches) {
+        watches.start()
+        onDispose { watches.close() }
+    }
     val listState = rememberSaveableStateHolder()
     val agents =
         remember(session, workspaceId) {
@@ -80,6 +94,7 @@ fun WorkspaceConversations(session: RpcSession, workspaceId: String, onBack: () 
         } else if (agentId == null) {
             muteError?.let { Text(it, color = IntentScreen.error) }
             CompositionLocalProvider(
+                LocalWatchState provides watchState,
                 LocalChromeBack provides onBack,
                 LocalChromeActions provides
                     (
@@ -180,7 +195,22 @@ fun WorkspaceConversations(session: RpcSession, workspaceId: String, onBack: () 
                         ChromeAction(label, enabled = agent != null) { action = label }
                     }
                 )
-                ConversationRoute(conversation, sends, photos = photos)
+                ConversationRoute(conversation, sends, photos = photos, statusStrip = {
+                    ConversationStatusStrip(
+                        watchState,
+                        agent,
+                        agentState.agents,
+                        watches::select,
+                        {
+                            watches.refresh(it)
+                        },
+                        { watches.refresh(WatchFamily.SCRIPT, more = true) },
+                        { selected = it }
+                    )
+                })
+                watchState.selected?.let {
+                    ScriptWatchSheet(it, agent?.name, watches::loadDetail, watches::dismiss)
+                }
             }
         }
     }
