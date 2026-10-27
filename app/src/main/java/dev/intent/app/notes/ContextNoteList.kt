@@ -33,7 +33,7 @@ import androidx.compose.ui.unit.dp
 import dev.intent.app.design.IntentScreen
 import dev.intent.app.design.IntentSpacing
 import dev.intent.app.design.IntentTextButton as TextButton
-import dev.intent.app.lists.ListFilters
+import dev.intent.app.lists.SearchableList
 import dev.intent.core.protocol.models.Note
 
 private const val MAX_VISIBLE_DEPTH = 4
@@ -53,44 +53,52 @@ internal fun ContextNoteList(
     val rows = remember(notes, collapsed, query, currentOnly) {
         contextNoteRows(filterContextNotes(notes, query, currentOnly), collapsed)
     }
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = IntentScreen.pageInsets) {
-        error?.let { item { Text(it, color = IntentScreen.error) } }
-        if (!loading && error == null && notes.isEmpty()) item { Text("No notes") }
-        item {
-            ListFilters(query, currentOnly, "Search notes and tasks", { query = it }, {
-                currentOnly =
-                    it
-            })
-        }
-        if (rows.isEmpty() && notes.isNotEmpty()) {
-            item { Text("No matching notes or tasks. Change the search or select All.") }
-        }
-        items(rows, key = { it.note.id }) { row ->
-            ContextRow(row, row.note.id in collapsed, onSelected) {
-                collapsed =
-                    if (row.note.id in
-                        collapsed
-                    ) {
-                        collapsed - row.note.id
-                    } else {
-                        collapsed + row.note.id
-                    }
+    SearchableList(
+        query,
+        { query = it },
+        "Search notes and tasks",
+        notes.isNotEmpty(),
+        currentOnly,
+        { currentOnly = it }
+    ) {
+        LazyColumn(Modifier.fillMaxSize(), contentPadding = IntentScreen.pageInsets) {
+            error?.let { item { Text(it, color = IntentScreen.error) } }
+            if (!loading && error == null && notes.isEmpty()) item { Text("No notes") }
+            if (rows.isEmpty() && notes.isNotEmpty()) {
+                item { Text("No matching notes or tasks. Change the search or select All.") }
             }
-        }
-        if (files != null) {
-            item(key = "files.heading") {
-                TextButton(onClick = {
-                    filesExpanded = !filesExpanded
-                }, modifier = Modifier.fillMaxWidth().padding(top = IntentScreen.sectionSpacing)) {
-                    Text(
-                        if (filesExpanded) "Files ⌄" else "Files ›",
-                        Modifier.fillMaxWidth(),
-                        color = IntentScreen.text,
-                        style = MaterialTheme.typography.titleSmall
-                    )
+            items(rows, key = { it.note.id }) { row ->
+                ContextRow(row, row.note.id in collapsed, onSelected) {
+                    collapsed =
+                        if (row.note.id in
+                            collapsed
+                        ) {
+                            collapsed - row.note.id
+                        } else {
+                            collapsed + row.note.id
+                        }
                 }
             }
-            if (filesExpanded) files()
+            if (files != null) {
+                item(key = "files.heading") {
+                    TextButton(
+                        onClick = {
+                            filesExpanded = !filesExpanded
+                        },
+                        modifier = Modifier.fillMaxWidth().padding(
+                            top = IntentScreen.sectionSpacing
+                        )
+                    ) {
+                        Text(
+                            if (filesExpanded) "Files ⌄" else "Files ›",
+                            Modifier.fillMaxWidth(),
+                            color = IntentScreen.text,
+                            style = MaterialTheme.typography.titleSmall
+                        )
+                    }
+                }
+                if (filesExpanded) files()
+            }
         }
     }
 }

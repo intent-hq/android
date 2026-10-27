@@ -27,21 +27,23 @@ import dev.intent.app.navigation.CompactAppBar
 import dev.intent.core.protocol.models.Note
 import dev.intent.core.protocol.models.NoteTaskRow
 
-@Suppress("CyclomaticComplexMethod") // Independent loading, note, task, and error UI states.
+// Independent note, task, and error states with explicit page actions.
+@Suppress("CyclomaticComplexMethod", "LongParameterList")
 @Composable
 fun NoteReaderScreen(
     state: NoteReaderState,
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
     onTaskStatus: (NoteTaskRow, String) -> Unit = { _, _ -> },
-    onNoteStatus: (String) -> Unit = {}
+    onNoteStatus: (String) -> Unit = {},
+    actions: List<ChromeAction> = emptyList()
 ) {
     val body = state.note?.content
     val document = remember(body) { parseMarkdown(body.orEmpty()) }
     Column(modifier.fillMaxSize()) {
         CompactAppBar(
             state.note?.title ?: "Note",
-            actions = listOf(ChromeAction("Refresh", run = onRetry))
+            actions = listOf(ChromeAction("Refresh", run = onRetry)) + actions
         )
         LazyColumn(
             contentPadding = IntentScreen.pageInsets,

@@ -11,6 +11,7 @@ class HistoryNavigation(
 
 val LocalHistoryNavigation = staticCompositionLocalOf<HistoryNavigation?> { null }
 val LocalHistoryWorkspaceTitles = staticCompositionLocalOf { emptyMap<String, String>() }
+val LocalHistorySelection = staticCompositionLocalOf { 0L }
 val LocalHistoryAgent = staticCompositionLocalOf<String?> { null }
 
 @androidx.compose.runtime.Composable

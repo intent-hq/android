@@ -2,6 +2,7 @@ package dev.intent.app.conversation
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Column
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -15,7 +16,10 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import dev.intent.app.agents.AgentActionDialog
 import dev.intent.app.agents.AgentControls
 import dev.intent.app.agents.AgentListRoute
@@ -28,6 +32,9 @@ import dev.intent.app.agents.RpcAgentSession
 import dev.intent.app.attachments.AndroidPhotoSource
 import dev.intent.app.attachments.PhotoAttachmentStore
 import dev.intent.app.design.IntentScreen
+import dev.intent.app.drawers.LocalCurrentHistoryAgent
+import dev.intent.app.drawers.LocalDrawerButtons
+import dev.intent.app.drawers.WorkspaceDrawers
 import dev.intent.app.navigation.ChromeAction
 import dev.intent.app.navigation.CompactAppBar
 import dev.intent.app.navigation.LocalChromeActions
@@ -71,7 +78,9 @@ fun WorkspaceConversations(session: RpcSession, workspaceId: String, onBack: () 
     var muting by remember(session, workspaceId) { mutableStateOf(false) }
     val historyAgent = dev.intent.app.history.LocalHistoryAgent.current
     var selected by rememberSaveable(session, workspaceId) { mutableStateOf(historyAgent) }
-    LaunchedEffect(historyAgent) { if (historyAgent != null) selected = historyAgent }
+    LaunchedEffect(historyAgent, dev.intent.app.history.LocalHistorySelection.current) {
+        if (historyAgent != null) selected = historyAgent
+    }
     var creating by rememberSaveable(session, workspaceId) { mutableStateOf(false) }
     val creation = remember(session) { NewAgentOptionsStore(RpcWorkspaceOperations(session)) }
     val recentError = recentWorkspaceAgentEntry(session, workspaceId, selected, creating) {
@@ -180,34 +189,52 @@ fun WorkspaceConversations(session: RpcSession, workspaceId: String, onBack: () 
                 }
             }
             CompositionLocalProvider(
+                LocalCurrentHistoryAgent provides agentId,
                 LocalConversationAgent provides agentState.agents.firstOrNull {
                     it.id == agentId
                 }
             ) {
-                CompactAppBar(
-                    agentState.agents.firstOrNull { it.id == agentId }?.name ?: "Conversation",
-                    onBack = { selected = null },
-                    actions = listOf(
-                        "Model settings",
-                        "Rename agent",
-                        "Delete agent"
-                    ).map { label ->
-                        ChromeAction(label, enabled = agent != null) { action = label }
+                WorkspaceDrawers(historyOnly = true) {
+                    Column {
+                        CompactAppBar(
+                            agentState.agents.firstOrNull { it.id == agentId }?.name
+                                ?: "Conversation",
+                            onBack = { selected = null },
+                            trailing = {
+                                LocalDrawerButtons.current?.let { buttons ->
+                                    IconButton(
+                                        onClick = buttons.history,
+                                        modifier = Modifier.semantics {
+                                            contentDescription = "Agent history"
+                                        }
+                                    ) {
+                                        Text("◷")
+                                    }
+                                }
+                            },
+                            actions = listOf(
+                                "Model settings",
+                                "Rename agent",
+                                "Delete agent"
+                            ).map { label ->
+                                ChromeAction(label, enabled = agent != null) { action = label }
+                            }
+                        )
+                        ConversationRoute(conversation, sends, photos = photos, statusStrip = {
+                            ConversationStatusStrip(
+                                watchState,
+                                agent,
+                                agentState.agents,
+                                watches::select,
+                                {
+                                    watches.refresh(it)
+                                },
+                                { watches.refresh(WatchFamily.SCRIPT, more = true) },
+                                { selected = it }
+                            )
+                        })
                     }
-                )
-                ConversationRoute(conversation, sends, photos = photos, statusStrip = {
-                    ConversationStatusStrip(
-                        watchState,
-                        agent,
-                        agentState.agents,
-                        watches::select,
-                        {
-                            watches.refresh(it)
-                        },
-                        { watches.refresh(WatchFamily.SCRIPT, more = true) },
-                        { selected = it }
-                    )
-                })
+                }
                 watchState.selected?.let {
                     ScriptWatchSheet(it, agent?.name, watches::loadDetail, watches::dismiss)
                 }

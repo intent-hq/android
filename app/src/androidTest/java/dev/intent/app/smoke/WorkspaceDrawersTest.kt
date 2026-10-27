@@ -6,6 +6,7 @@ import androidx.activity.OnBackPressedDispatcher
 import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
@@ -149,6 +150,75 @@ class WorkspaceDrawersTest {
         compose.onNodeWithTag("drawer.Agent history").assertDoesNotExist()
     }
 
+    @Test
+    fun conversationSwipeButtonBackAndCrossConnectionHistory() =
+        connected(seed = true) { controller ->
+            openConversation()
+            compose.onNodeWithTag("transcript").performTouchInput {
+                swipe(Offset(width * 0.8f, height * 0.8f), Offset(width * 0.1f, height * 0.8f))
+            }
+            compose.onNodeWithTag("drawer.Agent history").assertIsDisplayed()
+            compose.onNodeWithTag("history.first.agent").assertIsSelected()
+            compose.onNodeWithText("Current agent").assertIsDisplayed()
+            screenshot("conversation-history-light")
+            compose.runOnIdle { dispatcher.onBackPressed() }
+            compose.onNodeWithTag("drawer.Agent history").assertDoesNotExist()
+            compose.onNodeWithText("Message").assertIsDisplayed()
+            compose.onNodeWithContentDescription("Agent history").performClick()
+            compose.onNodeWithTag("history.second.agent").performClick()
+            waitFor("Message")
+            compose.waitUntil(TIMEOUT) { controller.state.value.activeId == "second" }
+            compose.onNodeWithContentDescription("Agent history").performClick()
+            compose.onNodeWithTag("history.second.agent").assertIsSelected()
+            compose.onNodeWithTag("history.first.agent").performClick()
+            compose.waitUntil(TIMEOUT) { controller.state.value.activeId == "first" }
+            waitFor("Message")
+        }
+
+    @Test
+    fun conversationHistoryAndConnectionsDarkAppearance() = connected(seed = true, dark = true) {
+        compose.onNodeWithContentDescription("Connections").performClick()
+        compose.onNodeWithTag("drawer.connection.first").assertIsSelected()
+        screenshot("connections-drawer-dark")
+        compose.runOnIdle { dispatcher.onBackPressed() }
+        openConversation()
+        compose.onNodeWithContentDescription("Agent history").performClick()
+        screenshot("conversation-history-dark")
+    }
+
+    @Test
+    fun transcriptHorizontalContentAndSystemEdgesKeepDrawerClosed() = connected {
+        openConversation()
+        compose.onNodeWithText(WIDE_CODE, substring = true).performTouchInput { swipeLeft() }
+        compose.onNodeWithTag("drawer.Agent history").assertDoesNotExist()
+        compose.onNodeWithText(WIDE_CODE, substring = true).performTouchInput { swipeRight() }
+        compose.onNodeWithTag("drawer.Agent history").assertDoesNotExist()
+        compose.onNodeWithTag("transcript").performTouchInput {
+            swipe(Offset(width - 1f, height * 0.8f), Offset(width * 0.1f, height * 0.8f))
+        }
+        compose.onNodeWithTag("drawer.Agent history").assertDoesNotExist()
+    }
+
+    @Test
+    fun repeatedHistorySelectionAfterManualNavigationOpensTheAgent() = connected {
+        openConversation()
+        compose.onNodeWithContentDescription("Agent history").performClick()
+        compose.onNodeWithTag("history.first.agent").performClick()
+        compose.onNodeWithContentDescription("Back").performClick()
+        compose.onNodeWithText("Other agent").performClick()
+        waitFor("Message")
+        compose.onNodeWithContentDescription("Agent history").performClick()
+        compose.onNodeWithTag("history.first.other").assertIsSelected()
+        compose.onNodeWithTag("history.first.agent").performClick()
+        compose.onNodeWithContentDescription("Agent history").performClick()
+        compose.onNodeWithTag("history.first.agent").assertIsSelected()
+    }
+
+    private fun openConversation() {
+        compose.onNodeWithTag("workspace.row.workspace").performTouchInput { swipeRight() }
+        waitFor("Message")
+    }
+
     private fun screenshot(name: String) {
         compose.waitForIdle()
         val instrumentation = InstrumentationRegistry.getInstrumentation()
@@ -177,7 +247,11 @@ class WorkspaceDrawersTest {
         ).fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty()
     }
 
-    private fun connected(seed: Boolean = false, test: (ConnectionController) -> Unit) {
+    private fun connected(
+        seed: Boolean = false,
+        dark: Boolean = false,
+        test: (ConnectionController) -> Unit
+    ) {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         context.getSharedPreferences(
             "workspace-sections",
@@ -199,7 +273,7 @@ class WorkspaceDrawersTest {
             controller.restore()
             compose.setContent {
                 dispatcher = LocalOnBackPressedDispatcherOwner.current!!.onBackPressedDispatcher
-                IntentTheme { ConnectionRoot(controller, {}) }
+                IntentTheme(darkTheme = dark) { ConnectionRoot(controller, {}) }
             }
             waitFor("Android smoke workspace")
             test(controller)
@@ -208,14 +282,19 @@ class WorkspaceDrawersTest {
 
     private companion object {
         const val TIMEOUT = 10_000L
+        const val WIDE_CODE = "This is a wide code block with a long line " +
+            "that must scroll horizontally without opening history."
+        val transcript = """[{"id":"message","role":"assistant",
+            "contentBlocks":[{"type":"text","text":"```text\n$WIDE_CODE\n```"}]}]"""
         val responses = mapOf(
-            "agent.list" to """{"agents":[{"id":"agent","name":"Remote agent"}]}""",
+            "agent.list" to """{"agents":[{"id":"agent","name":"Remote agent"},
+                {"id":"other","name":"Other agent"}]}""",
             "agent.get" to """{"agent":{"id":"agent","name":"Remote agent"}}""",
             "agent.getQueue" to """{"success":true,"queue":[]}""",
-            "agent.getConversation" to """{"agentId":"agent","messages":[]}""",
+            "agent.getConversation" to """{"agentId":"agent","messages":$transcript}""",
             "chat.subscribe" to """{"subscriptionId":"chat"}""",
             "chat.snapshot" to """{"subscriptionId":"chat","kind":"snapshot","seq":0,
-                "snapshot":{"agentId":"agent","messages":[]}}""",
+                "snapshot":{"agentId":"agent","messages":$transcript}}""",
             "chat.unsubscribe" to "{}"
         )
     }

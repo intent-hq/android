@@ -1,10 +1,13 @@
 package dev.intent.app.smoke
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performScrollToNode
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import dev.intent.app.connection.ConnectionController
 import dev.intent.app.connection.ConnectionRoot
@@ -21,7 +24,7 @@ class UtilityBackNavigationTest {
     @get:Rule val compose = createIntentComposeRule()
 
     @Test
-    fun pairingReturnsThroughConnectionsAndSettingsToWorkspaceDetail() {
+    fun pairingReturnsThroughConnectionsAndSettingsToWorkspaces() {
         val repository = MemoryConnections()
         val saved = repository.add(
             PairingPayload(listOf("desktop.test"), 443, "smoke-token", "AB".repeat(32))
@@ -37,9 +40,8 @@ class UtilityBackNavigationTest {
                 compose.onAllNodes(androidx.compose.ui.test.hasText("Android smoke workspace"))
                     .fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty()
             }
-            compose.onNodeWithText("Android smoke workspace").performClick()
-            compose.onNodeWithText("Context").assertIsDisplayed()
-            compose.onNodeWithContentDescription("More actions").performClick()
+            compose.onNodeWithContentDescription("Open app launcher").performClick()
+            compose.onNodeWithTag("launcher.tiles").performScrollToNode(hasText("Settings"))
             compose.onNodeWithText("Settings").performClick()
             compose.onNodeWithText("Manage connections").performScrollTo().performClick()
             compose.onNodeWithText("Add connection").performClick()
@@ -49,7 +51,7 @@ class UtilityBackNavigationTest {
             compose.onNodeWithContentDescription("Back").performClick()
             compose.onNodeWithText("Manage connections").performScrollTo().assertIsDisplayed()
             compose.onNodeWithContentDescription("Back").performClick()
-            compose.onNodeWithText("Context").assertIsDisplayed()
+            compose.onNodeWithText("Workspaces").assertIsDisplayed()
             compose.onNodeWithText("Android smoke workspace").assertIsDisplayed()
         }
     }

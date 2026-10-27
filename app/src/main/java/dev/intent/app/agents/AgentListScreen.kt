@@ -32,8 +32,8 @@ import androidx.compose.ui.unit.dp
 import dev.intent.app.design.AgentAvatarState
 import dev.intent.app.design.IntentScreen
 import dev.intent.app.design.IntentTextButton as TextButton
-import dev.intent.app.lists.ListFilters
 import dev.intent.app.lists.RefreshableList
+import dev.intent.app.lists.SearchableList
 import dev.intent.app.navigation.LocalWorkspaceResources
 import dev.intent.app.navigation.WorkspaceSectionAppBar
 import dev.intent.core.protocol.models.Agent
@@ -80,48 +80,53 @@ fun AgentListScreen(
     val resources = LocalWorkspaceResources.current
     Column(modifier) {
         WorkspaceSectionAppBar("Agents")
-        RefreshableList(state.isLoading, onRefresh) {
-            if (state.isLoading && state.agents.isEmpty()) {
-                Spacer(Modifier.fillMaxSize())
-            } else {
-                LazyColumn(
-                    Modifier.fillMaxSize(),
-                    contentPadding = IntentScreen.pageInsets,
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    state.error?.let { item { Text(it, color = MaterialTheme.colorScheme.error) } }
-                    if (!state.isLoading && state.error == null && state.agents.isEmpty()) {
-                        item { Text("No agents yet") }
+        SearchableList(
+            query,
+            { query = it },
+            "Search agents",
+            state.agents.isNotEmpty(),
+            currentOnly,
+            { currentOnly = it }
+        ) {
+            RefreshableList(state.isLoading, onRefresh) {
+                if (state.isLoading && state.agents.isEmpty()) {
+                    Spacer(Modifier.fillMaxSize())
+                } else {
+                    LazyColumn(
+                        Modifier.fillMaxSize(),
+                        contentPadding = IntentScreen.pageInsets,
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        state.error?.let {
+                            item { Text(it, color = MaterialTheme.colorScheme.error) }
+                        }
+                        if (!state.isLoading && state.error == null && state.agents.isEmpty()) {
+                            item { Text("No agents yet") }
+                        }
+                        if (rows.isEmpty() && (query.isNotBlank() || currentOnly)) {
+                            item { Text("No matching agents. Change the search or select All.") }
+                        }
+                        items(rows, key = { it.agent.id }) { row ->
+                            AgentTreeItem(
+                                row,
+                                row.agent.id !in collapsed,
+                                onToggle = {
+                                    collapsed = ArrayList(
+                                        if (row.agent.id in
+                                            collapsed
+                                        ) {
+                                            collapsed - row.agent.id
+                                        } else {
+                                            collapsed + row.agent.id
+                                        }
+                                    )
+                                },
+                                onClick = { onAgentSelected(row.agent.id) },
+                                onMute = onMute
+                            )
+                        }
+                        if (resources != null) item { resources() }
                     }
-                    item {
-                        ListFilters(query, currentOnly, "Search agents", { query = it }, {
-                            currentOnly =
-                                it
-                        })
-                    }
-                    if (rows.isEmpty() && (query.isNotBlank() || currentOnly)) {
-                        item { Text("No matching agents. Change the search or select All.") }
-                    }
-                    items(rows, key = { it.agent.id }) { row ->
-                        AgentTreeItem(
-                            row,
-                            row.agent.id !in collapsed,
-                            onToggle = {
-                                collapsed = ArrayList(
-                                    if (row.agent.id in
-                                        collapsed
-                                    ) {
-                                        collapsed - row.agent.id
-                                    } else {
-                                        collapsed + row.agent.id
-                                    }
-                                )
-                            },
-                            onClick = { onAgentSelected(row.agent.id) },
-                            onMute = onMute
-                        )
-                    }
-                    if (resources != null) item { resources() }
                 }
             }
         }

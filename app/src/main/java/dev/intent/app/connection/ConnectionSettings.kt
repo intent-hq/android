@@ -27,12 +27,14 @@ import dev.intent.app.notifications.NotificationPermissionFlow
 import dev.intent.app.settings.AppPreferences
 import dev.intent.app.settings.Appearance
 
+@Suppress("LongParameterList", "LongMethod") // Settings sections and connection callbacks.
 @Composable
 fun ConnectionSettings(
     diagnostics: ConnectionDiagnostics,
     modifier: Modifier = Modifier,
     preferences: AppPreferences,
     state: ConnectionState = ConnectionState(),
+    onDisconnect: (() -> Unit)? = null,
     onConnections: () -> Unit
 ) {
     val context = LocalContext.current
@@ -89,6 +91,9 @@ fun ConnectionSettings(
             }
         }
         AboutSection()
+        if (state.activeId != null && onDisconnect != null) {
+            TextButton(onClick = onDisconnect) { Text("Disconnect") }
+        }
     }
 }
 

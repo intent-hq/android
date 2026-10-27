@@ -57,6 +57,7 @@ class WorkspaceFilesTest {
             .findAccessibilityNodeInfosByText("Hello from the workspace.")
         org.junit.Assert.assertTrue(textNodes.any { it.isVisibleToUser })
         screenshot("files-text")
+        compose.onNodeWithContentDescription("More actions").assertDoesNotExist()
         compose.onNodeWithText("Open in another app").assertIsDisplayed()
         compose.onNodeWithContentDescription("Back").performClick()
         compose.onNodeWithTag("files.file.src/readme.txt").assertIsDisplayed()
@@ -137,7 +138,9 @@ class WorkspaceFilesTest {
             compose.waitUntil(TIMEOUT) { ready.get() }
             compose.setContent { IntentTheme { NoteListRoute(session, "workspace", {}) } }
             compose.waitUntil(TIMEOUT) {
-                compose.onAllNodes(androidx.compose.ui.test.hasText("Search notes and tasks"))
+                compose.onAllNodes(
+                    androidx.compose.ui.test.hasText("Note 1")
+                )
                     .fetchSemanticsNodes().isNotEmpty()
             }
             test(server)

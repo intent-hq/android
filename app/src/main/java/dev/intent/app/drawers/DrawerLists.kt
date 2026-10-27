@@ -1,5 +1,6 @@
 package dev.intent.app.drawers
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -10,6 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -18,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.dp
 import dev.intent.app.connection.ConnectionPathBadge
 import dev.intent.app.connection.ConnectionState
 import dev.intent.app.connection.connectionStatus
@@ -37,16 +40,43 @@ fun ConnectionsDrawer(state: ConnectionState, onSelect: (String) -> Unit, onMana
     ) {
         item { Text("Connections", style = MaterialTheme.typography.titleMedium) }
         items(state.connections, key = { it.id }) { connection ->
-            Column(
-                Modifier.fillMaxWidth().testTag("drawer.connection.${connection.id}")
-                    .clickable { onSelect(connection.id) }
-                    .semantics { selected = connection.id == state.activeId }
-                    .padding(vertical = IntentScreen.itemSpacing)
+            val active = connection.id == state.activeId
+            Surface(
+                onClick = { onSelect(connection.id) },
+                modifier = Modifier.fillMaxWidth().testTag("drawer.connection.${connection.id}")
+                    .semantics { selected = active },
+                shape = MaterialTheme.shapes.large,
+                color = if (active) {
+                    MaterialTheme.colorScheme.surfaceContainerHigh
+                } else {
+                    IntentScreen.surface
+                },
+                border = BorderStroke(
+                    1.dp,
+                    if (active) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.outlineVariant
+                    }
+                )
             ) {
-                Text(connection.displayName)
-                Text(connection.displayAddress, style = MaterialTheme.typography.bodySmall)
-                Text(connectionStatus(connection.id, state), color = IntentScreen.secondaryText)
-                ConnectionPathBadge(state, connection.id)
+                Column(
+                    Modifier.padding(IntentScreen.sectionInsets),
+                    verticalArrangement = Arrangement.spacedBy(IntentScreen.itemSpacing)
+                ) {
+                    Text(connection.displayName)
+                    if (connection.displayName != connection.displayAddress) {
+                        Text(connection.displayAddress, style = MaterialTheme.typography.bodySmall)
+                    }
+                    Text(connectionStatus(connection.id, state), color = IntentScreen.secondaryText)
+                    ConnectionPathBadge(state, connection.id)
+                    if (active) {
+                        Text(
+                            "Active connection",
+                            style = MaterialTheme.typography.labelSmall
+                        )
+                    }
+                }
             }
         }
         item { TextButton(onClick = onManage) { Text("Manage connections") } }
@@ -59,6 +89,7 @@ fun AgentHistoryDrawer(
     state: ConnectionState,
     onSelect: (AgentVisit) -> Unit
 ) {
+    val currentAgent = LocalCurrentHistoryAgent.current
     val entries by store.entries.collectAsState()
     val titles = dev.intent.app.history.LocalHistoryWorkspaceTitles.current
     val saved = state.connections.associateBy { it.id }
@@ -80,8 +111,11 @@ fun AgentHistoryDrawer(
         }
         if (visible.isEmpty()) item { Text("Agents you open on any device appear here.") }
         items(visible, key = { "${it.connectionId}/${it.agentId}" }) { visit ->
+            val current = visit.connectionId == state.activeId && visit.agentId == currentAgent
             Column(
-                Modifier.fillMaxWidth().testTag("history.${visit.connectionId}.${visit.agentId}")
+                Modifier.fillMaxWidth().semantics {
+                    selected = current
+                }.testTag("history.${visit.connectionId}.${visit.agentId}")
                     .clickable { onSelect(visit) }.padding(vertical = IntentScreen.itemSpacing)
             ) {
                 val liveTitle = titles[visit.workspaceId].takeIf {
@@ -89,6 +123,7 @@ fun AgentHistoryDrawer(
                         state.activeId
                 }
                 Text(liveTitle ?: visit.workspaceTitle ?: visit.agentName)
+                if (current) CurrentAgentLabel()
                 Text(
                     listOfNotNull(
                         saved[visit.connectionId]?.displayName,
@@ -107,4 +142,13 @@ fun AgentHistoryDrawer(
             }
         }
     }
+}
+
+@Composable
+private fun CurrentAgentLabel() {
+    Text(
+        "Current agent",
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.onSurface
+    )
 }

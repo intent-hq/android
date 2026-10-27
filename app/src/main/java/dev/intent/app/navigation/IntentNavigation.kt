@@ -72,9 +72,11 @@ fun IntentNavigation(
         mutableStateOf(initialWorkspace)
     }
     val history = LocalHistoryNavigation.current
+    var historySelection by rememberSaveable(session) { mutableStateOf(0L) }
     var historyAgent by rememberSaveable(session) { mutableStateOf<String?>(null) }
     LaunchedEffect(history?.target, session) {
         history?.target?.takeIf { it.connectionId == history.connectionId }?.let {
+            historySelection += 1
             historyAgent = it.agentId
             openRecent = false
             selectedWorkspace = it.workspaceId
@@ -107,12 +109,7 @@ fun IntentNavigation(
         }
     }
     BackHandler(selected != null || creating, onBack = back)
-    val inheritedActions = LocalChromeActions.current
-    val workspaceAction = if (selected == null) {
-        ChromeAction("Create workspace", !operationBusy) { creating = true }
-    } else {
-        ChromeAction("Transfer workspace", !operationBusy) { transferring = true }
-    }
+    val workspaceAction = ChromeAction("Transfer workspace", !operationBusy) { transferring = true }
     val selectedRow = workspaceState.workspaces.firstOrNull { it.id == selected }
     val lifecycleActions = selectedRow?.let { workspace ->
         WorkspaceAction.entries.map { action ->
@@ -126,8 +123,12 @@ fun IntentNavigation(
         dev.intent.app.history.LocalHistoryWorkspaceTitles provides
             workspaceState.workspaces.associate { it.id to it.title },
         LocalHistoryAgent provides historyAgent,
+        dev.intent.app.history.LocalHistorySelection provides historySelection,
         LocalOpenRecentWorkspaceAgent provides openRecent,
-        LocalChromeActions provides (lifecycleActions + listOf(workspaceAction) + inheritedActions),
+        LocalLauncherActions provides LocalLauncherActions.current?.copy(
+            onCreate = { creating = true }
+        ),
+        LocalChromeActions provides (lifecycleActions + listOf(workspaceAction)),
         LocalWorkspaceRepository provides
             repositoryLabel(workspaceState.workspaces.firstOrNull { it.id == selected }),
         LocalWorkspaceDetails provides workspaceState.workspaces.firstOrNull { it.id == selected },
