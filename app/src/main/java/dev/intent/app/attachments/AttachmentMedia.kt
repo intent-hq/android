@@ -6,7 +6,6 @@ import androidx.core.content.FileProvider
 import dev.intent.core.protocol.attachments.AttachmentDownloadService
 import dev.intent.core.protocol.attachments.AttachmentRpc
 import java.io.File
-import java.net.URI
 import java.security.MessageDigest
 import java.util.Base64
 import java.util.concurrent.CompletableFuture
@@ -22,7 +21,8 @@ data class MediaReference(
     val attachmentId: String? = null,
     val path: String? = null,
     val data: String? = null,
-    val mimeType: String? = null
+    val mimeType: String? = null,
+    val asset: WorkspaceAsset? = null
 )
 
 fun interface MediaSource {
@@ -44,12 +44,17 @@ class AttachmentMedia(
         return CompletableFuture.supplyAsync {
             synchronized(this) {
                 check(directory.isDirectory || directory.mkdirs())
-                val identity = reference.path ?: requireNotNull(reference.data)
+                val identity =
+                    reference.asset?.let { "asset\u0000${it.workspaceId}\u0000${it.assetId}" }
+                        ?: reference.path?.let { "file\u0000$it" }
+                        ?: "data\u0000${requireNotNull(reference.data)}"
                 val target = File(directory, digest(identity))
                 if (!target.isFile) {
                     val temporary = File.createTempFile("media-", ".part", directory)
                     try {
-                        if (reference.path != null) {
+                        if (reference.asset != null) {
+                            readAsset(reference.asset, temporary)
+                        } else if (reference.path != null) {
                             readPath(
                                 reference.path,
                                 temporary,
@@ -70,6 +75,22 @@ class AttachmentMedia(
                 target
             }
         }
+    }
+
+    private fun readAsset(asset: WorkspaceAsset, target: File) {
+        require(asset.isSafe())
+        val response = rpc.request(
+            "note.readAsset",
+            buildJsonObject {
+                put("workspaceId", asset.workspaceId)
+                put("asset", asset.assetId)
+            }
+        ).join()
+        val encoded = response.getValue("data").jsonPrimitive.content
+        check(encoded.length <= MAX_ENCODED_BYTES)
+        val bytes = Base64.getDecoder().decode(encoded)
+        check(bytes.size <= MAX_ASSET_BYTES)
+        target.writeBytes(bytes)
     }
 
     private fun readPath(path: String, target: File, limit: Long) {
@@ -109,15 +130,6 @@ fun safeWorkspacePath(path: String): Boolean = path.isNotBlank() &&
     '\u0000' !in path &&
     path.split('/').none { it == ".." || it == "." || it.isEmpty() }
 
-fun noteMediaReference(url: String, label: String, image: Boolean): MediaReference? = runCatching {
-    val uri = URI(url)
-    val localFile = uri.scheme == "intent" && uri.host == "local"
-    if (!localFile || uri.rawQuery != null || uri.rawFragment != null) return null
-    val path = uri.path.takeIf { it.startsWith("/file/") }?.removePrefix("/file/") ?: return null
-    if (!safeWorkspacePath(path)) return null
-    MediaReference(label, image, path = path)
-}.getOrNull()
-
 fun openMedia(context: Context, file: File, reference: MediaReference) {
     val uri = FileProvider.getUriForFile(context, "${context.packageName}.attachments", file)
     val mime =
@@ -133,3 +145,5 @@ private fun digest(value: String): String = MessageDigest.getInstance("SHA-256")
     .digest(value.toByteArray()).joinToString("") { "%02x".format(it) }
 private const val READ_BYTES = 1024 * 1024
 private const val MAX_ENCODED_BYTES = 40 * 1024 * 1024
+
+private const val MAX_ASSET_BYTES = 32 * 1024 * 1024

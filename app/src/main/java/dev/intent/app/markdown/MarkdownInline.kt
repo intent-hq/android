@@ -42,7 +42,8 @@ data class MarkdownRun(
     val italic: Boolean = false,
     val code: Boolean = false,
     val url: String? = null,
-    val media: MediaReference? = null
+    val media: MediaReference? = null,
+    val mediaError: String? = null
 )
 
 @Suppress("CyclomaticComplexMethod") // CommonMark inline node variants.
@@ -61,6 +62,13 @@ fun markdownRuns(node: Node, style: MarkdownRun = MarkdownRun("")): List<Markdow
                 style.copy(
                     text = label.ifEmpty { "Image" },
                     media = noteMediaReference(node.destination, label, true),
+                    mediaError = if (node.destination.startsWith("workspace-asset:", true) &&
+                        noteMediaReference(node.destination, label, true) == null
+                    ) {
+                        "Cannot load image: invalid saved asset link."
+                    } else {
+                        null
+                    },
                     url = node.destination
                 )
             )
@@ -82,9 +90,10 @@ fun MarkdownInline(node: Node, style: TextStyle = MaterialTheme.typography.bodyL
     val runs = markdownRuns(node)
     var start = 0
     runs.forEachIndexed { index, run ->
-        if (run.media != null) {
+        if (run.media != null || run.mediaError != null) {
             if (start < index) MarkdownTextRuns(runs.subList(start, index), style)
-            MediaPreview(run.media)
+            run.media?.let { MediaPreview(it) }
+            run.mediaError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             start = index + 1
         }
     }

@@ -25,6 +25,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -174,7 +175,7 @@ private fun MediaStatus(
     fullSize: Boolean,
     onOpen: () -> Unit = {}
 ) {
-    if (loading) CircularProgressIndicator(Modifier.size(24.dp))
+    if (loading) CircularProgressIndicator(Modifier.size(24.dp).testTag("media.loading"))
     error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
     bitmap?.let {
         Image(

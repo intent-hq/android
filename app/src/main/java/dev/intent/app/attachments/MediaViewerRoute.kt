@@ -29,6 +29,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 fun mediaPreviewKind(reference: MediaReference): WorkspacePreviewKind = when {
+    reference.asset != null && reference.image -> WorkspacePreviewKind.IMAGE
     reference.mimeType == "application/pdf" -> WorkspacePreviewKind.PDF
     reference.mimeType == "text/html" -> WorkspacePreviewKind.HTML
     reference.mimeType?.startsWith("video/") == true -> WorkspacePreviewKind.VIDEO

@@ -14,6 +14,46 @@ import org.junit.Test
 
 class AttachmentMediaTest {
     @Test
+    fun savedAssetsUseTheirWorkspaceAndSessionWithoutFileFallback() {
+        val directory = Files.createTempDirectory("assets").toFile()
+        try {
+            var calls = 0
+            var valid = false
+            val rpc = AttachmentRpc { method, params ->
+                calls++
+                assertEquals("note.readAsset", method)
+                assertEquals("linked", params.getValue("workspaceId").jsonPrimitive.content)
+                assertEquals("chart.png", params.getValue("asset").jsonPrimitive.content)
+                assertEquals(2, params.size)
+                CompletableFuture.completedFuture(
+                    buildJsonObject {
+                        put("data", if (valid) "cGhvdG8=" else "invalid%%")
+                        put("mimeType", "image/png")
+                    }
+                )
+            }
+            val reference = noteMediaReference(
+                "workspace-asset://linked/chart.png?backend=other",
+                "Chart",
+                true
+            )!!
+            val source = AttachmentMedia(rpc, "current", directory, "session-one")
+            assertFalse(runCatching { source.load(reference).join() }.isSuccess)
+            valid = true
+            val file = source.load(reference).join()
+            assertEquals("photo", file.readText())
+            assertEquals(file, source.load(reference).join())
+            assertEquals(2, calls)
+            val other = AttachmentMedia(rpc, "current", directory, "session-two")
+            assertNotEquals(file, other.load(reference).join())
+            assertEquals(3, calls)
+            assertFalse(directory.walkTopDown().any { it.extension == "part" })
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
+    @Test
     fun pathDownloadsUseWorkspaceScopeAndCacheOnlyCompleteBytes() {
         val directory = Files.createTempDirectory("media").toFile()
         try {
