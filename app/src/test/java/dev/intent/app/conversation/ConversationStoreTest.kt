@@ -206,6 +206,11 @@ class ConversationStoreTest {
 internal class FakeConversationSession : ConversationSession {
     lateinit var push: (ChatPush) -> Unit
     lateinit var admit: () -> Unit
+    var activity: (ConversationActivity) -> Unit = {}
+    override fun subscribeActivity(onActivity: (ConversationActivity) -> Unit): Closeable {
+        activity = onActivity
+        return Closeable {}
+    }
     val pages = mutableListOf<CompletableFuture<ConversationPage>>()
     val blocks = mutableListOf<CompletableFuture<MessageBlockResult>>()
     var closed = 0

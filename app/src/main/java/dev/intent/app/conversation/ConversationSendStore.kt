@@ -11,7 +11,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
-enum class SendStatus { SENDING, UNCONFIRMED, ACCEPTED, QUEUED }
+enum class SendStatus { SENDING, NOT_SENT, UNCONFIRMED, ACCEPTED, QUEUED }
 
 data class SendAttempt(
     val id: String,
@@ -193,10 +193,28 @@ class ConversationSendStore(
         mutableState.value =
             state.value.copy(attempts = state.value.attempts + attempt, error = null)
         updateQuestions()
+        dispatch(attempt)
+        return true
+    }
+
+    /** Retry only a request that the local transport proves was never dispatched. */
+    @Synchronized
+    fun retry(id: String) {
+        if (closed) return
+        val attempt = state.value.attempts.find { it.id == id && it.status == SendStatus.NOT_SENT }
+            ?.copy(status = SendStatus.SENDING) ?: return
+        mutableState.value = state.value.copy(
+            attempts = state.value.attempts.map { if (it.id == id) attempt else it },
+            error = null
+        )
+        dispatch(attempt)
+    }
+
+    private fun dispatch(attempt: SendAttempt) {
         commands.sendAttachments(
             attempt.id,
             attempt.content,
-            metadata,
+            attempt.metadata,
             attempt.images,
             attempt.files
         ).whenComplete {
@@ -215,7 +233,7 @@ class ConversationSendStore(
                                 } else if (error != null ||
                                     result?.success != true
                                 ) {
-                                    existing.copy(status = SendStatus.UNCONFIRMED)
+                                    existing.copy(status = sendFailureStatus(error))
                                 } else {
                                     existing.copy(
                                         status = if (result.queued) {
@@ -232,7 +250,6 @@ class ConversationSendStore(
                 }
             }
         }
-        return true
     }
 
     /** Suggestions never read or consume composer text or attachments. */
@@ -298,5 +315,17 @@ class ConversationSendStore(
     override fun close() {
         closed = true
         stop()
+    }
+}
+
+private fun sendFailureStatus(error: Throwable?): SendStatus {
+    var cause = error
+    while (cause is java.util.concurrent.CompletionException) cause = cause.cause
+    return if (cause is dev.intent.core.protocol.session.SessionDisconnectedException &&
+        cause.requestNotSent
+    ) {
+        SendStatus.NOT_SENT
+    } else {
+        SendStatus.UNCONFIRMED
     }
 }

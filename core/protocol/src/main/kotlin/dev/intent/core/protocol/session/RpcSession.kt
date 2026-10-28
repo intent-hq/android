@@ -22,7 +22,10 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.longOrNull
 
 class RpcException(val error: RpcError) : IOException(error.message)
-class SessionDisconnectedException : IOException("RPC connection is not ready")
+
+/** requestNotSent is set only before a request reaches the transport. */
+class SessionDisconnectedException(val requestNotSent: Boolean = false) :
+    IOException("RPC connection is not ready")
 
 enum class SessionState { DISCONNECTED, CONNECTING, HANDSHAKING, READY, CLOSED }
 
@@ -80,11 +83,13 @@ class RpcSession(
         require(timeoutMillis > 0)
         val result = CompletableFuture<JsonElement>()
         if (closed.get()) {
-            result.completeExceptionally(SessionDisconnectedException())
+            result.completeExceptionally(SessionDisconnectedException(requestNotSent = true))
         } else {
             execute {
                 if (state != SessionState.READY) {
-                    result.completeExceptionally(SessionDisconnectedException())
+                    result.completeExceptionally(
+                        SessionDisconnectedException(requestNotSent = true)
+                    )
                 } else {
                     send(method, params, timeoutMillis, result)
                 }

@@ -89,7 +89,8 @@ data class ConversationPage(
     val turnInFlight: Boolean = false,
     val lastStreamActivityAt: String? = null,
     val historyDelivery: String? = null,
-    val initialHistory: ChatHistory? = null
+    val initialHistory: ChatHistory? = null,
+    val isResponding: Boolean = false
 )
 
 @Serializable

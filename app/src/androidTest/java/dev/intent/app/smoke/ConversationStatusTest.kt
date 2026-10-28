@@ -6,9 +6,12 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -126,14 +129,101 @@ class ConversationStatusTest {
         compose.onNodeWithText("Working…").assertDoesNotExist()
     }
 
+    @Test fun sentMarkAndLiveFooterFollowHeadlessTurnWithoutAvatarActivity() {
+        val state = mutableStateOf(
+            ConversationState(
+                messages = listOf(
+                    dev.intent.core.protocol.models.ConversationMessage(
+                        "sent",
+                        "user",
+                        listOf(
+                            dev.intent.core.protocol.models.ContentBlock(
+                                "text",
+                                text = "Check the build."
+                            )
+                        ),
+                        timestamp = "2026-10-28T02:00:00Z"
+                    )
+                ),
+                isLoading = false,
+                isStreaming = true
+            )
+        )
+        compose.setContent {
+            IntentTheme(darkTheme = true) {
+                Surface(Modifier.fillMaxSize()) {
+                    ConversationScreen(state.value, {}, { _, _ -> }, {}) {
+                        ConversationStatusStrip(WatchState(), agent, listOf(agent), {
+                        }, {}, {}, isStreaming = state.value.isStreaming)
+                        ConversationComposer(ConversationSendState(), {
+                            false
+                        }, {}, { _, _ -> false })
+                    }
+                }
+            }
+        }
+        compose.onNodeWithText("Sent ·", substring = true).assertIsDisplayed()
+        compose.onNodeWithTag("conversation-thinking").assertIsDisplayed()
+        compose.onNodeWithTag("conversation-working").assertIsDisplayed()
+        screenshot("conversation-sent-thinking-dark")
+        compose.runOnIdle { state.value = state.value.copy(isStreaming = false) }
+        compose.onNodeWithTag("conversation-thinking").assertDoesNotExist()
+        compose.onNodeWithTag("conversation-working").assertDoesNotExist()
+        compose.onNodeWithText("Sent ·", substring = true).assertIsDisplayed()
+        compose.onNodeWithText("Send").assertIsDisplayed()
+        screenshot("conversation-sent-idle-dark")
+    }
+
+    @Test fun failedSendOffersRetryAndUnconfirmedDeliveryOffersOnlyCheck() {
+        val attempt = dev.intent.app.conversation.SendAttempt(
+            "outgoing",
+            "Check the build.",
+            status = dev.intent.app.conversation.SendStatus.NOT_SENT
+        )
+        val state = mutableStateOf(ConversationSendState(attempts = listOf(attempt)))
+        var retries = 0
+        var checks = 0
+        compose.setContent {
+            IntentTheme {
+                ConversationComposer(
+                    state.value,
+                    { false },
+                    {},
+                    { _, _ -> false },
+                    onRetry = { retries++ },
+                    onCheckDelivery = { checks++ }
+                )
+            }
+        }
+        compose.onNodeWithText("Not sent").assertIsDisplayed()
+        compose.onNodeWithText("Retry send").performClick()
+        compose.runOnIdle {
+            check(retries == 1)
+            state.value =
+                state.value.copy(
+                    attempts = listOf(
+                        attempt.copy(status = dev.intent.app.conversation.SendStatus.UNCONFIRMED)
+                    )
+                )
+        }
+        compose.onNodeWithText("Retry send").assertDoesNotExist()
+        compose.onNodeWithText("Check delivery").performClick()
+        compose.runOnIdle { check(checks == 1) }
+    }
+
     private fun screenshot(name: String) {
+        compose.mainClock.advanceTimeBy(500)
         compose.waitForIdle()
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val directory =
             InstrumentationRegistry.getArguments().getString("additionalTestOutputDir")
                 ?.let(::File) ?: File(instrumentation.targetContext.cacheDir, "screenshots")
         check(directory.mkdirs() || directory.isDirectory)
-        val bitmap = checkNotNull(instrumentation.uiAutomation.takeScreenshot())
+        val bitmap = if (name.startsWith("conversation-sent-")) {
+            compose.onRoot().captureToImage().asAndroidBitmap()
+        } else {
+            checkNotNull(instrumentation.uiAutomation.takeScreenshot())
+        }
         File(directory, "$name.png").outputStream().use {
             check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, it))
         }

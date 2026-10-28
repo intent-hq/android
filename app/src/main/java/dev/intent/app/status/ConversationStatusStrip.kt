@@ -31,7 +31,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
 import dev.intent.app.agents.avatarState
-import dev.intent.app.design.AgentAvatarState
+import dev.intent.app.conversation.conversationRunning
 import dev.intent.app.design.IntentTextButton as TextButton
 import dev.intent.core.protocol.models.Agent
 import java.time.Instant
@@ -49,7 +49,8 @@ fun ConversationStatusStrip(
     onSelect: (JsonObject) -> Unit,
     onRetry: (WatchFamily) -> Unit,
     onMore: () -> Unit,
-    onAgent: (String) -> Unit = {}
+    onAgent: (String) -> Unit = {},
+    isStreaming: Boolean = agent?.conversationRunning() == true
 ) {
     val now = watchClock()
     Column(
@@ -57,9 +58,10 @@ fun ConversationStatusStrip(
             "conversation-status"
         ).heightIn(max = 220.dp).verticalScroll(rememberScrollState())
     ) {
-        if (agent?.avatarState() == AgentAvatarState.Running) {
+        if (isStreaming) {
             Text(
-                if (agent.isStreaming) "Responding…" else "Working…",
+                "Working…",
+                modifier = Modifier.testTag("conversation-working"),
                 style = MaterialTheme.typography.labelMedium
             )
         }

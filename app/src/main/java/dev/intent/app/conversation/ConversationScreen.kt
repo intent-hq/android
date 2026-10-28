@@ -37,7 +37,7 @@ fun ConversationRoute(
     sends: ConversationSendStore,
     modifier: Modifier = Modifier,
     photos: PhotoAttachmentStore? = null,
-    statusStrip: @Composable () -> Unit = {}
+    statusStrip: @Composable (Boolean) -> Unit = {}
 ) {
     val draft = remember(store) { ComposerDraft() }
     val state by store.state.collectAsState()
@@ -51,8 +51,11 @@ fun ConversationRoute(
             sends.stop()
         }
     }
+    val agent = dev.intent.app.agents.LocalConversationAgent.current
+    val streaming = state.isStreaming ||
+        (state.isLoading && agent?.conversationRunning() == true)
     ConversationScreen(
-        state,
+        state.copy(isStreaming = streaming),
         store::loadOlder,
         store::hydrate,
         {
@@ -63,7 +66,7 @@ fun ConversationRoute(
         onSuggestedPrompt = sends::sendSuggestedPrompt,
         suggestionsEnabled = sending.attempts.isEmpty()
     ) {
-        statusStrip()
+        statusStrip(streaming)
         ConversationComposer(sending, { text ->
             val ready = photos?.state?.value
             if (ready?.ready == false) {
@@ -78,7 +81,7 @@ fun ConversationRoute(
                 if (accepted) photos?.consume()
                 accepted
             }
-        }, sends::retract, sends::answer, photos, draft)
+        }, sends::retract, sends::answer, photos, draft, sends::retry, sends::refresh)
     }
 }
 
@@ -164,7 +167,6 @@ internal fun TranscriptMessage(
                 }
             }
         }
-        if (activity && row.messages.any { it.isStreaming == true }) Text("Response in progress…")
     }
 }
 
@@ -226,7 +228,6 @@ private fun TranscriptMessageContents(
                 if (!promptSent) promptSent = onSuggestedPrompt(prompt)
             }
         }
-        if (message.isStreaming == true) Text("Response in progress…")
         message.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         message.metadata?.get("interruptReason")?.let { Text("Stopped: $it") }
         message.metadata?.get("finishReason")?.let { Text("Finished: $it") }
@@ -235,10 +236,10 @@ private fun TranscriptMessageContents(
 
 @Composable
 internal fun TranscriptBlock(block: ContentBlock, hydrating: Boolean, onHydrate: () -> Unit) {
-    if (block.isQuestion()) return
+    if (block.isQuestion() || block.type == "thinking") return
     var expanded by remember { mutableStateOf(false) }
     val truncated = block.needsHydration()
-    val details = block.type in setOf("tool_use", "tool_result", "thinking")
+    val details = block.type in setOf("tool_use", "tool_result")
     if (details) {
         CompactDisclosure(block.name ?: block.type.replace('_', ' '), expanded) {
             expanded = !expanded
@@ -263,7 +264,7 @@ internal fun TranscriptBlock(block: ContentBlock, hydrating: Boolean, onHydrate:
 @Composable
 private fun BlockContent(block: ContentBlock) {
     when (block.type) {
-        "text", "thinking" -> TranscriptText(block.text.orEmpty())
+        "text" -> TranscriptText(block.text.orEmpty())
         "tool_use", "tool_result" -> Text(
             toolBody(block),
             style = MaterialTheme.typography.bodySmall

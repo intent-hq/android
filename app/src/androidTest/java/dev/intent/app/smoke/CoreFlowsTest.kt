@@ -206,7 +206,7 @@ class CoreFlowsTest {
                     (request.params as JsonObject)["content"]
                 )
                 compose.onNodeWithContentDescription("Message").assertTextEquals("Message", "")
-                compose.onNodeWithText("Accepted. Waiting for the transcript.").assertIsDisplayed()
+                compose.onNodeWithText("Sent · Waiting for the transcript").assertIsDisplayed()
                 screenshots("conversation")
             }
         }

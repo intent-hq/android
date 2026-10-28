@@ -13,6 +13,7 @@ import kotlinx.serialization.json.jsonObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ConversationSessionTest {
@@ -29,7 +30,14 @@ class ConversationSessionTest {
             rpc.connect()
             val server = requireNotNull(transports.poll(2, TimeUnit.SECONDS))
             server.reply(server.request(), "{}")
-            val subscribe = server.request()
+            val requests = listOf(server.request(), server.request())
+            val subscribe = requests.single { it.method == "chat.subscribe" }
+            server.reply(
+                requests.single {
+                    it.method == "events.subscribe"
+                },
+                """{"subscriptionId":"events"}"""
+            )
             assertEquals("chat.subscribe", subscribe.method)
             val params = subscribe.params!!.jsonObject
             assertEquals(JsonPrimitive("snapshot"), params["historyDelivery"])
@@ -47,11 +55,32 @@ class ConversationSessionTest {
             val barrier = rpc.request("test.barrier")
             server.reply(server.request(), "{}")
             barrier.get(2, TimeUnit.SECONDS)
+            assertTrue(store.state.value.isStreaming)
             assertFalse(store.state.value.isLoading)
             assertNull(store.state.value.error)
             assertEquals("older", store.state.value.nextToken)
             assertEquals(2, store.state.value.messages.size)
             assertEquals(6, store.state.value.messages.last().contentBlocks.size)
+            fun event(type: String) {
+                server.listener.onMessage(
+                    JsonRpcMessage.Notification(
+                        "events.event",
+                        json(
+                            """{"subscriptionId":"events","event":{"type":"$type",
+                            "data":{"agentId":"agent","workspaceId":"workspace","newStatus":"processing"}}}"""
+                        )
+                    )
+                )
+                val fence = rpc.request("test.barrier")
+                server.reply(server.request(), "{}")
+                fence.get(2, TimeUnit.SECONDS)
+            }
+            event("agent:stream:end")
+            assertTrue(store.state.value.isStreaming)
+            event("agent:idle")
+            assertFalse(store.state.value.isStreaming)
+            event("agent:status-changed")
+            assertTrue(store.state.value.isStreaming)
             store.close()
         }
     }

@@ -69,7 +69,7 @@ class RpcSessionTest {
             val pending = session.request("mutation")
             first.request()
             first.listener.onFailure(IOException("lost heartbeat"))
-            assertTrue(failed(pending) is SessionDisconnectedException)
+            assertTrue(!(failed(pending) as SessionDisconnectedException).requestNotSent)
             val second = servers.poll(2, TimeUnit.SECONDS)!!
             val hello = second.request()
             assertEquals("client.hello", hello.method)
@@ -147,7 +147,13 @@ class RpcSessionTest {
             server.listener.onMessage(
                 JsonRpcMessage.Failure(hello.id, RpcError(-32012, "Daemon not ready"))
             )
-            assertTrue(failed(session.request("workspace.list")) is SessionDisconnectedException)
+            assertTrue(
+                (
+                    failed(
+                        session.request("workspace.list")
+                    ) as SessionDisconnectedException
+                    ).requestNotSent
+            )
             assertEquals(null, server.sent.poll(50, TimeUnit.MILLISECONDS))
         }
     }
@@ -175,8 +181,10 @@ class RpcSessionTest {
         val pending = session.request("wait")
         server.request()
         session.close()
-        assertTrue(failed(pending) is SessionDisconnectedException)
-        assertTrue(failed(session.request("after-close")) is SessionDisconnectedException)
+        assertTrue(!(failed(pending) as SessionDisconnectedException).requestNotSent)
+        assertTrue(
+            (failed(session.request("after-close")) as SessionDisconnectedException).requestNotSent
+        )
     }
 
     @Test

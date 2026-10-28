@@ -23,11 +23,14 @@ internal fun TranscriptMetadata(message: ConversationMessage) {
     val agent = LocalConversationAgent.current?.takeIf {
         message.agentId == null || message.agentId == it.id
     }
+    val sent = message.role == "user" &&
+        ConversationNoise.label(message) == null &&
+        !message.isToolActivity()
     val author = if (message.role == "assistant") agent?.name ?: "Assistant" else message.role
     val label = if (message.role == "assistant" && agent != null) {
         transcriptTimestamp(message.timestamp)
     } else {
-        "$author · ${transcriptTimestamp(message.timestamp)}"
+        "${if (sent) "Sent" else author} · ${transcriptTimestamp(message.timestamp)}"
     }
     Text(
         label,

@@ -4,6 +4,8 @@
   "seq": 0,
   "snapshot": {
     "agentId": "agent",
+    "turnInFlight": true,
+    "isResponding": false,
     "truncated": true,
     "totalMessages": 340,
     "nextToken": "older",

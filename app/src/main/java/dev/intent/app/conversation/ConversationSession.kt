@@ -12,6 +12,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
 interface ConversationSession {
+    fun subscribeActivity(onActivity: (ConversationActivity) -> Unit): Closeable = Closeable {}
     fun history(token: String): CompletableFuture<ConversationPage>
     fun hydrate(messageId: String, blockId: String): CompletableFuture<MessageBlockResult>
     fun subscribe(
@@ -32,6 +33,9 @@ class RpcConversationSession(
             put("agentId", agentId)
             extra()
         }
+
+    override fun subscribeActivity(onActivity: (ConversationActivity) -> Unit): Closeable =
+        subscribeConversationActivity(session, workspaceId, agentId, onActivity)
 
     override fun history(token: String): CompletableFuture<ConversationPage> = session.request(
         "agent.getConversation",

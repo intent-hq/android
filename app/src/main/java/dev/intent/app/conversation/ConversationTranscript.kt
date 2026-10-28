@@ -72,7 +72,7 @@ internal fun ConversationTranscript(
             TranscriptViewport(
                 atBottom = !list.canScrollBackward,
                 atTop = list.layoutInfo.visibleItemsInfo.any {
-                    it.index == currentRows.lastIndex
+                    it.key == currentRows.firstOrNull()?.id
                 },
                 scrolling = list.isScrollInProgress,
                 nextToken = value.nextToken,
@@ -87,7 +87,7 @@ internal fun ConversationTranscript(
         }
     }
     var previousIds by remember { mutableStateOf(emptySet<String>()) }
-    LaunchedEffect(state.messages) {
+    LaunchedEffect(state.messages, state.isStreaming) {
         val ids = state.messages.map { it.id }.toSet()
         if (isDisjointReplacement(previousIds, ids)) {
             policy = policy.resume()
@@ -113,6 +113,9 @@ internal fun ConversationTranscript(
             modifier = Modifier.fillMaxSize().testTag("transcript"),
             verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.Bottom)
         ) {
+            if (state.isStreaming) {
+                item(key = "live-thinking-footer") { ConversationThinkingFooter() }
+            }
             items(rows.asReversed(), key = { it.id }) { row ->
                 TranscriptMessage(
                     row,
@@ -120,7 +123,7 @@ internal fun ConversationTranscript(
                     onHydrate,
                     onSuggestedPrompt,
                     suggestionsEnabled,
-                    row.messages.last().id == state.messages.lastOrNull()?.id
+                    state.showsSuggestions(row)
                 )
             }
         }
@@ -134,7 +137,7 @@ internal fun ConversationTranscript(
         if (state.loadingOlder) {
             CircularProgressIndicator(Modifier.align(Alignment.TopCenter).size(24.dp))
         }
-        if (!state.isLoading && state.messages.isEmpty()) {
+        if (state.showsEmptyTranscript()) {
             Text("No messages yet", Modifier.align(Alignment.Center))
         }
         state.error?.let {
@@ -155,3 +158,9 @@ internal fun ConversationTranscript(
 
 private fun isDisjointReplacement(previous: Set<String>, current: Set<String>) =
     previous.isNotEmpty() && current.isNotEmpty() && previous.none { it in current }
+
+private fun ConversationState.showsEmptyTranscript(): Boolean =
+    !isLoading && !isStreaming && messages.isEmpty()
+
+private fun ConversationState.showsSuggestions(row: TranscriptRow): Boolean =
+    !isStreaming && row.messages.last().id == messages.lastOrNull()?.id

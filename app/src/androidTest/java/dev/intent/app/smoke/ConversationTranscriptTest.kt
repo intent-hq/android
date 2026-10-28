@@ -40,7 +40,7 @@ class ConversationTranscriptTest {
     @get:Rule val compose = createIntentComposeRule()
 
     @Test
-    fun thinkingAndToolsStartCollapsedButTextStaysVisible() {
+    fun thinkingStaysHiddenAndToolsStartCollapsedButTextStaysVisible() {
         val message = ConversationMessage(
             "reply",
             "assistant",
@@ -60,8 +60,8 @@ class ConversationTranscriptTest {
         compose.onNodeWithText("Private reasoning detail").assertDoesNotExist()
         compose.onNodeWithText("tool payload").assertDoesNotExist()
         compose.onNodeWithText("▸ Tool activity · 2 items").performClick()
-        compose.onNodeWithText("▸ thinking").performClick()
-        compose.onNodeWithText("Private reasoning detail").assertIsDisplayed()
+        compose.onNodeWithText("▸ thinking").assertDoesNotExist()
+        compose.onNodeWithText("Private reasoning detail").assertDoesNotExist()
         compose.onNodeWithText("▸ read_file").performClick()
         compose.onNodeWithText("tool payload").assertIsDisplayed()
     }

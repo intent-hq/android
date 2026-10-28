@@ -44,13 +44,15 @@ fun ConversationComposer(
     onRetract: (String) -> Unit,
     onAnswer: (String, Map<String, QuestionAnswer>) -> Boolean,
     photos: PhotoAttachmentStore? = null,
-    draft: ComposerDraft = remember { ComposerDraft() }
+    draft: ComposerDraft = remember { ComposerDraft() },
+    onRetry: (String) -> Unit = {},
+    onCheckDelivery: () -> Unit = {}
 ) {
     val photoState = photos?.state?.collectAsState()?.value
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Column(Modifier.heightIn(max = 240.dp).verticalScroll(rememberScrollState())) {
             state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-            SendAttempts(state)
+            SendAttempts(state, onRetry, onCheckDelivery)
             QueuedConversationMessages(state, onRetract)
             state.questions?.let { QuestionComposer(it, onAnswer) }
         }
@@ -96,7 +98,11 @@ fun ConversationComposer(
 }
 
 @Composable
-private fun SendAttempts(state: ConversationSendState) {
+private fun SendAttempts(
+    state: ConversationSendState,
+    onRetry: (String) -> Unit,
+    onCheckDelivery: () -> Unit
+) {
     state.attempts.filter { attempt ->
         state.queue.none { it.id == attempt.confirmedId }
     }.forEach { attempt ->
@@ -110,11 +116,19 @@ private fun SendAttempts(state: ConversationSendState) {
         Text(
             when (attempt.status) {
                 SendStatus.SENDING -> "Sending…"
-                SendStatus.UNCONFIRMED -> "Delivery unconfirmed. Pull down to refresh."
-                SendStatus.ACCEPTED -> "Accepted. Waiting for the transcript."
+                SendStatus.NOT_SENT -> "Not sent"
+                SendStatus.UNCONFIRMED -> "Delivery unconfirmed"
+                SendStatus.ACCEPTED -> "Sent · Waiting for the transcript"
                 SendStatus.QUEUED -> "Queued. Pull down to refresh."
             }
         )
+        if (attempt.status == SendStatus.NOT_SENT) {
+            TextButton(onClick = { onRetry(attempt.id) }) { Text("Retry send") }
+        } else if (attempt.status == SendStatus.UNCONFIRMED) {
+            TextButton(onClick = onCheckDelivery, enabled = !state.checking) {
+                Text("Check delivery")
+            }
+        }
     }
 }
 

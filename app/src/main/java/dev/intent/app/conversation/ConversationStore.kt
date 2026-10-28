@@ -15,7 +15,8 @@ data class ConversationState(
     val isLoading: Boolean = true,
     val loadingOlder: Boolean = false,
     val hydrating: Set<String> = emptySet(),
-    val error: String? = null
+    val error: String? = null,
+    val isStreaming: Boolean = false
 )
 
 /** Snapshot epochs fence paging and hydration replies across reconnects and invalidations. */
@@ -25,6 +26,8 @@ class ConversationStore(private val session: ConversationSession, private val ag
     private val mutableState = MutableStateFlow(ConversationState())
     val state = mutableState.asStateFlow()
     private var lease: Closeable? = null
+    private var activityLease: Closeable? = null
+    private var chatLive = false
     private var generation = 0L
     private var epoch = 0L
     private var closed = false
@@ -48,6 +51,14 @@ class ConversationStore(private val session: ConversationSession, private val ag
             },
             { guarded(current) { fail() } }
         )
+        activityLease = session.subscribeActivity { activity ->
+            guarded(current) {
+                val streaming = activity.streaming(chatLive)
+                if (streaming != null) {
+                    mutableState.value = state.value.copy(isStreaming = streaming)
+                }
+            }
+        }
     }
 
     @Synchronized
@@ -57,6 +68,7 @@ class ConversationStore(private val session: ConversationSession, private val ag
 
     private fun resetPending() {
         refreshGap = null
+        chatLive = false
         epoch++
         mutableState.value =
             state.value.copy(
@@ -72,6 +84,7 @@ class ConversationStore(private val session: ConversationSession, private val ag
         val delta = push.delta
         if (snapshot != null) {
             if (snapshot.agentId != agentId) return
+            chatLive = true
             epoch++
             val retained = refreshHistory
             refreshHistory = null
@@ -79,19 +92,28 @@ class ConversationStore(private val session: ConversationSession, private val ag
             val tail = ConversationState(
                 snapshot.messages.distinctBy { it.id },
                 snapshot.nextToken,
-                false
+                false,
+                isStreaming = snapshot.turnInFlight ||
+                    snapshot.isResponding ||
+                    snapshot.messages.any { it.isStreaming == true }
             )
             if (retained == null || retained.messages.isEmpty() || tail.messages.isEmpty()) {
                 mutableState.value = tail
             } else {
                 refreshGap = RefreshGap(retained, tail)
-                mutableState.value = state.value.copy(isLoading = false, loadingOlder = true)
+                mutableState.value =
+                    state.value.copy(
+                        isLoading = false,
+                        loadingOlder = true,
+                        isStreaming = tail.isStreaming
+                    )
                 fillRefreshGap()
             }
         } else if (delta != null && !state.value.isLoading) {
             refreshGap?.deltas?.add(delta)
             mutableState.value = state.value.copy(
                 messages = reduceConversation(state.value.messages, delta, agentId),
+                isStreaming = delta.streaming(state.value.isStreaming, agentId),
                 error = null
             )
         }
@@ -114,7 +136,8 @@ class ConversationStore(private val session: ConversationSession, private val ag
                 messages = gap.deltas.fold(prefix + tail.messages) { messages, delta ->
                     reduceConversation(messages, delta, agentId)
                 },
-                nextToken = if (retainedIndex >= 0) gap.retained.nextToken else token
+                nextToken = if (retainedIndex >= 0) gap.retained.nextToken else token,
+                isStreaming = state.value.isStreaming
             )
             refreshGap = null
             return
@@ -231,6 +254,8 @@ class ConversationStore(private val session: ConversationSession, private val ag
         resetPending()
         lease?.close()
         lease = null
+        activityLease?.close()
+        activityLease = null
     }
 
     @Synchronized

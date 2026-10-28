@@ -220,7 +220,7 @@ fun WorkspaceConversations(session: RpcSession, workspaceId: String, onBack: () 
                                 ChromeAction(label, enabled = agent != null) { action = label }
                             }
                         )
-                        ConversationRoute(conversation, sends, photos = photos, statusStrip = {
+                        ConversationRoute(conversation, sends, photos = photos) { streaming ->
                             ConversationStatusStrip(
                                 watchState,
                                 agent,
@@ -230,9 +230,10 @@ fun WorkspaceConversations(session: RpcSession, workspaceId: String, onBack: () 
                                     watches.refresh(it)
                                 },
                                 { watches.refresh(WatchFamily.SCRIPT, more = true) },
-                                { selected = it }
+                                { selected = it },
+                                isStreaming = streaming
                             )
-                        })
+                        }
                     }
                 }
                 watchState.selected?.let {

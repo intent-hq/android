@@ -191,6 +191,47 @@ class ConversationSendStoreTest {
         assertEquals(1, commands.sent.size)
     }
 
+    @Test
+    fun onlyLocalPreDispatchFailureAllowsRetryWithSameIdentityAndAttachments() {
+        val image = buildJsonObject { put("attachmentId", "photo") }
+        store.send("Hello", images = listOf(image))
+        val sent = commands.sent.single()
+        assertEquals(SendStatus.SENDING, store.state.value.attempts.single().status)
+        sent.result.completeExceptionally(
+            java.util.concurrent.CompletionException(
+                dev.intent.core.protocol.session.SessionDisconnectedException(requestNotSent = true)
+            )
+        )
+        assertEquals(SendStatus.NOT_SENT, store.state.value.attempts.single().status)
+        store.retry(sent.id)
+        assertEquals(SendStatus.SENDING, store.state.value.attempts.single().status)
+        assertEquals(sent.id, commands.sent.last().id)
+        assertEquals(listOf(image), commands.images)
+        store.retry(sent.id)
+        assertEquals(2, commands.sent.size)
+        commands.sent.last().result.complete(SendResult(true, false, messageId = "canonical"))
+        assertEquals(SendStatus.ACCEPTED, store.state.value.attempts.single().status)
+        store.observe(listOf(ConversationMessage("canonical", "user", appMessageId = sent.id)))
+        assertTrue(store.state.value.attempts.isEmpty())
+    }
+
+    @Test
+    fun disconnectAfterDispatchAndRemoteFailureNeverAllowReplay() {
+        store.send("Hello")
+        val sent = commands.sent.single()
+        sent.result.completeExceptionally(
+            dev.intent.core.protocol.session.SessionDisconnectedException()
+        )
+        store.retry(sent.id)
+        assertEquals(SendStatus.UNCONFIRMED, store.state.value.attempts.single().status)
+        assertEquals(1, commands.sent.size)
+        store.send("Next")
+        commands.sent.last().result.complete(SendResult(false, false))
+        store.retry(commands.sent.last().id)
+        assertEquals(SendStatus.UNCONFIRMED, store.state.value.attempts.last().status)
+        assertEquals(2, commands.sent.size)
+    }
+
     private fun questionRow() = ConversationMessage(
         "questions",
         "assistant",
