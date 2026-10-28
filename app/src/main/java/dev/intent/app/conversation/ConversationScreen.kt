@@ -31,7 +31,7 @@ import dev.intent.core.protocol.attachments.messageBlock
 import dev.intent.core.protocol.models.ContentBlock
 import dev.intent.core.protocol.models.ConversationMessage
 
-@Suppress("LongParameterList") // Route-owned draft and seen state share the conversation lifetime.
+@Suppress("LongParameterList", "LongMethod") // Wires transcript, drafts, seen state, and controls.
 @Composable
 fun ConversationRoute(
     store: ConversationStore,
@@ -61,6 +61,7 @@ fun ConversationRoute(
         state.copy(isStreaming = streaming),
         agent?.metadata?.string("lastSeenMessageId")
     )
+    LaunchedEffect(streaming) { sends.observeRunning(streaming) }
     ConversationScreen(
         state.copy(isStreaming = streaming),
         store::loadOlder,
@@ -95,7 +96,11 @@ fun ConversationRoute(
                     accepted
                 }
             }, sends::retract, sends::answer, photos, draft, sends::retry, sends::refresh,
-            clearOnSend = false
+            clearOnSend = false,
+            onStop = sends::stopReply,
+            onEditQueued = sends::editQueued,
+            onSendNow = sends::sendNow,
+            onDismissQuestions = sends::dismissQuestions
         )
     }
 }

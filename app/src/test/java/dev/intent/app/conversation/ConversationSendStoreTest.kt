@@ -253,6 +253,85 @@ class ConversationSendStoreTest {
         assertEquals(2, commands.sent.size)
     }
 
+    @Test
+    fun stopIsGuardedUntilTurnEndsAndReconnectDoesNotReplay() {
+        commands.details = Agent("agent", "Agent", turnInFlight = true)
+        store.refresh()
+        store.stopReply()
+        store.stopReply()
+        assertEquals(1, commands.stops.size)
+        commands.stops.single().complete(CommandResult(true))
+        store.stopReply()
+        assertEquals(1, commands.stops.size)
+        commands.details = Agent("agent", "Agent")
+        store.refresh()
+        assertFalse(store.state.value.running)
+        store.stopReply()
+        assertEquals(1, commands.stops.size)
+        store.observeRunning(true)
+        store.stopReply()
+        assertEquals(2, commands.stops.size)
+    }
+
+    @Test
+    fun queueMutationsGuardDuplicatesAndPreserveQueuedSendNowOutcome() {
+        commands.queued = listOf(QueuedMessage("q", "Original", "now", 0))
+        store.refresh()
+        store.editQueued("q", "  Updated  ")
+        store.sendNow("q")
+        store.retract("q")
+        assertEquals(listOf("q" to "Updated"), commands.edits)
+        assertTrue(commands.now.isEmpty())
+        assertTrue(commands.removals.isEmpty())
+        commands.queued = listOf(commands.queued.single().copy(content = "Updated"))
+        commands.editResult.complete(CommandResult(true))
+        assertEquals("Updated", store.state.value.queue.single().content)
+        store.sendNow("q")
+        store.sendNow("q")
+        assertEquals(1, commands.now.size)
+        commands.now.single().complete(
+            SendResult(true, true, queuedMessage = commands.queued.single())
+        )
+        assertEquals("q", store.state.value.queue.single().id)
+        store.sendNow("q")
+        commands.queued = emptyList()
+        commands.now.last().complete(SendResult(true, false, "q"))
+        assertTrue(store.state.value.queue.isEmpty())
+    }
+
+    @Test
+    fun dismissRejectsStaleSetsAndDoesNotResurfaceAfterRefresh() {
+        commands.rows = listOf(questionRow())
+        store.refresh()
+        store.dismissQuestions("old")
+        assertTrue(commands.dismissals.isEmpty())
+        store.dismissQuestions("questions")
+        store.dismissQuestions("questions")
+        assertFalse(store.answer("questions", emptyMap()))
+        assertEquals(1, commands.dismissals.size)
+        commands.dismissals.single().complete(CommandResult(true))
+        store.refresh()
+        assertNull(store.state.value.questions)
+        commands.rows = listOf(questionRow().copy(id = "new"))
+        store.refresh()
+        assertEquals("new", store.state.value.questions?.messageId)
+    }
+
+    @Test
+    fun failedDismissalKeepsQuestionsAndClosedControlCannotChangeState() {
+        commands.rows = listOf(questionRow())
+        store.refresh()
+        store.dismissQuestions("questions")
+        commands.dismissals.single().completeExceptionally(IllegalStateException("offline"))
+        assertEquals("questions", store.state.value.questions?.messageId)
+        assertTrue(store.state.value.error!!.contains("dismissal"))
+        store.dismissQuestions("questions")
+        store.close()
+        val before = store.state.value
+        commands.dismissals.last().complete(CommandResult(true))
+        assertEquals(before, store.state.value)
+    }
+
     private fun questionRow() = ConversationMessage(
         "questions",
         "assistant",
@@ -279,6 +358,19 @@ private data class SentCommand(
 )
 
 private class FakeCommands : ConversationCommands {
+    val stops = mutableListOf<CompletableFuture<CommandResult>>()
+    val edits = mutableListOf<Pair<String, String>>()
+    val editResult = CompletableFuture<CommandResult>()
+    val now = mutableListOf<CompletableFuture<SendResult>>()
+    val dismissals = mutableListOf<CompletableFuture<CommandResult>>()
+    override fun stopReply() = CompletableFuture<CommandResult>().also { stops.add(it) }
+    override fun editQueued(id: String, content: String): CompletableFuture<CommandResult> {
+        edits.add(id to content)
+        return editResult
+    }
+    override fun sendNow(id: String) = CompletableFuture<SendResult>().also { now.add(it) }
+    override fun dismissQuestions(id: String) =
+        CompletableFuture<CommandResult>().also { dismissals.add(it) }
     var images = emptyList<JsonObject>()
     override fun sendAttachments(
         id: String,

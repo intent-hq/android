@@ -18,6 +18,7 @@ import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
+@Suppress("TooManyFunctions") // One scoped command surface for the conversation.
 interface ConversationCommands {
     fun send(id: String, content: String, metadata: JsonObject?): CompletableFuture<SendResult>
     fun sendAttachments(
@@ -30,6 +31,11 @@ interface ConversationCommands {
         require(images.isEmpty() && files.isEmpty())
         return send(id, content, metadata)
     }
+    fun stopReply(): CompletableFuture<CommandResult> = unsupportedControl()
+    fun editQueued(id: String, content: String): CompletableFuture<CommandResult> =
+        unsupportedControl()
+    fun sendNow(id: String): CompletableFuture<SendResult> = unsupportedControl()
+    fun dismissQuestions(id: String): CompletableFuture<CommandResult> = unsupportedControl()
     fun queue(): CompletableFuture<QueueResult>
     fun retract(id: String): CompletableFuture<CommandResult>
     fun agent(): CompletableFuture<Agent>
@@ -37,6 +43,7 @@ interface ConversationCommands {
     fun watch(onRefresh: () -> Unit, onError: (Throwable) -> Unit): Closeable
 }
 
+@Suppress("TooManyFunctions") // Implements the conversation command surface.
 class RpcConversationCommands(
     private val session: RpcSession,
     private val workspaceId: String,
@@ -68,6 +75,26 @@ class RpcConversationCommands(
             metadata?.let { put("messageMetadata", it) }
         },
         SendResult.serializer()
+    )
+
+    override fun stopReply() = session.request("agent.stop", params(), CommandResult.serializer())
+    override fun editQueued(id: String, content: String) = session.request(
+        "agent.editQueuedMessage",
+        params {
+            put("messageId", id)
+            put("content", content)
+        },
+        CommandResult.serializer()
+    )
+    override fun sendNow(id: String) = session.request(
+        "agent.sendQueuedMessageNow",
+        params { put("messageId", id) },
+        SendResult.serializer()
+    )
+    override fun dismissQuestions(id: String) = session.request(
+        "agent.dismissQuestions",
+        params { put("messageId", id) },
+        CommandResult.serializer()
     )
 
     override fun queue() = session.request("agent.getQueue", params(), QueueResult.serializer())
@@ -119,3 +146,7 @@ class RpcConversationCommands(
 }
 
 private const val COMMAND_HISTORY_LIMIT = 20
+
+private fun <T> unsupportedControl(): CompletableFuture<T> = CompletableFuture<T>().apply {
+    completeExceptionally(UnsupportedOperationException("Conversation control unavailable"))
+}

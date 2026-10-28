@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -36,7 +37,7 @@ import dev.intent.app.design.IntentTextField as OutlinedTextField
 import dev.intent.core.protocol.models.Question
 import dev.intent.core.protocol.models.QuestionOption
 
-@Suppress("LongParameterList") // Composer actions and its photo store.
+@Suppress("LongParameterList", "LongMethod") // Shared composer layout.
 @Composable
 fun ConversationComposer(
     state: ConversationSendState,
@@ -47,15 +48,21 @@ fun ConversationComposer(
     draft: ComposerDraft = remember { ComposerDraft() },
     onRetry: (String) -> Unit = {},
     onCheckDelivery: () -> Unit = {},
-    clearOnSend: Boolean = true
+    clearOnSend: Boolean = true,
+    onStop: () -> Unit = {},
+    onEditQueued: (String, String) -> Unit = { _, _ -> },
+    onSendNow: (String) -> Unit = {},
+    onDismissQuestions: (String) -> Unit = {}
 ) {
     val photoState = photos?.state?.collectAsState()?.value
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Column(Modifier.heightIn(max = 240.dp).verticalScroll(rememberScrollState())) {
             state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             SendAttempts(state, onRetry, onCheckDelivery)
-            QueuedConversationMessages(state, onRetract)
-            state.questions?.let { QuestionComposer(it, onAnswer) }
+            QueuedConversationMessages(state, onRetract, onEditQueued, onSendNow)
+            state.questions?.let {
+                QuestionComposer(it, onAnswer, onDismissQuestions, state.dismissing != null)
+            }
         }
         photos?.let { PhotoAttachments(it) }
         Surface(
@@ -82,7 +89,13 @@ fun ConversationComposer(
                         cursorColor = MaterialTheme.colorScheme.onSurface
                     )
                 )
-                photos?.let { PhotoPicker(it) }
+                if (state.running) {
+                    TextButton(onClick = onStop, enabled = !state.stopping) {
+                        Text(if (state.stopping) "Stopping…" else "Stop response")
+                    }
+                } else {
+                    photos?.let { PhotoPicker(it) }
+                }
                 IntentButton(
                     onClick = {
                         if (onSend(draft.text) && clearOnSend) draft.text = ""
@@ -142,15 +155,45 @@ private fun SendAttempts(
 @Composable
 private fun QuestionComposer(
     set: QuestionSet,
-    onAnswer: (String, Map<String, QuestionAnswer>) -> Boolean
+    onAnswer: (String, Map<String, QuestionAnswer>) -> Boolean,
+    onDismiss: (String) -> Unit,
+    dismissing: Boolean
 ) {
+    var confirmingDismiss by remember(set.messageId) { mutableStateOf(false) }
     var answers by remember(set.messageId) { mutableStateOf(emptyMap<String, QuestionAnswer>()) }
     Column {
         set.questions.forEach { question ->
             val answer = answers[question.attachmentId] ?: QuestionAnswer()
             QuestionInput(question, answer) { answers = answers + (question.attachmentId to it) }
         }
-        TextButton(onClick = { onAnswer(set.messageId, answers) }) { Text("Send answers") }
+        Row {
+            TextButton(onClick = { onAnswer(set.messageId, answers) }, enabled = !dismissing) {
+                Text("Send answers")
+            }
+            TextButton(onClick = { confirmingDismiss = true }, enabled = !dismissing) {
+                Text("Dismiss questions")
+            }
+        }
+    }
+    if (confirmingDismiss) {
+        AlertDialog(
+            onDismissRequest = { confirmingDismiss = false },
+            title = { Text("Dismiss questions?") },
+            text = {
+                Text(
+                    "The questions will be dismissed without answers. They will not return after a reload."
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmingDismiss = false
+                    onDismiss(set.messageId)
+                }, enabled = !dismissing) { Text("Dismiss") }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmingDismiss = false }) { Text("Cancel") }
+            }
+        )
     }
 }
 

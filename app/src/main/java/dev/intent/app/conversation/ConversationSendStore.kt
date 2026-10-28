@@ -28,6 +28,9 @@ data class ConversationSendState(
     val queue: List<QueuedMessage> = emptyList(),
     val questions: QuestionSet? = null,
     val checking: Boolean = false,
+    val running: Boolean = false,
+    val stopping: Boolean = false,
+    val dismissing: String? = null,
     val retracting: Set<String> = emptySet(),
     val error: String? = null
 )
@@ -45,6 +48,10 @@ class ConversationSendStore(
     private var readVersion = 0L
     private var closed = false
     private var agent: Agent? = null
+    private val dismissedQuestions = mutableSetOf<String>()
+    private var stopRequested = false
+    private var stopPending = false
+    private val queueAwaitingRefresh = mutableSetOf<String>()
     private var messages = emptyList<ConversationMessage>()
     private val confirmations = mutableMapOf<String, () -> Unit>()
 
@@ -77,8 +84,14 @@ class ConversationSendStore(
                     } else {
                         val (queue, details, history) = result
                         agent = details
+                        observeRunning(details.conversationRunning())
                         messages = history
-                        mutableState.value = state.value.copy(queue = queue, checking = false)
+                        mutableState.value = state.value.copy(
+                            queue = queue,
+                            checking = false,
+                            retracting = state.value.retracting - queueAwaitingRefresh
+                        )
+                        queueAwaitingRefresh.clear()
                         reconcile()
                         val marker = details.metadata.string("pendingQuestionsMessageId")
                         if (!marker.isNullOrEmpty() && messages.none { it.id == marker }) {
@@ -166,7 +179,10 @@ class ConversationSendStore(
             it.question()
         }.distinctBy { it.attachmentId }
         val eligible = row != null && row.role == "assistant" && row.isStreaming != true
-        val retired = answered || row?.id == details.metadata.string("dismissedQuestionsMessageId")
+        val retired =
+            row?.id in dismissedQuestions ||
+                answered ||
+                row?.id == details.metadata.string("dismissedQuestionsMessageId")
         val set = if (!eligible || retired || questions.isEmpty()
         ) {
             null
@@ -269,7 +285,9 @@ class ConversationSendStore(
 
     @Synchronized
     fun answer(messageId: String, answers: Map<String, QuestionAnswer>): Boolean {
-        val set = state.value.questions?.takeIf { it.messageId == messageId } ?: return false
+        val set = state.value.questions?.takeIf {
+            it.messageId == messageId && state.value.dismissing == null
+        } ?: return false
         return send(
             flattenAnswers(set, answers),
             buildJsonObject {
@@ -280,27 +298,139 @@ class ConversationSendStore(
     }
 
     @Synchronized
+    fun observeRunning(running: Boolean) {
+        if (closed) return
+        if (!running) stopRequested = false
+        mutableState.value = state.value.copy(
+            running = running,
+            stopping = stopPending || stopRequested
+        )
+    }
+
+    @Synchronized
+    fun stopReply() {
+        if (closed || !state.value.running || state.value.stopping) return
+        stopPending = true
+        stopRequested = true
+        mutableState.value = state.value.copy(stopping = true, error = null)
+        commands.stopReply().whenComplete { result, error ->
+            synchronized(this) {
+                if (!closed) {
+                    stopPending = false
+                    if (error != null || result?.success != true) {
+                        stopRequested = false
+                    }
+                    mutableState.value = state.value.copy(stopping = stopRequested)
+                    refresh()
+                    if (error != null || result?.success != true) {
+                        fail("Cannot confirm stop. Refresh before trying again.")
+                    }
+                }
+            }
+        }
+    }
+
+    @Synchronized
+    fun editQueued(id: String, content: String) {
+        if (content.isBlank()) return
+        queueMutation(id) {
+            commands.editQueued(id, content.trim()).thenApply {
+                check(it.success)
+                state.value.queue.map { row ->
+                    if (row.id ==
+                        id
+                    ) {
+                        row.copy(content = content.trim())
+                    } else {
+                        row
+                    }
+                }
+            }
+        }
+    }
+
+    @Synchronized
+    fun sendNow(id: String) {
+        queueMutation(id) {
+            commands.sendNow(id).thenApply {
+                check(it.success)
+                if (it.queued) {
+                    state.value.queue
+                } else {
+                    state.value.queue.filterNot { row ->
+                        row.id ==
+                            id
+                    }
+                }
+            }
+        }
+    }
+
+    @Synchronized
     fun retract(id: String) {
+        queueMutation(id) {
+            commands.retract(id).thenApply {
+                check(it.success)
+                state.value.queue.filterNot { row -> row.id == id }
+            }
+        }
+    }
+
+    private fun queueMutation(
+        id: String,
+        request: () -> java.util.concurrent.CompletableFuture<List<QueuedMessage>>
+    ) {
         if (closed || id in state.value.retracting || state.value.queue.none { it.id == id }) return
         ++readVersion
         mutableState.value =
             state.value.copy(retracting = state.value.retracting + id, error = null)
-        commands.retract(id).whenComplete { result, error ->
+        request().whenComplete { queue, error ->
             synchronized(this) {
                 if (!closed) {
-                    mutableState.value = state.value.copy(retracting = state.value.retracting - id)
-                    if (error == null && result?.success == true) {
+                    ++readVersion
+                    queueAwaitingRefresh.add(id)
+                    if (error == null) {
                         mutableState.value = state.value.copy(
-                            queue = state.value.queue.filterNot { it.id == id },
+                            queue = queue,
                             attempts = state.value.attempts.filterNot {
-                                it.confirmedId == id &&
-                                    it.status == SendStatus.QUEUED
+                                it.status == SendStatus.QUEUED &&
+                                    it.confirmedId == id &&
+                                    queue.none { row -> row.id == id }
                             }
                         )
                         updateQuestions()
-                        refresh()
-                    } else {
-                        fail("Cannot confirm removal. Check status before trying again.")
+                    }
+                    refresh()
+                    if (error != null) {
+                        fail("Cannot confirm queue change. Refresh before trying again.")
+                    }
+                }
+            }
+        }
+    }
+
+    @Synchronized
+    fun dismissQuestions(id: String) {
+        if (closed ||
+            state.value.questions?.messageId != id ||
+            state.value.dismissing != null
+        ) {
+            return
+        }
+        ++readVersion
+        mutableState.value = state.value.copy(dismissing = id, error = null)
+        commands.dismissQuestions(id).whenComplete { result, error ->
+            synchronized(this) {
+                if (!closed) {
+                    ++readVersion
+                    mutableState.value = state.value.copy(dismissing = null)
+                    if (error == null && result?.success == true) {
+                        dismissedQuestions.add(id)
+                        updateQuestions()
+                    }
+                    refresh()
+                    if (error != null || result?.success != true) {
+                        fail("Cannot confirm dismissal. Refresh before trying again.")
                     }
                 }
             }
