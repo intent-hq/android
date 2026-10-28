@@ -170,6 +170,7 @@ private fun ConnectedContent(
         IntentNavigation(
             session = session,
             cache = cache,
+            connectionScope = scope,
             modifier = modifier,
             initialWorkspace = notificationWorkspace?.takeIf { it.first == state.activeId }?.second,
             destinations = state.connections.filter {

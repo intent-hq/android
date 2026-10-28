@@ -44,11 +44,10 @@ class WorkspaceCreationTransferTest {
             }
         }
         val store = CreationOptionsStore(fake)
-        assertEquals("codex", store.load().providers.single().id)
-        assertEquals("gpt", store.models("codex").single().id)
+        assertEquals("codex", store.loadProviders().single().id)
         assertEquals(
             "ws",
-            store.create(
+            CreationSubmission(fake, { error("No media") }, {}).submit(
                 WorkspaceDraft(
                     "Work",
                     "/repo",

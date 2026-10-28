@@ -14,6 +14,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import dev.intent.app.attachments.PhotoAttachmentStore
 import dev.intent.app.cache.OfflineCache
 import dev.intent.app.connection.SavedConnection
 import dev.intent.app.design.IntentButton as Button
@@ -22,7 +24,9 @@ import dev.intent.app.git.LocalWorkspaceRepository
 import dev.intent.app.git.repositoryLabel
 import dev.intent.app.history.LocalHistoryAgent
 import dev.intent.app.history.LocalHistoryNavigation
-import dev.intent.app.workspaces.CreationOptionsStore
+import dev.intent.app.workspaces.CreationDraftStore
+import dev.intent.app.workspaces.CreationMediaSource
+import dev.intent.app.workspaces.CreationWorkflow
 import dev.intent.app.workspaces.LocalOpenRecentWorkspaceAgent
 import dev.intent.app.workspaces.RpcWorkspaceOperations
 import dev.intent.app.workspaces.RpcWorkspaceSession
@@ -33,6 +37,8 @@ import dev.intent.app.workspaces.WorkspaceCreateScreen
 import dev.intent.app.workspaces.WorkspaceListRoute
 import dev.intent.app.workspaces.WorkspaceStore
 import dev.intent.app.workspaces.WorkspaceTransferScreen
+import dev.intent.core.protocol.attachments.AttachmentUploadService
+import dev.intent.core.protocol.attachments.RpcAttachmentClient
 import dev.intent.core.protocol.session.RpcSession
 
 /** The connection owner supplies a paired session when the connection flow is available. */
@@ -45,6 +51,7 @@ fun IntentNavigation(
     cache: OfflineCache? = null,
     destinations: List<SavedConnection> = emptyList(),
     initialWorkspace: String? = null,
+    connectionScope: String = "",
     workspaceContent: @Composable (String, () -> Unit) -> Unit = { _, back ->
         Column {
             Button(onClick = back) { Text("Back to workspaces") }
@@ -97,7 +104,20 @@ fun IntentNavigation(
     var creating by rememberSaveable(session) { mutableStateOf(false) }
     var transferring by rememberSaveable(session) { mutableStateOf(false) }
     var operationBusy by remember(session) { mutableStateOf(false) }
-    val creation = remember(session) { CreationOptionsStore(RpcWorkspaceOperations(session)) }
+    val context = LocalContext.current.applicationContext
+    val creation = remember(session, connectionScope) {
+        val drafts = connectionScope.takeIf {
+            it.isNotBlank()
+        }?.let { CreationDraftStore(context, it) }
+        CreationWorkflow(
+            RpcWorkspaceOperations(session),
+            drafts?.load() ?: dev.intent.app.workspaces.WorkspaceDraft(),
+            { drafts?.save(it) },
+            { AttachmentUploadService(RpcAttachmentClient(session), it) }
+        )
+    }
+    val creationPhotos =
+        remember(session) { PhotoAttachmentStore(CreationMediaSource(context, session)) }
     val selected = selectedWorkspace
     val back = {
         if (!operationBusy) {
@@ -144,10 +164,10 @@ fun IntentNavigation(
             when {
                 creating -> {
                     CompactAppBar("Create workspace", onBack = back)
-                    WorkspaceCreateScreen(creation, onBusy = { operationBusy = it }) {
+                    WorkspaceCreateScreen(creation, onBusy = { operationBusy = it }, onCreated = {
                         selectedWorkspace = it
                         creating = false
-                    }
+                    }, photos = creationPhotos)
                 }
                 selected == null -> WorkspaceDrawers {
                     WorkspaceListRoute(
