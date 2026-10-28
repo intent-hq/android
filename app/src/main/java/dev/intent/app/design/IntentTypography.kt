@@ -1,8 +1,9 @@
-@file:Suppress("MagicNumber") // Literal design tokens from the iOS source of truth.
+@file:Suppress("MagicNumber") // Figma mobile typography tokens.
 
 package dev.intent.app.design
 
 import androidx.compose.material3.Typography
+import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
@@ -33,26 +34,30 @@ val Inter = FontFamily(
     Font(R.font.inter_black_italic, FontWeight(900), FontStyle.Italic)
 )
 
-private fun style(size: Int, weight: Int = 450) = TextStyle(
-    fontFamily = Inter,
-    fontWeight = FontWeight(weight),
-    fontSize = size.sp
-)
+private fun style(size: Int, weight: Int = 450, tracking: Float = -0.02f, leading: Float = 1.25f) =
+    TextStyle(
+        fontFamily = Inter,
+        fontWeight = FontWeight(weight),
+        fontSize = size.sp,
+        letterSpacing = (size * tracking).sp,
+        lineHeight = (size * leading).sp,
+        platformStyle = PlatformTextStyle(includeFontPadding = false)
+    )
 
 internal val IntentTypography = Typography(
-    displayLarge = style(40, 600),
-    displayMedium = style(40, 600),
+    displayLarge = style(40, 600, -0.03f, 1.1f),
+    displayMedium = style(40, 600, -0.03f, 1.1f),
     displaySmall = style(28, 600),
-    headlineLarge = style(40, 600),
+    headlineLarge = style(40, 600, -0.03f, 1.1f),
     headlineMedium = style(28, 600),
     headlineSmall = style(28, 600),
     titleLarge = style(28, 600),
     titleMedium = style(18, 550),
     titleSmall = style(16, 550),
-    bodyLarge = style(16, 450),
+    bodyLarge = style(16, 450, -0.01f, 1.32f),
     bodyMedium = style(14, 450),
-    bodySmall = style(12, 450),
+    bodySmall = style(12, 450, -0.01f, 1.32f),
     labelLarge = style(16, 550),
     labelMedium = style(14, 550),
-    labelSmall = style(12, 450)
+    labelSmall = style(12, 450, 0.02f)
 )

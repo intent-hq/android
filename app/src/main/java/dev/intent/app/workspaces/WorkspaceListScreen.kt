@@ -1,14 +1,20 @@
 package dev.intent.app.workspaces
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -21,10 +27,12 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import dev.intent.app.design.IntentColors
 import dev.intent.app.design.IntentLightDarkPreview
 import dev.intent.app.design.IntentScreen
 import dev.intent.app.design.IntentSpacing
@@ -111,7 +119,7 @@ fun WorkspaceListScreen(
                 LazyColumn(
                     Modifier.fillMaxSize(),
                     contentPadding = IntentScreen.pageInsets,
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    verticalArrangement = Arrangement.spacedBy(0.dp)
                 ) {
                     state.error?.let { item { Text(it, color = MaterialTheme.colorScheme.error) } }
                     if (!state.isLoading && state.error == null && rows.isEmpty()) {
@@ -146,64 +154,76 @@ fun WorkspaceListScreen(
 private fun WorkspaceRow(workspace: Workspace) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.large,
-        color = IntentScreen.surface,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+        shape = RectangleShape,
+        color = IntentScreen.canvas
     ) {
-        Column(
-            Modifier.padding(IntentSpacing.content),
-            verticalArrangement = Arrangement.spacedBy(IntentSpacing.medium)
-        ) {
-            Text(
-                workspace.title,
-                style = MaterialTheme.typography.titleMedium,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
-            workspace.statusMessage?.takeIf { it.isNotBlank() }?.let {
-                Text(
-                    it,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(IntentSpacing.medium),
-                verticalArrangement = Arrangement.spacedBy(IntentSpacing.small)
+        Column {
+            Row(
+                Modifier.padding(vertical = IntentSpacing.page),
+                horizontalArrangement = Arrangement.spacedBy(IntentSpacing.page)
             ) {
-                WorkspaceBadge(workspace.status)
-                workspace.displayStatus?.takeIf { it.isNotBlank() }?.let { status ->
-                    val colors = MaterialTheme.colorScheme
-                    val complete = status in setOf("complete", "completed", "pr_ready")
-                    WorkspaceBadge(
-                        status.replace('_', ' ').replaceFirstChar { it.titlecase() }
-                            .replace("Pr ", "PR "),
-                        container = if (complete) {
-                            colors.tertiaryContainer
-                        } else {
-                            colors.primaryContainer
-                        },
-                        foreground = if (complete) {
-                            colors.onTertiaryContainer
-                        } else {
-                            colors.onPrimaryContainer
-                        }
+                Box(
+                    Modifier.padding(top = IntentSpacing.small).size(12.dp)
+                        .background(workspaceStatusColor(workspace.displayStatus), CircleShape)
+                )
+                Column(
+                    Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(IntentSpacing.row)
+                ) {
+                    Text(
+                        workspace.title,
+                        style = MaterialTheme.typography.titleMedium,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
                     )
+                    workspace.statusMessage?.takeIf { it.isNotBlank() }?.let {
+                        Text(
+                            it,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(IntentSpacing.medium),
+                        verticalArrangement = Arrangement.spacedBy(IntentSpacing.small)
+                    ) {
+                        val showLifecycle = !workspace.status.equals("Active", true)
+                        if (showLifecycle) {
+                            WorkspaceBadge(workspace.status)
+                        }
+                        workspace.displayStatus?.takeIf { it.isNotBlank() }?.let { status ->
+                            WorkspaceBadge(
+                                status.replace('_', ' ').replaceFirstChar { it.titlecase() }
+                                    .replace("Pr ", "PR ")
+                            )
+                        }
+                    }
                 }
             }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         }
     }
 }
 
 @Composable
-private fun WorkspaceBadge(
-    label: String,
-    container: Color = MaterialTheme.colorScheme.surfaceContainerHigh,
-    foreground: Color = MaterialTheme.colorScheme.onSurfaceVariant
-) {
-    Surface(color = container, contentColor = foreground, shape = MaterialTheme.shapes.small) {
+private fun workspaceStatusColor(status: String?): Color = when (status?.lowercase()) {
+    "working", "active", "running", "implementing" -> IntentColors.statusWorking
+    "complete", "completed", "pr_ready", "pr_merged" -> IntentColors.statusComplete
+    "blocked", "blocker", "question", "needs_attention" -> IntentColors.statusAttention
+    "failed", "error" -> MaterialTheme.colorScheme.error
+    else -> MaterialTheme.colorScheme.onSurfaceVariant
+}
+
+@Composable
+private fun WorkspaceBadge(label: String) {
+    Surface(
+        color = Color.Transparent,
+        contentColor = IntentScreen.secondaryText,
+        shape = CircleShape,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+    ) {
         Text(
             label,
             modifier = Modifier.padding(

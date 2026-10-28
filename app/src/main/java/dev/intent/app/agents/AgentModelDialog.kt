@@ -9,7 +9,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
@@ -17,6 +16,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.window.DialogProperties
 import dev.intent.app.design.IntentScreen
+import dev.intent.app.design.IntentTextButton as TextButton
 import dev.intent.app.workspaces.CreationChoice
 import dev.intent.app.workspaces.WorkspaceOperations
 import dev.intent.core.protocol.models.Agent

@@ -12,9 +12,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -28,8 +26,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.viewinterop.AndroidView
+import dev.intent.app.design.IntentButton as Button
 import dev.intent.app.design.IntentScreen
 import dev.intent.app.design.IntentSection
+import dev.intent.app.design.IntentTextField as OutlinedTextField
 import dev.intent.app.design.intentPageInsets
 import dev.intent.app.navigation.CompactAppBar
 import dev.intent.core.protocol.browser.PreviewUrl

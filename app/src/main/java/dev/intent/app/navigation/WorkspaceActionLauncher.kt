@@ -97,7 +97,7 @@ private fun LauncherTiles(actions: LauncherActions, close: () -> Unit) {
                             "Settings" -> Icons.Default.Settings
                             else -> Icons.Default.Add
                         }
-                        Icon(icon, null, tint = MaterialTheme.colorScheme.outline)
+                        Icon(icon, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         Spacer(Modifier.weight(1f))
                         Text(tile.label, style = MaterialTheme.typography.titleMedium)
                     }

@@ -13,7 +13,7 @@ import androidx.compose.ui.unit.dp
 
 internal val LocalIntentDarkTheme = staticCompositionLocalOf { false }
 
-/** Shared spacing from the iOS note, settings, and workspace layouts. */
+/** Shared mobile layout spacing. */
 object IntentSpacing {
     val small = 4.dp
     val medium = 8.dp
@@ -26,7 +26,7 @@ internal val IntentLightColors = with(IntentColors) {
     lightColorScheme(
         primary = themePrimaryLight,
         onPrimary = themeForegroundLight,
-        primaryContainer = agentAvatarSurfaceLight,
+        primaryContainer = themeMutedLight,
         onPrimaryContainer = themeForegroundLight,
         secondary = themeMutedForegroundLight,
         onSecondary = themeBackgroundLight,
@@ -42,7 +42,7 @@ internal val IntentLightColors = with(IntentColors) {
         onSurface = themeForegroundLight,
         surfaceVariant = themeMutedLight,
         onSurfaceVariant = themeMutedForegroundLight,
-        surfaceTint = themePrimaryLight,
+        surfaceTint = themeCardLight,
         surfaceDim = themeMutedLight,
         surfaceBright = themeBackgroundLight,
         surfaceContainerLowest = themeBackgroundLight,
@@ -53,10 +53,10 @@ internal val IntentLightColors = with(IntentColors) {
         outline = themeBorderLight,
         outlineVariant = themeBorderLight,
         error = themeDestructiveLight,
-        onError = themeForegroundLight,
+        onError = themeCardLight,
         errorContainer = agentAvatarSurfaceFailedLight,
         onErrorContainer = themeForegroundLight,
-        inverseSurface = themeCardDark,
+        inverseSurface = themeBackgroundDark,
         inverseOnSurface = themeForegroundDark,
         inversePrimary = themePrimaryDark
     )
@@ -66,7 +66,7 @@ internal val IntentDarkColors = with(IntentColors) {
     darkColorScheme(
         primary = themePrimaryDark,
         onPrimary = agentAvatarGlyphDark,
-        primaryContainer = agentAvatarSurfaceCompletedDark,
+        primaryContainer = themeSidebarSelectionDark,
         onPrimaryContainer = themeForegroundDark,
         secondary = themeMutedForegroundDark,
         onSecondary = themeBackgroundDark,
@@ -82,32 +82,32 @@ internal val IntentDarkColors = with(IntentColors) {
         onSurface = themeForegroundDark,
         surfaceVariant = themeMutedDark,
         onSurfaceVariant = themeMutedForegroundDark,
-        surfaceTint = themePrimaryDark,
+        surfaceTint = themeCardDark,
         surfaceDim = themeSidebarDark,
         surfaceBright = themeSidebarSelectionDark,
         surfaceContainerLowest = themeMutedDark,
         surfaceContainerLow = themeCardDark,
         surfaceContainer = themeBackgroundDark,
         surfaceContainerHigh = themeSidebarSelectionDark,
-        surfaceContainerHighest = themeBorderDark,
+        surfaceContainerHighest = themeSidebarSelectionDark,
         outline = themeBorderDark,
         outlineVariant = themeBorderDark,
         error = themeDestructiveDark,
-        onError = agentAvatarGlyphDark,
+        onError = themeForegroundDark,
         errorContainer = agentAvatarSurfaceFailedDark,
         onErrorContainer = agentAvatarGlyphDark,
-        inverseSurface = themeCardLight,
+        inverseSurface = themeBackgroundLight,
         inverseOnSurface = themeForegroundLight,
         inversePrimary = themePrimaryLight
     )
 }
 
 private val IntentShapes = Shapes(
-    extraSmall = RoundedCornerShape(4.dp),
-    small = RoundedCornerShape(6.dp),
-    medium = RoundedCornerShape(8.dp),
-    large = RoundedCornerShape(12.dp),
-    extraLarge = RoundedCornerShape(20.dp)
+    extraSmall = RoundedCornerShape(8.dp),
+    small = RoundedCornerShape(8.dp),
+    medium = RoundedCornerShape(16.dp),
+    large = RoundedCornerShape(20.dp),
+    extraLarge = RoundedCornerShape(24.dp)
 )
 
 /** Fixed brand palette; follows system night mode unless a preview supplies an override. */

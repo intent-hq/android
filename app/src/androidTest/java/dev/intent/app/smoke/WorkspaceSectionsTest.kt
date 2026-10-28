@@ -97,11 +97,11 @@ class WorkspaceSectionsTest {
     fun childrenReturnToTheirSectionAndSectionBackExitsWorkspace() = connected {
         openWorkspace()
         compose.onNodeWithText("Agent 1").performClick()
-        compose.onNodeWithText("Message").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Message").assertIsDisplayed()
         compose.onNodeWithText("Linked plan").performTouchInput { click(Offset(20f, center.y)) }
         compose.onNodeWithText("Note body").assertIsDisplayed()
         back()
-        compose.onNodeWithText("Message").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Message").assertIsDisplayed()
         compose.onNodeWithText("Linked plan").assertIsDisplayed()
         back()
         compose.onNodeWithText("Agents").assertIsSelected()

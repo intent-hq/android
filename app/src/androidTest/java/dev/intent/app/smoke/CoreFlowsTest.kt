@@ -13,6 +13,7 @@ import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.isToggleable
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
@@ -191,7 +192,9 @@ class CoreFlowsTest {
                     }
                 }
                 compose.onNodeWithText("Send").assertIsNotEnabled()
-                compose.onNodeWithText("Message").performTextInput("Check the Android build.")
+                compose.onNodeWithContentDescription(
+                    "Message"
+                ).performTextInput("Check the Android build.")
                 compose.onNodeWithText("Send").performClick()
                 compose.waitUntil(TIMEOUT) {
                     sends.state.value.attempts.singleOrNull()?.status ==
@@ -202,7 +205,7 @@ class CoreFlowsTest {
                     JsonPrimitive("Check the Android build."),
                     (request.params as JsonObject)["content"]
                 )
-                compose.onNodeWithText("Message").assertTextEquals("Message", "")
+                compose.onNodeWithContentDescription("Message").assertTextEquals("Message", "")
                 compose.onNodeWithText("Accepted. Waiting for the transcript.").assertIsDisplayed()
                 screenshots("conversation")
             }

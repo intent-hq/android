@@ -3,13 +3,13 @@ package dev.intent.app.workspaces
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import dev.intent.app.design.IntentScreen
+import dev.intent.app.design.IntentSpacing
+import dev.intent.app.design.IntentTabs
 import dev.intent.app.navigation.ChromeAction
 import dev.intent.app.navigation.CompactAppBar
 import dev.intent.app.navigation.LocalWorkspaceTitle
@@ -41,15 +41,15 @@ internal fun WorkspaceDetailScreen(
                 color = IntentScreen.secondaryText
             )
         }
-        TabRow(selectedTabIndex = selectedIndex) {
-            sections.forEachIndexed { index, (title, destination) ->
-                Tab(
-                    selected = index == selectedIndex,
-                    onClick = { open(destination) },
-                    text = { Text(title) }
-                )
-            }
-        }
+        IntentTabs(
+            titles = sections.map { it.first },
+            selectedIndex = selectedIndex,
+            onSelect = { open(sections[it].second) },
+            modifier = Modifier.padding(
+                horizontal = IntentSpacing.page,
+                vertical = IntentSpacing.content
+            )
+        )
     }
 }
 

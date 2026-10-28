@@ -2,9 +2,9 @@ package dev.intent.app.navigation
 
 import androidx.compose.foundation.layout.Row
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.staticCompositionLocalOf
+import dev.intent.app.design.IntentTextButton as TextButton
 
 internal val LocalWorkspaceSectionHeader =
     staticCompositionLocalOf<(@Composable (List<ChromeAction>) -> Unit)?> { null }
