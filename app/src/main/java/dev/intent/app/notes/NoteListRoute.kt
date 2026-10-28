@@ -3,7 +3,7 @@ package dev.intent.app.notes
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
@@ -11,13 +11,16 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import dev.intent.app.design.IntentSpacing
+import dev.intent.app.design.IntentTabs
 import dev.intent.app.files.WorkspaceFilePreviewRoute
 import dev.intent.app.files.WorkspaceFileRpc
 import dev.intent.app.files.WorkspaceFileSource
+import dev.intent.app.files.WorkspaceFilesList
 import dev.intent.app.files.WorkspaceFilesStore
-import dev.intent.app.files.workspaceFiles
 import dev.intent.app.lists.RefreshableList
 import dev.intent.app.navigation.WorkspaceSectionAppBar
 import dev.intent.core.protocol.models.NoteListResult
@@ -75,7 +78,9 @@ fun NoteListRoute(
         },
         onSelected,
         modifier,
-        files = { workspaceFiles(filesState, files::toggle, files::retry) { selectedFile = it } },
+        files = {
+            WorkspaceFilesList(filesState, files::toggle, files::retry) { selectedFile = it }
+        },
         refreshingFiles = filesState.loading.isNotEmpty()
     )
 }
@@ -87,22 +92,35 @@ internal fun NoteListScreen(
     onRefresh: () -> Unit,
     onSelected: (String) -> Unit,
     modifier: Modifier = Modifier,
-    files: (LazyListScope.() -> Unit)? = null,
+    files: (@Composable () -> Unit)? = null,
     refreshingFiles: Boolean = false
 ) {
+    var showFiles by rememberSaveable { mutableStateOf(false) }
+    val savedState = rememberSaveableStateHolder()
     Column(modifier) {
         WorkspaceSectionAppBar("Context")
+        if (files != null) {
+            IntentTabs(
+                titles = listOf("Notes", "Files"),
+                selectedIndex = if (showFiles) 1 else 0,
+                onSelect = { showFiles = it == 1 },
+                modifier = Modifier.padding(horizontal = IntentSpacing.page)
+            )
+        }
         RefreshableList(state.loading || refreshingFiles, onRefresh) {
-            if (state.loading && state.notes.isEmpty()) {
+            if (showFiles && files != null) {
+                savedState.SaveableStateProvider("files") { files() }
+            } else if (state.loading && state.notes.isEmpty()) {
                 Spacer(Modifier.fillMaxSize())
             } else {
-                ContextNoteList(
-                    state.notes,
-                    onSelected,
-                    loading = state.loading,
-                    error = state.error,
-                    files = files
-                )
+                savedState.SaveableStateProvider("notes") {
+                    ContextNoteList(
+                        state.notes,
+                        onSelected,
+                        loading = state.loading,
+                        error = state.error
+                    )
+                }
             }
         }
     }

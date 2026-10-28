@@ -114,11 +114,11 @@ fun WorkspaceListScreen(
             "Search workspaces",
             state.workspaces.isNotEmpty(),
             launcher = dev.intent.app.navigation.LocalLauncherActions.current
-        ) {
+        ) { contentPadding ->
             RefreshableList(state.isLoading, onRefresh) {
                 LazyColumn(
                     Modifier.fillMaxSize(),
-                    contentPadding = IntentScreen.pageInsets,
+                    contentPadding = contentPadding,
                     verticalArrangement = Arrangement.spacedBy(0.dp)
                 ) {
                     state.error?.let { item { Text(it, color = MaterialTheme.colorScheme.error) } }

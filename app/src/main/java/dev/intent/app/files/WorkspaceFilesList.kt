@@ -30,13 +30,23 @@ internal fun LazyListScope.workspaceFiles(
     state: WorkspaceFilesState,
     onToggle: (String) -> Unit,
     onRetry: (String) -> Unit,
-    onSelected: (String) -> Unit
+    onSelected: (String) -> Unit,
+    query: String = ""
 ) {
     item(key = "files.root") { DirectoryStatus(state, ".", onRetry) }
-    items(state.rows, key = { "files.${it.entry.path}" }) { row ->
+    val rows = fileSearchRows(state, query)
+    if (query.isNotBlank() && rows.isEmpty()) {
+        item { Text("No matching loaded files. Open folders to load more files.") }
+    }
+    items(rows, key = { "files.${it.entry.path}" }) { row ->
         val entry = row.entry
         val expanded = entry.path in state.expanded
-        Column(Modifier.padding(start = 16.dp * row.depth.coerceAtMost(MAX_TREE_DEPTH))) {
+        Column(
+            Modifier.padding(
+                start =
+                fileRowInset(row, query)
+            )
+        ) {
             Row(
                 Modifier.fillMaxWidth().heightIn(min = 48.dp)
                     .testTag("files.${if (entry.isDirectory) "folder" else "file"}.${entry.path}")
@@ -96,3 +106,14 @@ private fun DirectoryStatus(state: WorkspaceFilesState, path: String, retry: (St
 }
 
 private const val MAX_TREE_DEPTH = 3
+
+private fun fileSearchRows(state: WorkspaceFilesState, query: String) = if (query.isBlank()) {
+    state.rows
+} else {
+    state.entries.values.flatten()
+        .filter { it.path.contains(query.trim(), ignoreCase = true) }
+        .distinctBy { it.path }.map { WorkspaceFileRow(it, MAX_TREE_DEPTH) }
+}
+
+private fun fileRowInset(row: WorkspaceFileRow, query: String) =
+    16.dp * if (query.isBlank()) row.depth.coerceAtMost(MAX_TREE_DEPTH) else 0

@@ -30,7 +30,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import dev.intent.app.design.AgentAvatarState
-import dev.intent.app.design.IntentScreen
 import dev.intent.app.design.IntentTextButton as TextButton
 import dev.intent.app.lists.RefreshableList
 import dev.intent.app.lists.SearchableList
@@ -87,14 +86,14 @@ fun AgentListScreen(
             state.agents.isNotEmpty(),
             currentOnly,
             { currentOnly = it }
-        ) {
+        ) { contentPadding ->
             RefreshableList(state.isLoading, onRefresh) {
                 if (state.isLoading && state.agents.isEmpty()) {
                     Spacer(Modifier.fillMaxSize())
                 } else {
                     LazyColumn(
                         Modifier.fillMaxSize(),
-                        contentPadding = IntentScreen.pageInsets,
+                        contentPadding = contentPadding,
                         verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         state.error?.let {

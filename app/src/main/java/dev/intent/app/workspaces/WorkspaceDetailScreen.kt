@@ -47,7 +47,7 @@ internal fun WorkspaceDetailScreen(
             onSelect = { open(sections[it].second) },
             modifier = Modifier.padding(
                 horizontal = IntentSpacing.page,
-                vertical = IntentSpacing.content
+                vertical = IntentSpacing.small
             )
         )
     }

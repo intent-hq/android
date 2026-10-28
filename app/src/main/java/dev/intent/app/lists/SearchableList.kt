@@ -4,6 +4,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -14,12 +15,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.SearchBar
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -34,7 +34,6 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.unit.dp
 
 @OptIn(
-    ExperimentalMaterial3Api::class,
     androidx.compose.foundation.layout.ExperimentalLayoutApi::class
 )
 @Suppress("LongParameterList", "LongMethod")
@@ -47,7 +46,7 @@ internal fun SearchableList(
     currentOnly: Boolean? = null,
     onCurrentOnly: (Boolean) -> Unit = {},
     launcher: dev.intent.app.navigation.LauncherActions? = null,
-    content: @Composable () -> Unit
+    content: @Composable (PaddingValues) -> Unit
 ) {
     var searching by rememberSaveable { mutableStateOf(false) }
     val keyboardVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
@@ -55,7 +54,6 @@ internal fun SearchableList(
     val focus = LocalFocusManager.current
     val close: () -> Unit = {
         onQuery("")
-        onCurrentOnly(false)
         searching = false
         focus.clearFocus()
         keyboard?.hide()
@@ -64,15 +62,10 @@ internal fun SearchableList(
     Box(Modifier.fillMaxSize()) {
         Column {
             if (searching) {
-                SearchBar(
-                    query = query,
-                    onQueryChange = onQuery,
-                    onSearch = {
-                        focus.clearFocus()
-                        keyboard?.hide()
-                    },
-                    active = false,
-                    onActiveChange = {},
+                OutlinedTextField(
+                    value = query,
+                    onValueChange = onQuery,
+                    singleLine = true,
                     placeholder = { Text(label) },
                     leadingIcon = {
                         IconButton(onClick = close) {
@@ -83,20 +76,33 @@ internal fun SearchableList(
                         IconButton(onClick = close) { Icon(Icons.Default.Close, "Clear search") }
                     },
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
-                ) {}
-                if (currentOnly != null) {
-                    Row(
-                        Modifier.padding(horizontal = 16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        FilterChip(currentOnly, {
-                            onCurrentOnly(true)
-                        }, label = { Text("Current") })
-                        FilterChip(!currentOnly, { onCurrentOnly(false) }, label = { Text("All") })
-                    }
+                )
+            }
+            if (currentOnly != null) {
+                Row(
+                    Modifier.padding(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    FilterChip(currentOnly, {
+                        onCurrentOnly(true)
+                    }, label = { Text("Current") })
+                    FilterChip(!currentOnly, { onCurrentOnly(false) }, label = { Text("All") })
                 }
             }
-            Box(Modifier.weight(1f)) { content() }
+            Box(Modifier.weight(1f)) {
+                content(
+                    PaddingValues(
+                        start = dev.intent.app.design.IntentSpacing.page,
+                        end = dev.intent.app.design.IntentSpacing.page,
+                        top = 4.dp,
+                        bottom = listBottomInset(
+                            searching || keyboardVisible,
+                            launcher != null,
+                            hasData
+                        )
+                    )
+                )
+            }
         }
         if (!searching && hasData && !keyboardVisible) {
             FloatingActionButton(
@@ -114,4 +120,11 @@ internal fun SearchableList(
             )
         }
     }
+}
+
+private fun listBottomInset(searching: Boolean, launcher: Boolean, hasData: Boolean) = when {
+    searching -> 16.dp
+    launcher && hasData -> 160.dp
+    launcher || hasData -> 88.dp
+    else -> 16.dp
 }
