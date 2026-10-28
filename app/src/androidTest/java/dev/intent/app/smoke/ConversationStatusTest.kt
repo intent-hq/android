@@ -52,7 +52,7 @@ class ConversationStatusTest {
             IntentTheme {
                 Surface(Modifier.fillMaxSize()) {
                     ConversationScreen(ConversationState(isLoading = false), {}, { _, _ -> }, {}) {
-                        ConversationStatusStrip(fixture(), agent, listOf(agent), {
+                        ConversationStatusStrip(fixture(), agent, {
                             selected.value = WatchDetail(it, it, loading = false)
                         }, {}, {})
                         ConversationComposer(ConversationSendState(), {
@@ -109,23 +109,33 @@ class ConversationStatusTest {
     }
 
     @Test fun childWaitsAndEmptyStripDoNotInventActivity() {
-        val current = mutableStateOf(agent.copy(waitingForAgentIds = listOf("child")))
+        val payload = InstrumentationRegistry.getInstrumentation().context.assets
+            .open("agent-watches-live.json").bufferedReader().use { it.readText() }
+        val state = mutableStateOf(dev.intent.app.status.parseAgentWatches(json(payload)))
+        var selected: String? = null
         compose.setContent {
             IntentTheme {
                 ConversationStatusStrip(
                     WatchState(),
-                    current.value,
-                    listOf(Agent("child", "Implementor", status = "active")),
+                    agent.copy(workspaceId = "port-create"),
                     {},
                     {},
-                    {}
+                    {},
+                    onAgent = { selected = it },
+                    agentWatches = state.value
                 )
             }
         }
-        compose.onNodeWithText("Waiting for agents").assertIsDisplayed()
-        compose.onNodeWithText("Implementor · Running").assertIsDisplayed()
-        compose.runOnIdle { current.value = agent }
-        compose.onNodeWithText("Waiting for agents").assertDoesNotExist()
+        compose.onNodeWithText("Waiting for all (0/3)").assertIsDisplayed()
+        compose.onNodeWithTag(
+            "watched-agent-agent-a3ba0aa6-a298-46a5-ab86-8379d2567d4f"
+        ).performClick()
+        compose.runOnIdle {
+            check(selected == "agent-a3ba0aa6-a298-46a5-ab86-8379d2567d4f")
+        }
+        screenshot("agent-delegation-group")
+        compose.runOnIdle { state.value = dev.intent.app.status.AgentWatches() }
+        compose.onNodeWithText("Waiting for all (0/3)").assertDoesNotExist()
         compose.onNodeWithText("Working…").assertDoesNotExist()
     }
 
@@ -153,8 +163,8 @@ class ConversationStatusTest {
             IntentTheme(darkTheme = true) {
                 Surface(Modifier.fillMaxSize()) {
                     ConversationScreen(state.value, {}, { _, _ -> }, {}) {
-                        ConversationStatusStrip(WatchState(), agent, listOf(agent), {
-                        }, {}, {}, isStreaming = state.value.isStreaming)
+                        ConversationStatusStrip(WatchState(), agent, {
+                        }, {}, {}, agentWatches = dev.intent.app.status.AgentWatches())
                         ConversationComposer(ConversationSendState(), {
                             false
                         }, {}, { _, _ -> false })
@@ -164,7 +174,7 @@ class ConversationStatusTest {
         }
         compose.onNodeWithText("Sent ·", substring = true).assertIsDisplayed()
         compose.onNodeWithTag("conversation-thinking").assertIsDisplayed()
-        compose.onNodeWithTag("conversation-working").assertIsDisplayed()
+        compose.onNodeWithTag("conversation-working").assertDoesNotExist()
         screenshot("conversation-sent-thinking-dark")
         compose.runOnIdle { state.value = state.value.copy(isStreaming = false) }
         compose.onNodeWithTag("conversation-thinking").assertDoesNotExist()

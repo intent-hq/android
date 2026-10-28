@@ -36,6 +36,8 @@ internal class SmokeServer(
             "file.list" -> "[]"
             "hook.list" -> """{"hooks":[]}"""
             "prMonitor.list" -> """{"monitors":[]}"""
+            "agent.getSubscriptions" ->
+                """{"subscriptions":[],"delegationGroups":[],"agents":[]}"""
             "agent.list" -> """{"agents":[]}"""
             "agent.markSeen" -> buildJsonObject {
                 put("success", true)

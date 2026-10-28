@@ -39,8 +39,10 @@ import dev.intent.app.navigation.ChromeAction
 import dev.intent.app.navigation.CompactAppBar
 import dev.intent.app.navigation.LocalChromeActions
 import dev.intent.app.navigation.LocalChromeBack
+import dev.intent.app.status.AgentWatchStore
 import dev.intent.app.status.ConversationStatusStrip
 import dev.intent.app.status.LocalWatchState
+import dev.intent.app.status.RpcAgentWatchSource
 import dev.intent.app.status.RpcWatchSource
 import dev.intent.app.status.ScriptWatchSheet
 import dev.intent.app.status.WatchFamily
@@ -143,6 +145,14 @@ fun WorkspaceConversations(
             val conversation = remember(session, workspaceId, agentId) {
                 ConversationStore(RpcConversationSession(session, workspaceId, agentId), agentId)
             }
+            val agentWatches = remember(session, workspaceId, agentId) {
+                AgentWatchStore(RpcAgentWatchSource(session, workspaceId, agentId), agentId)
+            }
+            val waiting by agentWatches.state.collectAsState()
+            DisposableEffect(agentWatches) {
+                agentWatches.start()
+                onDispose { agentWatches.close() }
+            }
             val sends = remember(session, workspaceId, agentId) {
                 ConversationSendStore(
                     RpcConversationCommands(session, workspaceId, agentId),
@@ -243,18 +253,18 @@ fun WorkspaceConversations(
                             photos = photos,
                             draft = draft,
                             seen = seen
-                        ) { streaming ->
+                        ) {
                             ConversationStatusStrip(
                                 watchState,
                                 agent,
-                                agentState.agents,
                                 watches::select,
                                 {
                                     watches.refresh(it)
                                 },
                                 { watches.refresh(WatchFamily.SCRIPT, more = true) },
                                 { selected = it },
-                                isStreaming = streaming,
+                                agentWatches = waiting,
+                                onRetryAgents = agentWatches::refresh,
                                 onPrAction = watches::prAction
                             )
                         }

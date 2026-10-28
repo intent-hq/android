@@ -60,7 +60,6 @@ class PrMonitorActionsTest {
                                 ConversationStatusStrip(
                                     state,
                                     Agent("a", "Coordinator"),
-                                    emptyList(),
                                     store::select,
                                     {
                                         store.refresh(it)
@@ -123,7 +122,6 @@ class PrMonitorActionsTest {
                         ConversationStatusStrip(
                             state,
                             Agent("a", "Coordinator"),
-                            emptyList(),
                             store::select,
                             { store.refresh(it) },
                             {},

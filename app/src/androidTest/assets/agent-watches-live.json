@@ -1,0 +1,170 @@
+{
+  "subscriptions": [
+    {
+      "id": "016b226e-a4ed-44f1-83cf-9d8851c1869c",
+      "agentId": "agent-d25fa9fe-4954-40da-9a35-aeae4dbf2378",
+      "agentName": "Android Port Coordinator",
+      "workspaceId": "port-create",
+      "createdAt": "2026-10-28T06:38:23.966189Z",
+      "actorIds": [
+        "agent-a3ba0aa6-a298-46a5-ab86-8379d2567d4f"
+      ],
+      "eventTypes": [
+        "agent:idle",
+        "agent:failed",
+        "agent:deleted"
+      ],
+      "delegationGroup": {
+        "groupId": "1179307f-1ca9-4e1e-86e6-5c745fe70bc3",
+        "awaitMode": "all",
+        "expectedAgentIds": [
+          "agent-a3ba0aa6-a298-46a5-ab86-8379d2567d4f",
+          "agent-cab43d48-65b1-49c6-b8ee-6db05fa98818"
+        ]
+      },
+      "description": "Android Port Coordinator: 3 event types, from agent-a3ba0aa6-a298-46a5-ab86-8379d2567d4f, delegation group 1179307f-1ca9-4e1e-86e6-5c745fe70bc3 (await all, 2 expected)"
+    },
+    {
+      "id": "989a96ba-f541-4c76-883f-c39569b70248",
+      "agentId": "agent-d25fa9fe-4954-40da-9a35-aeae4dbf2378",
+      "agentName": "Android Port Coordinator",
+      "workspaceId": "port-create",
+      "createdAt": "2026-10-28T06:38:23.97671Z",
+      "actorIds": [
+        "agent-cab43d48-65b1-49c6-b8ee-6db05fa98818"
+      ],
+      "eventTypes": [
+        "agent:idle",
+        "agent:failed",
+        "agent:deleted"
+      ],
+      "delegationGroup": {
+        "groupId": "1179307f-1ca9-4e1e-86e6-5c745fe70bc3",
+        "awaitMode": "all",
+        "expectedAgentIds": [
+          "agent-a3ba0aa6-a298-46a5-ab86-8379d2567d4f",
+          "agent-cab43d48-65b1-49c6-b8ee-6db05fa98818"
+        ]
+      },
+      "description": "Android Port Coordinator: 3 event types, from agent-cab43d48-65b1-49c6-b8ee-6db05fa98818, delegation group 1179307f-1ca9-4e1e-86e6-5c745fe70bc3 (await all, 2 expected)"
+    },
+    {
+      "id": "b082a76e-f0d8-4452-8155-b89975d4549d",
+      "agentId": "agent-d25fa9fe-4954-40da-9a35-aeae4dbf2378",
+      "agentName": "Android Port Coordinator",
+      "workspaceId": "port-create",
+      "createdAt": "2026-10-28T06:39:45.252032Z",
+      "actorIds": [
+        "agent-114d6d47-c732-4905-a5cd-271106e450db"
+      ],
+      "eventTypes": [
+        "agent:idle",
+        "agent:failed",
+        "agent:deleted"
+      ],
+      "delegationGroup": {
+        "groupId": "ee599e33-8733-4d00-8b8a-4f4ce0f44238",
+        "awaitMode": "all",
+        "expectedAgentIds": [
+          "agent-114d6d47-c732-4905-a5cd-271106e450db"
+        ]
+      },
+      "description": "Android Port Coordinator: 3 event types, from agent-114d6d47-c732-4905-a5cd-271106e450db, delegation group ee599e33-8733-4d00-8b8a-4f4ce0f44238 (await all, 1 expected)"
+    }
+  ],
+  "delegationGroups": [
+    {
+      "groupId": "1179307f-1ca9-4e1e-86e6-5c745fe70bc3",
+      "parentAgentId": "agent-d25fa9fe-4954-40da-9a35-aeae4dbf2378",
+      "awaitMode": "all",
+      "expectedAgentIds": [
+        "agent-a3ba0aa6-a298-46a5-ab86-8379d2567d4f",
+        "agent-cab43d48-65b1-49c6-b8ee-6db05fa98818"
+      ],
+      "completedAgentIds": [],
+      "deletedAgentIds": [],
+      "delivered": false
+    },
+    {
+      "groupId": "ee599e33-8733-4d00-8b8a-4f4ce0f44238",
+      "parentAgentId": "agent-d25fa9fe-4954-40da-9a35-aeae4dbf2378",
+      "awaitMode": "all",
+      "expectedAgentIds": [
+        "agent-114d6d47-c732-4905-a5cd-271106e450db"
+      ],
+      "completedAgentIds": [],
+      "deletedAgentIds": [],
+      "delivered": false
+    }
+  ],
+  "agentStatuses": {
+    "agent-114d6d47-c732-4905-a5cd-271106e450db": "responding",
+    "agent-a3ba0aa6-a298-46a5-ab86-8379d2567d4f": "responding",
+    "agent-cab43d48-65b1-49c6-b8ee-6db05fa98818": "responding",
+    "agent-d25fa9fe-4954-40da-9a35-aeae4dbf2378": "idle"
+  },
+  "agents": [
+    {
+      "id": "agent-cab43d48-65b1-49c6-b8ee-6db05fa98818",
+      "workspaceId": "port-create",
+      "parentAgentId": "agent-d25fa9fe-4954-40da-9a35-aeae4dbf2378",
+      "name": "Create and delete terminals",
+      "status": "active",
+      "isActive": true,
+      "isStreaming": false,
+      "isProcessing": false,
+      "isResponding": true,
+      "isWaitingOnTool": true,
+      "isWaitingForOtherAgents": true,
+      "waitingForAgentIds": [
+        "agent-a3ba0aa6-a298-46a5-ab86-8379d2567d4f"
+      ],
+      "turnInFlight": true,
+      "createdAt": "2026-10-28T06:38:23.95392Z",
+      "updatedAt": "2026-10-28T06:38:26.48589Z",
+      "lastActivity": "2026-10-28T06:41:16.969072Z"
+    },
+    {
+      "id": "agent-a3ba0aa6-a298-46a5-ab86-8379d2567d4f",
+      "workspaceId": "port-create",
+      "parentAgentId": "agent-d25fa9fe-4954-40da-9a35-aeae4dbf2378",
+      "name": "Plain stop button",
+      "status": "active",
+      "isActive": true,
+      "isStreaming": false,
+      "isProcessing": false,
+      "isResponding": true,
+      "isWaitingOnTool": true,
+      "isWaitingForOtherAgents": true,
+      "waitingForAgentIds": [
+        "agent-cab43d48-65b1-49c6-b8ee-6db05fa98818",
+        "agent-114d6d47-c732-4905-a5cd-271106e450db"
+      ],
+      "turnInFlight": true,
+      "createdAt": "2026-10-28T06:38:23.944731Z",
+      "updatedAt": "2026-10-28T06:41:19.497436Z",
+      "lastActivity": "2026-10-28T06:41:31.180702Z"
+    },
+    {
+      "id": "agent-114d6d47-c732-4905-a5cd-271106e450db",
+      "workspaceId": "port-create",
+      "parentAgentId": "agent-d25fa9fe-4954-40da-9a35-aeae4dbf2378",
+      "name": "Fix: waiting-for-agents status missing on Android",
+      "status": "active",
+      "isActive": true,
+      "isStreaming": false,
+      "isProcessing": false,
+      "isResponding": true,
+      "isWaitingOnTool": true,
+      "isWaitingForOtherAgents": true,
+      "waitingForAgentIds": [
+        "agent-a3ba0aa6-a298-46a5-ab86-8379d2567d4f"
+      ],
+      "turnInFlight": true,
+      "createdAt": "2026-10-28T06:39:45.239116Z",
+      "updatedAt": "2026-10-28T06:39:46.581934Z",
+      "lastActivity": "2026-10-28T06:41:32.483137Z"
+    }
+  ],
+  "eventSubscriptions": []
+}

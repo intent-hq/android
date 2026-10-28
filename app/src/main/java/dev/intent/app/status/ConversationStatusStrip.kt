@@ -30,8 +30,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
-import dev.intent.app.agents.avatarState
-import dev.intent.app.conversation.conversationRunning
 import dev.intent.app.design.IntentTextButton as TextButton
 import dev.intent.core.protocol.models.Agent
 import java.time.Instant
@@ -45,12 +43,12 @@ val LocalWatchState = staticCompositionLocalOf { WatchState() }
 fun ConversationStatusStrip(
     state: WatchState,
     agent: Agent?,
-    agents: List<Agent>,
     onSelect: (JsonObject) -> Unit,
     onRetry: (WatchFamily) -> Unit,
     onMore: () -> Unit,
     onAgent: (String) -> Unit = {},
-    isStreaming: Boolean = agent?.conversationRunning() == true,
+    agentWatches: AgentWatches = AgentWatches(),
+    onRetryAgents: () -> Unit = {},
     onPrAction: (String, PrMonitorAction) -> Unit = { _, _ -> }
 ) {
     val now = watchClock()
@@ -59,31 +57,22 @@ fun ConversationStatusStrip(
             "conversation-status"
         ).heightIn(max = 220.dp).verticalScroll(rememberScrollState())
     ) {
-        if (isStreaming) {
-            Text(
-                "Working…",
-                modifier = Modifier.testTag("conversation-working"),
-                style = MaterialTheme.typography.labelMedium
-            )
-        }
         WatchFamily.entries.forEach { family ->
             WatchRow(family, state, agent?.id.orEmpty(), now, onSelect, onRetry, onMore, onPrAction)
         }
-        if (agent != null &&
-            (agent.isWaitingForOtherAgents || agent.waitingForAgentIds.isNotEmpty())
-        ) {
-            Text("Waiting for agents", style = MaterialTheme.typography.labelMedium)
-            Row(
-                Modifier.horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                agent.waitingForAgentIds.forEach { id ->
-                    val child = agents.firstOrNull { it.id == id }
-                    AssistChip(onClick = { onAgent(id) }, label = {
-                        Text(
-                            "${child?.name ?: id} · ${child?.avatarState()?.label ?: "Status unavailable"}"
-                        )
-                    })
+        agentWatches.error?.let {
+            TextButton(onClick = onRetryAgents) { Text(it) }
+        }
+        if (agentWatches.rows.isNotEmpty()) {
+            Text(agentWatches.header, style = MaterialTheme.typography.labelMedium)
+            Column {
+                agentWatches.rows.forEach { row ->
+                    AssistChip(
+                        onClick = { onAgent(row.agent.id) },
+                        enabled = !row.deleted && row.agent.workspaceId == agent?.workspaceId,
+                        modifier = Modifier.testTag("watched-agent-${row.agent.id}"),
+                        label = { Text("${row.agent.name} · ${row.label}") }
+                    )
                 }
             }
         }
