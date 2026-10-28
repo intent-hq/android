@@ -80,6 +80,19 @@ class TerminalStoreTest {
     }
 
     @Test
+    fun rapidKeystrokesWaitForAcknowledgementInOrder() {
+        val source = FakeTerminals()
+        val store = ready(source)
+        store.send("a")
+        store.send("b")
+        store.send("c")
+        source.writeResults[0].complete(TerminalAck(true))
+        assertEquals(listOf("a", "bc"), source.writes)
+        source.writeResults[1].complete(TerminalAck(true))
+        assertFalse(store.state.value.sending)
+    }
+
+    @Test
     fun selectionAndCloseFenceOldReads() {
         val source = FakeTerminals()
         val store = selected(source)
@@ -148,8 +161,7 @@ class TerminalStoreTest {
     private fun ready(source: FakeTerminals): TerminalStore = selected(source).also {
         source.buffers.last().complete(buffer("abc", 0))
     }
-    private fun text(store: TerminalStore) = store.state.value.frame.lines.firstOrNull()
-        ?.joinToString("") { it.text.toString() }?.trimEnd().orEmpty()
+    private fun text(store: TerminalStore) = store.terminal.text().trimEnd()
 }
 
 private fun encoded(text: String) = Base64.getEncoder().encodeToString(text.toByteArray())

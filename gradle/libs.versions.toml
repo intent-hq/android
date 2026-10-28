@@ -1,4 +1,5 @@
 [versions]
+termux = "0.118.3" # Source-vendored terminal-emulator; see terminal-emulator/vendor.json
 media3 = "1.8.0"
 commonmark = "0.24.0"
 zxing = "4.3.0"

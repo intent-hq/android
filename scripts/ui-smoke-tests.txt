@@ -32,3 +32,5 @@ dev.intent.app.smoke.WorkspaceTransferTest#cancelDuringExportCleansSourceWithout
 dev.intent.app.smoke.WorkspaceTransferTest#cancelDuringUploadWaitsForReplyAndAbortsBothHosts
 dev.intent.app.smoke.WorkspaceTransferTest#exportFailureDoesNotStartImport
 dev.intent.app.smoke.WorkspaceTransferTest#uncertainCommitNeverArchivesOrOffersCancel
+dev.intent.app.smoke.TerminalEmulatorTest#capturedFullScreenAppsRestoreShell
+dev.intent.app.smoke.TerminalEmulatorTest#nativeKeyboardColorsAndResize

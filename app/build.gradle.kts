@@ -63,6 +63,7 @@ ksp {
 }
 
 dependencies {
+    implementation(project(":terminal-emulator"))
     implementation(libs.androidx.media3.exoplayer)
     implementation(libs.androidx.media3.ui)
     androidTestImplementation(platform(libs.androidx.compose.bom))

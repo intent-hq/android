@@ -1,0 +1,13 @@
+Termux terminal emulator and Canvas renderer, v0.118.3.
+Source: https://github.com/termux/termux-app/tree/v0.118.3
+The upstream license declares the Terminal Emulator for Android code in
+terminal-emulator and terminal-view as an Apache License 2.0 exception.
+Upstream repository license declaration is preserved in UPSTREAM-LICENSE.txt.
+Original Terminal Emulator for Android: Copyright 2007 The Android Open Source
+Project; Copyright 2008 Jack Palevich. Termux contributors retain their copyrights.
+WcWidth derives from jquast/wcwidth (MIT); its license is preserved separately.
+
+Only the emulator, renderer and their dependencies are included. No local shell,
+JNI, process management or Termux application code is included.
+Local change: TerminalSessionClient omits local-process session callbacks.
+All other Java sources are unchanged from the pinned upstream release.

@@ -1,0 +1,12 @@
+{
+  "term": "xterm-256color",
+  "columns": 80,
+  "rows": 24,
+  "source": "Generated Intent terminal fixture plus 69 numbered lines",
+  "commands": [
+    "vim -Nu NONE -n -i NONE +set nowrap /tmp/intent-terminal-fixture.txt",
+    "less -R /tmp/intent-terminal-fixture.txt",
+    "htop 3.5.3 -p <fixture sleep process>"
+  ],
+  "note": "Captured from a local PTY before quitting. No user files or shell history. htop was restricted to a disposable sleep process."
+}

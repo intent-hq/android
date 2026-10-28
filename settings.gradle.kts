@@ -16,3 +16,5 @@ dependencyResolutionManagement {
 
 rootProject.name = "IntentAndroid"
 include(":app", ":core:protocol", ":tailcat", ":tailcat:native")
+
+include(":terminal-emulator")

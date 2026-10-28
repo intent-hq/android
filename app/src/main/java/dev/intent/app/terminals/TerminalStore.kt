@@ -11,7 +11,7 @@ import kotlinx.coroutines.flow.asStateFlow
 data class TerminalState(
     val terminals: List<TerminalInfo> = emptyList(),
     val selected: String? = null,
-    val frame: TerminalFrame = TerminalFrame(),
+    val revision: Long = 0,
     val loading: Boolean = true,
     val connected: Boolean = false,
     val creating: Boolean = false,
@@ -29,7 +29,7 @@ data class TerminalState(
 class TerminalStore(private val session: TerminalSession) : Closeable {
     private val mutableState = MutableStateFlow(TerminalState())
     val state = mutableState.asStateFlow()
-    private val renderer = AnsiTerminal()
+    val terminal = TerminalEngine(::send)
     private val replay = TerminalReplay()
     private var lease: Closeable? = null
     private var closed = false
@@ -38,6 +38,8 @@ class TerminalStore(private val session: TerminalSession) : Closeable {
     private var reading = false
     private val pending = mutableListOf<TerminalData>()
     private var pendingSize = 0
+    private val inputQueue = ArrayDeque<String>()
+    private var inputSize = 0
     private var columns = INITIAL_TERMINAL_COLUMNS
     private var rows = INITIAL_TERMINAL_ROWS
 
@@ -56,6 +58,8 @@ class TerminalStore(private val session: TerminalSession) : Closeable {
         val token = ++generation
         reading = true
         pending.clear()
+        inputQueue.clear()
+        inputSize = 0
         pendingSize = 0
         mutableState.value =
             state.value.copy(
@@ -78,9 +82,11 @@ class TerminalStore(private val session: TerminalSession) : Closeable {
                             }
                         }
                         if (boot != result.daemonBootId) {
-                            renderer.reset()
+                            terminal.reset()
                             replay.reset(result.daemonBootId)
                             pending.clear()
+                            inputQueue.clear()
+                            inputSize = 0
                             pendingSize = 0
                         }
                         boot = result.daemonBootId
@@ -90,7 +96,7 @@ class TerminalStore(private val session: TerminalSession) : Closeable {
                             loading = false,
                             connected = true,
                             ended = false,
-                            frame = renderer.frame()
+                            revision = state.value.revision + 1
                         )
                         if (selected != null) snapshot(selected, token) else reading = false
                     }
@@ -184,13 +190,15 @@ class TerminalStore(private val session: TerminalSession) : Closeable {
         if (id != null && state.value.terminals.none { it.id == id }) return
         val token = ++generation
         pending.clear()
+        inputQueue.clear()
+        inputSize = 0
         pendingSize = 0
-        renderer.reset()
+        terminal.reset()
         replay.reset(boot ?: return)
         reading = id != null
         mutableState.value = state.value.copy(
             selected = id,
-            frame = renderer.frame(),
+            revision = state.value.revision + 1,
             ready = false,
             sending = false,
             ended = false,
@@ -224,6 +232,8 @@ class TerminalStore(private val session: TerminalSession) : Closeable {
                             render(applied)
                             val queued = pending.toList()
                             pending.clear()
+                            inputQueue.clear()
+                            inputSize = 0
                             pendingSize = 0
                             reading = false
                             mutableState.value =
@@ -276,10 +286,10 @@ class TerminalStore(private val session: TerminalSession) : Closeable {
     }
 
     private fun render(result: ReplayResult) {
-        if (result.reset) renderer.reset()
-        renderer.feed(result.bytes)
+        if (result.reset) terminal.reset()
+        terminal.feed(result.bytes)
         mutableState.value = state.value.copy(
-            frame = renderer.frame(),
+            revision = state.value.revision + 1,
             notice = when {
                 result.truncated -> "Earlier output is no longer available."
                 result.legacy -> "No output cursors. Reconnect can lose output."
@@ -293,6 +303,8 @@ class TerminalStore(private val session: TerminalSession) : Closeable {
         if (closed || id != state.value.selected) return
         val token = ++generation
         pending.clear()
+        inputQueue.clear()
+        inputSize = 0
         pendingSize = 0
         mutableState.value = state.value.copy(ended = true, ready = false, sending = false)
         snapshot(id, token)
@@ -303,11 +315,16 @@ class TerminalStore(private val session: TerminalSession) : Closeable {
         val current = state.value
         val id = current.selected ?: return
         if (closed || !current.ready) return
-        if (current.sending || text.isEmpty()) return
+        if (text.isEmpty()) return
         val bytes = text.toByteArray(Charsets.UTF_8)
-        if (bytes.size > MAX_INPUT) {
+        if (bytes.size + inputSize > MAX_INPUT) {
             mutableState.value =
                 current.copy(error = "Input is too large. Send a smaller selection.")
+            return
+        }
+        if (current.sending) {
+            inputQueue.addLast(text)
+            inputSize += bytes.size
             return
         }
         val token = generation
@@ -321,6 +338,12 @@ class TerminalStore(private val session: TerminalSession) : Closeable {
                         )
                     } else {
                         mutableState.value = state.value.copy(sending = false)
+                        if (inputQueue.isNotEmpty()) {
+                            val next = inputQueue.joinToString("")
+                            inputQueue.clear()
+                            inputSize = 0
+                            send(next)
+                        }
                     }
                 }
             }
@@ -329,13 +352,13 @@ class TerminalStore(private val session: TerminalSession) : Closeable {
 
     @Synchronized
     fun resize(columns: Int, rows: Int) {
-        val width = columns.coerceIn(1, MAX_COLUMNS)
-        val height = rows.coerceIn(1, MAX_ROWS)
+        val width = columns.coerceIn(2, MAX_COLUMNS)
+        val height = rows.coerceIn(2, MAX_ROWS)
         if (closed || (this.columns == width && this.rows == height)) return
         this.columns = width
         this.rows = height
-        renderer.resize(width, height)
-        mutableState.value = state.value.copy(frame = renderer.frame())
+        terminal.resize(width, height)
+        mutableState.value = state.value.copy(revision = state.value.revision + 1)
         val id = state.value.selected ?: return
         if (!state.value.ready) return
         sendSize(id, generation)
@@ -359,6 +382,8 @@ class TerminalStore(private val session: TerminalSession) : Closeable {
         generation++
         reading = false
         pending.clear()
+        inputQueue.clear()
+        inputSize = 0
         pendingSize = 0
         mutableState.value =
             state.value.copy(
@@ -377,6 +402,8 @@ class TerminalStore(private val session: TerminalSession) : Closeable {
         lease?.close()
         lease = null
         pending.clear()
+        inputQueue.clear()
+        inputSize = 0
     }
 }
 

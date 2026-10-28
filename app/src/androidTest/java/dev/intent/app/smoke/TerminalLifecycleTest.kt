@@ -39,8 +39,7 @@ class TerminalLifecycleTest {
             waitText("No terminal sessions")
             screenshot("terminal-empty")
             compose.onNodeWithText("New terminal").performClick()
-            waitText("Basic ANSI display. Full-screen apps have limited rendering.")
-            waitText("Terminal input")
+            waitText("Keyboard")
             screenshot("terminal-created")
             val create = server.actions.single()
             assertEquals("terminal.create", create.method)
@@ -50,7 +49,7 @@ class TerminalLifecycleTest {
             )
             compose.onNodeWithContentDescription("Back").performClick()
             compose.onNodeWithTag("terminal-open-new").performClick()
-            waitText("Terminal input")
+            waitText("Keyboard")
             compose.onNodeWithContentDescription("Back").performClick()
             compose.onNodeWithTag("terminal-delete-new").performClick()
             compose.onNodeWithText("Delete terminal?").assertIsDisplayed()
@@ -79,7 +78,7 @@ class TerminalLifecycleTest {
             waitText("Cannot create the terminal. Refresh before trying again.")
             screenshot("terminal-create-error")
             compose.onNodeWithText("New terminal").performClick()
-            waitText("Terminal input")
+            waitText("Keyboard")
             compose.onNodeWithContentDescription("Back").performClick()
             server.failKill = true
             compose.onNodeWithTag("terminal-delete-new").performClick()
@@ -96,11 +95,11 @@ class TerminalLifecycleTest {
 
     @Test fun resourceRequestCreatesAndOpensOnce() {
         withTerminal(createOnOpen = true) { server ->
-            waitText("Terminal input")
+            waitText("Keyboard")
             assertEquals(1, server.actions.size)
             compose.onNodeWithContentDescription("More actions").performClick()
             compose.onNodeWithText("Refresh").performClick()
-            waitText("Terminal input")
+            waitText("Keyboard")
             compose.onNodeWithContentDescription("Back").performClick()
             compose.onNodeWithTag("terminal-open-new").assertIsDisplayed()
             compose.waitForIdle()
