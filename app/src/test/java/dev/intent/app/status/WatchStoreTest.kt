@@ -13,6 +13,43 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class WatchStoreTest {
+    @Test fun prActionsRejectDuplicatesKeepFailedRowsAndRefreshAfterAcknowledgement() {
+        val source = FakeWatches(false)
+        val store = WatchStore(source)
+        store.start()
+        source.ready.getValue(WatchFamily.PR)()
+        source.reads.getValue(WatchFamily.PR).last().complete(WatchPage(listOf(script())))
+        store.prAction("missing", PrMonitorAction.CANCEL)
+        assertTrue(source.actions.isEmpty())
+        store.prAction("watch", PrMonitorAction.FLUSH)
+        store.prAction("watch", PrMonitorAction.CANCEL)
+        assertEquals(1, source.actions.size)
+        assertTrue(store.state.value.prActions.getValue("watch").busy)
+        source.actions.last().completeExceptionally(IllegalStateException())
+        assertNotNull(store.state.value.prActions.getValue("watch").error)
+        assertEquals(1, store.state.value.rows(WatchFamily.PR, "a").size)
+        store.prAction("watch", PrMonitorAction.CANCEL)
+        source.actions.last().complete(Unit)
+        assertEquals(2, source.reads.getValue(WatchFamily.PR).size)
+        assertEquals(1, store.state.value.rows(WatchFamily.PR, "a").size)
+        source.reads.getValue(WatchFamily.PR).last().complete(WatchPage())
+        assertTrue(store.state.value.rows(WatchFamily.PR, "a").isEmpty())
+    }
+
+    @Test fun closedStoreIgnoresLatePrActionResult() {
+        val source = FakeWatches(false)
+        val store = WatchStore(source)
+        store.start()
+        source.ready.getValue(WatchFamily.PR)()
+        source.reads.getValue(WatchFamily.PR).last().complete(WatchPage(listOf(script())))
+        store.prAction("watch", PrMonitorAction.FLUSH)
+        val before = store.state.value
+        store.close()
+        source.actions.last().complete(Unit)
+        assertEquals(before, store.state.value)
+        assertEquals(1, source.reads.getValue(WatchFamily.PR).size)
+    }
+
     @Test fun triggerPreviewIsBoundedWithoutSplittingUnicode() {
         val full = JsonObject(
             script() + mapOf(
@@ -143,6 +180,9 @@ private class FakeWatches(override val scriptsSupported: Boolean = true) : Watch
     val reads = mutableMapOf<WatchFamily, MutableList<CompletableFuture<WatchPage>>>()
     val details = mutableListOf<CompletableFuture<JsonObject>>()
     val cursors = mutableListOf<String?>()
+    val actions = mutableListOf<CompletableFuture<Unit>>()
+    override fun prAction(id: String, action: PrMonitorAction) =
+        CompletableFuture<Unit>().also(actions::add)
     var closed = 0
     override fun list(family: WatchFamily, cursor: String?): CompletableFuture<WatchPage> {
         cursors.add(cursor)

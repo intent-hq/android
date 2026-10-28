@@ -169,6 +169,36 @@ class WatchStore(private val source: WatchSource) : Closeable {
     }
 
     @Synchronized
+    fun prAction(id: String, action: PrMonitorAction) {
+        if (closed || mutable.value.prActions[id]?.busy == true) return
+        val active = bucket(WatchFamily.PR).page.rows.any {
+            it.text("monitorId") == id && it.active(WatchFamily.PR)
+        }
+        if (!active) return
+        val current = generation
+        setPrAction(id, PrActionState(busy = true))
+        source.prAction(id, action).whenComplete { _, error ->
+            synchronized(this) {
+                if (!closed && generation == current) {
+                    setPrAction(
+                        id,
+                        PrActionState(
+                            error = error?.let {
+                                "${action.label} failed. Try again."
+                            }
+                        )
+                    )
+                    if (error == null) refresh(WatchFamily.PR)
+                }
+            }
+        }
+    }
+
+    private fun setPrAction(id: String, state: PrActionState) {
+        mutable.value = mutable.value.copy(prActions = mutable.value.prActions + (id to state))
+    }
+
+    @Synchronized
     fun select(row: JsonObject) {
         if (closed) return
         mutable.value = mutable.value.copy(selected = WatchDetail(row))

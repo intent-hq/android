@@ -254,7 +254,8 @@ fun WorkspaceConversations(
                                 },
                                 { watches.refresh(WatchFamily.SCRIPT, more = true) },
                                 { selected = it },
-                                isStreaming = streaming
+                                isStreaming = streaming,
+                                onPrAction = watches::prAction
                             )
                         }
                     }

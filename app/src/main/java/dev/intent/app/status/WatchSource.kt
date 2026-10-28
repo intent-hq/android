@@ -13,6 +13,10 @@ import kotlinx.serialization.json.put
 interface WatchSource {
     val scriptsSupported: Boolean
     fun list(family: WatchFamily, cursor: String?): CompletableFuture<WatchPage>
+    fun prAction(id: String, action: PrMonitorAction): CompletableFuture<Unit> =
+        CompletableFuture<Unit>().also {
+            it.completeExceptionally(UnsupportedOperationException("PR actions unavailable"))
+        }
     fun detail(id: String): CompletableFuture<JsonObject>
     fun subscribe(
         family: WatchFamily,
@@ -58,6 +62,19 @@ class RpcWatchSource(private val session: RpcSession, private val workspaceId: S
                 },
                 body.text("nextCursor")
             )
+        }
+
+    override fun prAction(id: String, action: PrMonitorAction): CompletableFuture<Unit> =
+        session.request(
+            "prMonitor.${action.method}",
+            buildJsonObject {
+                put("workspaceId", workspaceId)
+                put("monitorId", id)
+                if (action == PrMonitorAction.FLUSH) put("check", true)
+            }
+        ).thenApply { result ->
+            require((result as? JsonObject)?.text("ok") == "true") { "PR action failed" }
+            Unit
         }
 
     override fun detail(id: String): CompletableFuture<JsonObject> = session.request(

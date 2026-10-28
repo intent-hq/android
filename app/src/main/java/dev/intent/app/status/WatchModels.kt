@@ -34,7 +34,8 @@ data class WatchDetail(
 )
 data class WatchState(
     val buckets: Map<WatchFamily, WatchBucket> = emptyMap(),
-    val selected: WatchDetail? = null
+    val selected: WatchDetail? = null,
+    val prActions: Map<String, PrActionState> = emptyMap()
 ) {
     fun rows(family: WatchFamily, agentId: String): List<JsonObject> =
         buckets[family]?.page?.rows.orEmpty().filter {

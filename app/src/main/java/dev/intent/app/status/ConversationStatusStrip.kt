@@ -50,7 +50,8 @@ fun ConversationStatusStrip(
     onRetry: (WatchFamily) -> Unit,
     onMore: () -> Unit,
     onAgent: (String) -> Unit = {},
-    isStreaming: Boolean = agent?.conversationRunning() == true
+    isStreaming: Boolean = agent?.conversationRunning() == true,
+    onPrAction: (String, PrMonitorAction) -> Unit = { _, _ -> }
 ) {
     val now = watchClock()
     Column(
@@ -66,7 +67,7 @@ fun ConversationStatusStrip(
             )
         }
         WatchFamily.entries.forEach { family ->
-            WatchRow(family, state, agent?.id.orEmpty(), now, onSelect, onRetry, onMore)
+            WatchRow(family, state, agent?.id.orEmpty(), now, onSelect, onRetry, onMore, onPrAction)
         }
         if (agent != null &&
             (agent.isWaitingForOtherAgents || agent.waitingForAgentIds.isNotEmpty())
@@ -98,7 +99,8 @@ private fun WatchRow(
     now: Instant,
     onSelect: (JsonObject) -> Unit,
     onRetry: (WatchFamily) -> Unit,
-    onMore: () -> Unit
+    onMore: () -> Unit,
+    onPrAction: (String, PrMonitorAction) -> Unit
 ) {
     val bucket = state.buckets[family] ?: return
     val rows = state.rows(family, agentId)
@@ -142,16 +144,7 @@ private fun WatchRow(
                     if (family == WatchFamily.HOOK) {
                         HookStatus(row, now)
                     } else {
-                        Text(
-                            "Monitoring PR ${row.text("repo")}: #${row.number("prNumber")}",
-                            style = MaterialTheme.typography.labelMedium
-                        )
-                        Text(prStatus(row), style = MaterialTheme.typography.labelSmall)
-                        if (row.text("hasPendingChanges") ==
-                            "true"
-                        ) {
-                            Text("Pending changes", style = MaterialTheme.typography.labelSmall)
-                        }
+                        PrMonitorRow(row, state.prActions[row.text("monitorId")], onPrAction)
                     }
                 }
             }

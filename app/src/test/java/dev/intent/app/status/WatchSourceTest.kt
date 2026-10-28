@@ -16,6 +16,34 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class WatchSourceTest {
+    @Test fun prActionsUseWorkspaceIdentityAndFreshCheck() {
+        val transports = LinkedBlockingQueue<WatchTransport>()
+        RpcSession({
+            WatchTransport(it).also(transports::add)
+        }, JsonObject(emptyMap())).use { rpc ->
+            rpc.connect()
+            val server = requireNotNull(transports.poll(2, TimeUnit.SECONDS))
+            server.reply(server.request(), "{}")
+            val source = RpcWatchSource(rpc, "ws")
+            for (action in PrMonitorAction.entries) {
+                val result = source.prAction("monitor", action)
+                val request = server.request()
+                assertEquals("prMonitor.${action.method}", request.method)
+                val expected = if (action == PrMonitorAction.FLUSH) {
+                    """{"workspaceId":"ws","monitorId":"monitor","check":true}"""
+                } else {
+                    """{"workspaceId":"ws","monitorId":"monitor"}"""
+                }
+                assertEquals(WireJson.parseToJsonElement(expected), request.params)
+                server.reply(request, """{"ok":true,"flushed":false}""")
+                result.get(2, TimeUnit.SECONDS)
+            }
+            val failed = source.prAction("monitor", PrMonitorAction.CANCEL)
+            server.reply(server.request(), """{"ok":false}""")
+            assertTrue(runCatching { failed.get(2, TimeUnit.SECONDS) }.isFailure)
+        }
+    }
+
     @Test fun acknowledgedFeedUsesCapabilityAndBoundedSummaryReads() {
         val transports = LinkedBlockingQueue<WatchTransport>()
         RpcSession({
