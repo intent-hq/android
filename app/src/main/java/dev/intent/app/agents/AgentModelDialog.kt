@@ -50,14 +50,13 @@ fun AgentModelDialog(
     val scroll = rememberScrollState()
     ModalBottomSheet(
         onDismissRequest = { if (!selection.busy) onDismiss() },
-        modifier = Modifier.fillMaxHeight(MODEL_SHEET_HEIGHT_FRACTION),
         sheetState = rememberModalBottomSheetState(
             skipPartiallyExpanded = true,
             confirmValueChange = { !selection.busy }
         )
     ) {
         Column(
-            Modifier.fillMaxWidth().weight(1f)
+            Modifier.fillMaxWidth().fillMaxHeight(MODEL_SHEET_HEIGHT_FRACTION)
                 .padding(horizontal = IntentScreen.sectionInsets),
             verticalArrangement = Arrangement.spacedBy(IntentScreen.itemSpacing)
         ) {
@@ -168,4 +167,4 @@ private fun ModelChoices(
     }
 }
 
-private const val MODEL_SHEET_HEIGHT_FRACTION = 0.9f
+private const val MODEL_SHEET_HEIGHT_FRACTION = 0.85f
