@@ -1,15 +1,19 @@
 package dev.intent.app.smoke
 
 import android.view.KeyEvent
+import android.view.View
+import android.view.inspector.WindowInspector
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.hasText
@@ -41,7 +45,10 @@ class AppLauncherTest {
     @Test
     fun launcherTilesNavigateCycleAppearanceAndKeepTheUnderlyingPage() {
         var selected = ""
+        var activityRoot: View? = null
         compose.setContent {
+            val root = LocalView.current.rootView
+            SideEffect { activityRoot = root }
             var appearance by remember { mutableStateOf(Appearance.System) }
             IntentTheme(darkTheme = appearance == Appearance.Dark) {
                 CompositionLocalProvider(
@@ -51,7 +58,8 @@ class AppLauncherTest {
                         { appearance = Appearance.entries[(appearance.ordinal + 1) % 3] },
                         { selected = "connections" },
                         { selected = "settings" },
-                        { selected = "create" }
+                        { selected = "create" },
+                        onAssistant = { selected = "assistant" }
                     )
                 ) {
                     Box(Modifier.fillMaxSize()) {
@@ -67,12 +75,19 @@ class AppLauncherTest {
         compose.onNodeWithContentDescription("Open app launcher").performClick()
         compose.onNodeWithContentDescription("Workspaces").assertDoesNotExist()
         screenshot("app-launcher")
+        tile("Assistant")
+        compose.runOnIdle { assertEquals("assistant", selected) }
+        awaitLauncherClosed()
+        compose.onNodeWithText("Alpha").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Open app launcher").performClick()
         tile("New workspace")
         compose.runOnIdle { assertEquals("create", selected) }
+        awaitLauncherClosed()
         compose.onNodeWithText("Alpha").assertIsDisplayed()
         compose.onNodeWithContentDescription("Open app launcher").performClick()
         tile("Connections: 2")
         compose.runOnIdle { assertEquals("connections", selected) }
+        awaitLauncherClosed()
         compose.onNodeWithContentDescription("Open app launcher").performClick()
         tile("Appearance: System")
         compose.onNodeWithText("Appearance: Light").assertIsDisplayed()
@@ -83,23 +98,56 @@ class AppLauncherTest {
         compose.onNodeWithText("Appearance: System").assertIsDisplayed()
         tile("Settings")
         compose.runOnIdle { assertEquals("settings", selected) }
+        awaitLauncherClosed()
         compose.onNodeWithContentDescription("Open app launcher").performClick()
         compose.onNodeWithContentDescription("Close app launcher").assertIsDisplayed()
-        InstrumentationRegistry.getInstrumentation().waitForIdleSync()
+        // Wait for the dialog window to receive focus before dispatching system Back.
+        var initiallyFocused = false
+        compose.runOnIdle {
+            initiallyFocused = WindowInspector.getGlobalWindowViews().any {
+                it !== activityRoot && it.hasWindowFocus()
+            }
+        }
+        android.util.Log.i("LauncherFocus", "Dialog focused before wait: $initiallyFocused")
+        try {
+            compose.waitUntil(5_000) {
+                var focused = false
+                InstrumentationRegistry.getInstrumentation().runOnMainSync {
+                    focused = WindowInspector.getGlobalWindowViews().any {
+                        it !== activityRoot && it.hasWindowFocus()
+                    }
+                }
+                focused
+            }
+        } catch (error: androidx.compose.ui.test.ComposeTimeoutException) {
+            screenshot("launcher-focus-failure")
+            val descriptor = InstrumentationRegistry.getInstrumentation().uiAutomation
+                .executeShellCommand("dumpsys window windows")
+            val windows = android.os.ParcelFileDescriptor.AutoCloseInputStream(descriptor)
+                .bufferedReader().use { it.readText() }
+            android.util.Log.e("LauncherFocus", windows)
+            throw error
+        }
+        android.util.Log.i("LauncherFocus", "Dialog focused; sending real Back key")
         InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
-        compose.onNodeWithContentDescription("Close app launcher").assertDoesNotExist()
+        awaitLauncherClosed()
         compose.onNodeWithContentDescription("Open app launcher").performClick()
         compose.onNodeWithContentDescription("Dismiss app launcher").performTouchInput {
             click(Offset(center.x, height / 4f))
         }
-        compose.waitUntil(5_000) {
-            compose.onAllNodes(androidx.compose.ui.test.hasContentDescription("Close app launcher"))
-                .fetchSemanticsNodes().isEmpty()
-        }
+        awaitLauncherClosed()
         compose.onNodeWithContentDescription("Search workspaces").performClick()
         compose.onNodeWithContentDescription("Open app launcher").assertDoesNotExist()
         compose.onNodeWithContentDescription("Close search").performClick()
         compose.onNodeWithContentDescription("Open app launcher").assertIsDisplayed()
+    }
+
+    private fun awaitLauncherClosed() {
+        compose.waitUntil(5_000) {
+            compose.onAllNodes(androidx.compose.ui.test.hasContentDescription("Close app launcher"))
+                .fetchSemanticsNodes().isEmpty()
+        }
+        compose.onNodeWithContentDescription("Close app launcher").assertDoesNotExist()
     }
 
     private fun screenshot(name: String) {
