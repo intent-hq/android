@@ -33,3 +33,6 @@ data class TerminalData(
 
 @Serializable
 data class TerminalAck(val ok: Boolean)
+
+@Serializable
+data class TerminalCreated(val terminalId: String)

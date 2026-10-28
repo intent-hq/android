@@ -1,6 +1,6 @@
 package dev.intent.app.navigation
 
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.staticCompositionLocalOf
@@ -18,9 +18,13 @@ internal fun WorkspaceSectionAppBar(title: String, actions: List<ChromeAction> =
 }
 
 @Composable
-internal fun WorkspaceResources(open: (WorkspaceDestination) -> Unit) {
-    Row {
+internal fun WorkspaceResources(
+    open: (WorkspaceDestination) -> Unit,
+    onCreateTerminal: () -> Unit
+) {
+    FlowRow {
         TextButton(onClick = { open(WorkspaceDestination.Browser) }) { Text("Browser preview") }
         TextButton(onClick = { open(WorkspaceDestination.Terminals) }) { Text("Terminals") }
+        TextButton(onClick = onCreateTerminal) { Text("New terminal") }
     }
 }

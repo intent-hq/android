@@ -65,9 +65,15 @@ fun WorkspaceContent(
             section = WorkspaceDestination.Conversations
         }
     }
+    var createTerminal by remember(session, workspaceId) { mutableStateOf(false) }
+    val newTerminal = {
+        createTerminal = true
+        destination = WorkspaceDestination.Terminals
+    }
     val savedState = rememberSaveableStateHolder()
     val source = remember(session) { SessionNoteSource(session) }
     val back = {
+        createTerminal = false
         val parent = destination.parent(section)
         if (parent == null) onBack() else destination = parent
     }
@@ -82,12 +88,13 @@ fun WorkspaceContent(
             }
         },
         LocalWorkspaceResources provides {
-            WorkspaceResources { destination = it }
+            WorkspaceResources(open = { destination = it }, onCreateTerminal = newTerminal)
         },
         LocalChromeActions provides (
             listOf(
                 ChromeAction("Browser preview") { destination = WorkspaceDestination.Browser },
-                ChromeAction("Terminals") { destination = WorkspaceDestination.Terminals }
+                ChromeAction("Terminals") { destination = WorkspaceDestination.Terminals },
+                ChromeAction("New terminal", run = newTerminal)
             ) + LocalChromeActions.current
             ),
         LocalMarkdownNoteLink provides { id ->
@@ -99,7 +106,13 @@ fun WorkspaceContent(
                 when (val current = destination) {
                     WorkspaceDestination.Browser -> WorkspaceBrowser(session, workspaceId, back)
                     WorkspaceDestination.Git -> WorkspaceGitRoute(session, workspaceId, back)
-                    WorkspaceDestination.Terminals -> WorkspaceTerminals(session, workspaceId, back)
+                    WorkspaceDestination.Terminals -> WorkspaceTerminals(
+                        session,
+                        workspaceId,
+                        back,
+                        createTerminal,
+                        onCreateHandled = { createTerminal = false }
+                    )
                     WorkspaceDestination.Conversations -> WorkspaceConversations(
                         session,
                         workspaceId,

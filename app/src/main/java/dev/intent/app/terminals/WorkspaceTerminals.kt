@@ -12,6 +12,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -37,7 +38,13 @@ import dev.intent.app.navigation.CompactAppBar
 import dev.intent.core.protocol.session.RpcSession
 
 @Composable
-fun WorkspaceTerminals(session: RpcSession, workspaceId: String, onBack: () -> Unit) {
+fun WorkspaceTerminals(
+    session: RpcSession,
+    workspaceId: String,
+    onBack: () -> Unit,
+    createOnOpen: Boolean = false,
+    onCreateHandled: () -> Unit = {}
+) {
     val store =
         remember(session, workspaceId) { TerminalStore(RpcTerminalSession(session, workspaceId)) }
     DisposableEffect(store) {
@@ -45,6 +52,12 @@ fun WorkspaceTerminals(session: RpcSession, workspaceId: String, onBack: () -> U
         onDispose { store.close() }
     }
     val state by store.state.collectAsState()
+    LaunchedEffect(createOnOpen, state.loading) {
+        if (createOnOpen && !state.loading) {
+            onCreateHandled()
+            if (state.connected) store.create()
+        }
+    }
     val back = { if (state.selected != null) store.select(null) else onBack() }
     BackHandler(onBack = back)
     Column(Modifier.fillMaxSize()) {
@@ -60,13 +73,14 @@ fun WorkspaceTerminals(session: RpcSession, workspaceId: String, onBack: () -> U
             }
         )
         if (state.selected == null) {
-            TerminalListScreen(state, store::refresh, store::select)
+            TerminalListScreen(state, store::refresh, store::select, store::create, store::delete)
         } else {
             Column(
                 Modifier.weight(1f).intentPageInsets(),
                 verticalArrangement = Arrangement.spacedBy(IntentScreen.itemSpacing)
             ) {
                 state.error?.let { Text(it, color = IntentScreen.error) }
+                state.actionError?.let { Text(it, color = IntentScreen.error) }
                 state.notice?.let { Text(it) }
                 if (state.loading) Text("Loading terminals…")
                 Text(state.terminals.firstOrNull { it.id == state.selected }?.name ?: "Terminal")

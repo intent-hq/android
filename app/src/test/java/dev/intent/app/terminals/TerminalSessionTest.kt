@@ -57,6 +57,37 @@ class TerminalSessionTest {
     }
 
     @Test
+    fun lifecycleCommandsMatchIosAndKeepWorkspaceScope() {
+        val transports = LinkedBlockingQueue<TerminalTransport>()
+        RpcSession({
+            TerminalTransport(it).also(transports::add)
+        }, JsonObject(emptyMap())).use { rpc ->
+            rpc.connect()
+            val server = requireNotNull(transports.poll(2, TimeUnit.SECONDS))
+            server.reply(server.request(), "{}")
+            val source = RpcTerminalSession(rpc, "ws")
+            val created = source.create()
+            val create = server.request()
+            assertEquals("terminal.create", create.method)
+            assertEquals(
+                WireJson.parseToJsonElement("""{"workspaceId":"ws","cols":80,"rows":24}"""),
+                create.params
+            )
+            server.reply(create, """{"terminalId":"new"}""")
+            assertEquals("new", created.get(2, TimeUnit.SECONDS).terminalId)
+            val deleted = source.kill("new")
+            val kill = server.request()
+            assertEquals("terminal.kill", kill.method)
+            assertEquals(
+                WireJson.parseToJsonElement("""{"workspaceId":"ws","terminalId":"new"}"""),
+                kill.params
+            )
+            server.reply(kill, """{"ok":true}""")
+            assertEquals(true, deleted.get(2, TimeUnit.SECONDS).ok)
+        }
+    }
+
+    @Test
     fun subscriptionFiltersWorkspaceAndCarriesExactCursors() {
         val transports = LinkedBlockingQueue<TerminalTransport>()
         RpcSession({

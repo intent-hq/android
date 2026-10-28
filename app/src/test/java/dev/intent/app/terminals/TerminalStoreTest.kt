@@ -179,6 +179,8 @@ private class FakeTerminals : TerminalSession {
     lateinit var exit: (String) -> Unit
     lateinit var subscribed: () -> Unit
     var closed = false
+    override fun create() = CompletableFuture<dev.intent.core.protocol.models.TerminalCreated>()
+    override fun kill(id: String) = CompletableFuture<TerminalAck>()
     override fun list() = CompletableFuture<TerminalListResult>().also(lists::add)
     override fun buffer(id: String) = CompletableFuture<TerminalBuffer>().also(buffers::add)
     override fun write(id: String, bytes: ByteArray): CompletableFuture<TerminalAck> {

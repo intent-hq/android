@@ -1,8 +1,10 @@
 package dev.intent.app.terminals
 
+import dev.intent.core.protocol.models.TerminalAck
 import dev.intent.core.protocol.models.TerminalData
 import dev.intent.core.protocol.models.TerminalInfo
 import java.io.Closeable
+import java.util.concurrent.CompletableFuture
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
@@ -11,6 +13,10 @@ data class TerminalState(
     val selected: String? = null,
     val frame: TerminalFrame = TerminalFrame(),
     val loading: Boolean = true,
+    val connected: Boolean = false,
+    val creating: Boolean = false,
+    val deleting: String? = null,
+    val actionError: String? = null,
     val ready: Boolean = false,
     val sending: Boolean = false,
     val ended: Boolean = false,
@@ -32,8 +38,8 @@ class TerminalStore(private val session: TerminalSession) : Closeable {
     private var reading = false
     private val pending = mutableListOf<TerminalData>()
     private var pendingSize = 0
-    private var columns = INITIAL_COLUMNS
-    private var rows = INITIAL_ROWS
+    private var columns = INITIAL_TERMINAL_COLUMNS
+    private var rows = INITIAL_TERMINAL_ROWS
 
     @Synchronized
     fun start() {
@@ -52,7 +58,13 @@ class TerminalStore(private val session: TerminalSession) : Closeable {
         pending.clear()
         pendingSize = 0
         mutableState.value =
-            state.value.copy(loading = true, ready = false, sending = false, error = null)
+            state.value.copy(
+                loading = true,
+                connected = false,
+                ready = false,
+                sending = false,
+                error = null
+            )
         session.list().whenComplete { result, error ->
             synchronized(this) {
                 if (!closed && token == generation) {
@@ -76,6 +88,7 @@ class TerminalStore(private val session: TerminalSession) : Closeable {
                             terminals = result.terminals,
                             selected = selected,
                             loading = false,
+                            connected = true,
                             ended = false,
                             frame = renderer.frame()
                         )
@@ -85,6 +98,85 @@ class TerminalStore(private val session: TerminalSession) : Closeable {
             }
         }
     }
+
+    @Synchronized
+    fun create() {
+        if (!canMutate()) return
+        val token = generation
+        mutableState.value = state.value.copy(creating = true, actionError = null)
+        session.list().thenCompose { result ->
+            synchronized(this) {
+                check(!closed && token == generation && result.daemonBootId == boot)
+                session.create()
+            }
+        }.whenComplete { result, error ->
+            synchronized(this) {
+                if (!closed) {
+                    mutableState.value = state.value.copy(creating = false)
+                    if (error != null || result.terminalId.isBlank()) {
+                        mutableState.value = state.value.copy(
+                            actionError = "Cannot create the terminal. Refresh before trying again."
+                        )
+                    } else if (token == generation) {
+                        mutableState.value = state.value.copy(
+                            terminals =
+                            state.value.terminals.filterNot { it.id == result.terminalId } +
+                                TerminalInfo(result.terminalId),
+                            loading = false
+                        )
+                        select(result.terminalId)
+                    } else {
+                        // Never replay a create after reconnect or steal a changed selection.
+                        refresh()
+                    }
+                }
+            }
+        }
+    }
+
+    @Synchronized
+    fun delete(id: String) {
+        if (!canMutate() || state.value.terminals.none { it.id == id }) return
+        val token = generation
+        mutableState.value = state.value.copy(deleting = id, actionError = null)
+        session.list().thenCompose { result ->
+            synchronized(this) {
+                check(!closed && token == generation)
+                if (result.daemonBootId != boot || result.terminals.none { it.id == id }) {
+                    CompletableFuture.completedFuture(
+                        TerminalAck(true)
+                    )
+                } else {
+                    session.kill(id)
+                }
+            }
+        }.whenComplete { result, error ->
+            synchronized(this) {
+                if (!closed) {
+                    mutableState.value = state.value.copy(deleting = null)
+                    if (error != null || !result.ok) {
+                        mutableState.value = state.value.copy(
+                            actionError = "Cannot delete the terminal. Refresh before trying again."
+                        )
+                    } else {
+                        if (state.value.selected == id) select(null)
+                        // Fence any list or buffer read started before the deletion.
+                        generation++
+                        mutableState.value = state.value.copy(
+                            terminals = state.value.terminals.filterNot { it.id == id }
+                        )
+                        refresh()
+                    }
+                }
+            }
+        }
+    }
+
+    private fun canMutate() = !closed &&
+        state.value.connected &&
+        !state.value.loading &&
+        !state.value.creating &&
+        state.value.deleting == null
 
     @Synchronized
     fun select(id: String?) {
@@ -269,7 +361,13 @@ class TerminalStore(private val session: TerminalSession) : Closeable {
         pending.clear()
         pendingSize = 0
         mutableState.value =
-            state.value.copy(loading = false, ready = false, sending = false, error = message)
+            state.value.copy(
+                loading = false,
+                connected = false,
+                ready = false,
+                sending = false,
+                error = message
+            )
     }
 
     @Synchronized
@@ -286,6 +384,3 @@ private const val MAX_PENDING = 2_000_000
 private const val MAX_INPUT = 65_536
 private const val MAX_COLUMNS = 240
 private const val MAX_ROWS = 100
-
-private const val INITIAL_COLUMNS = 80
-private const val INITIAL_ROWS = 24

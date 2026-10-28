@@ -3,6 +3,7 @@ package dev.intent.app.terminals
 import dev.intent.core.protocol.models.EventNotification
 import dev.intent.core.protocol.models.TerminalAck
 import dev.intent.core.protocol.models.TerminalBuffer
+import dev.intent.core.protocol.models.TerminalCreated
 import dev.intent.core.protocol.models.TerminalData
 import dev.intent.core.protocol.models.TerminalListResult
 import dev.intent.core.protocol.models.WireJson
@@ -18,6 +19,8 @@ import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 
 interface TerminalSession {
+    fun create(): CompletableFuture<TerminalCreated>
+    fun kill(id: String): CompletableFuture<TerminalAck>
     fun list(): CompletableFuture<TerminalListResult>
     fun buffer(id: String): CompletableFuture<TerminalBuffer>
     fun write(id: String, bytes: ByteArray): CompletableFuture<TerminalAck>
@@ -37,6 +40,19 @@ class RpcTerminalSession(private val rpc: RpcSession, private val workspaceId: S
         block()
     }
 
+    override fun create() = rpc.request(
+        "terminal.create",
+        params {
+            put("cols", INITIAL_TERMINAL_COLUMNS)
+            put("rows", INITIAL_TERMINAL_ROWS)
+        },
+        TerminalCreated.serializer()
+    )
+    override fun kill(id: String) = rpc.request(
+        "terminal.kill",
+        params { put("terminalId", id) },
+        TerminalAck.serializer()
+    )
     override fun list() = rpc.request("terminal.list", params(), TerminalListResult.serializer())
     override fun buffer(id: String) = rpc.request(
         "terminal.getBuffer",
@@ -98,3 +114,6 @@ class RpcTerminalSession(private val rpc: RpcSession, private val workspaceId: S
         onError = onError
     )
 }
+
+internal const val INITIAL_TERMINAL_COLUMNS = 80
+internal const val INITIAL_TERMINAL_ROWS = 24
