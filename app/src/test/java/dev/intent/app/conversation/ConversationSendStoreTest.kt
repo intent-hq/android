@@ -25,6 +25,27 @@ class ConversationSendStoreTest {
     private val store = ConversationSendStore(commands, "agent")
 
     @Test
+    fun draftClearsOnlyAfterConfirmedSendAndEchoClearsAfterUncertainReply() {
+        val draft = ComposerDraft("keep me")
+        store.send(draft.text, onConfirmed = draft.confirmation())
+        assertEquals("keep me", draft.text)
+        val sent = commands.sent.single()
+        sent.result.completeExceptionally(IllegalStateException("timeout"))
+        assertEquals("keep me", draft.text)
+        store.observe(listOf(ConversationMessage("echo", "user", appMessageId = sent.id)))
+        assertEquals("", draft.text)
+    }
+
+    @Test
+    fun confirmedSendPreservesTextEditedWhileRequestWasPending() {
+        val draft = ComposerDraft("first")
+        store.send(draft.text, onConfirmed = draft.confirmation())
+        draft.text = "second"
+        commands.sent.single().result.complete(SendResult(true, false, messageId = "confirmed"))
+        assertEquals("second", draft.text)
+    }
+
+    @Test
     fun suggestionSendsOnlyPromptAndRejectsDuplicateUntilReconciled() {
         val draft = ComposerDraft().apply { text = "Unfinished draft" }
         assertTrue(store.sendSuggestedPrompt("Run tests"))

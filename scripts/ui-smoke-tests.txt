@@ -4,3 +4,5 @@ dev.intent.app.smoke.CoreFlowsTest#workspaceListSelectsWorkspace
 dev.intent.app.smoke.CoreFlowsTest#noteReaderDisplaysBodyAndUpdatesTask
 dev.intent.app.smoke.CoreFlowsTest#commentThreadOpensAndAcceptsReply
 dev.intent.app.smoke.CoreFlowsTest#conversationSendsMessageThroughSession
+dev.intent.app.smoke.ConversationPersistenceTest#draftSurvivesRouteDisposalRecreationAndConfirmedSendClearsIt
+dev.intent.app.smoke.ConversationPersistenceTest#turnCompletionWaitsOneSecondAndDepartureDoesNotDuplicateSeen

@@ -46,6 +46,7 @@ class ConversationSendStore(
     private var closed = false
     private var agent: Agent? = null
     private var messages = emptyList<ConversationMessage>()
+    private val confirmations = mutableMapOf<String, () -> Unit>()
 
     @Synchronized
     fun start() {
@@ -124,6 +125,7 @@ class ConversationSendStore(
                     )
             }
             if (row != null) {
+                confirmations.remove(attempt.id)?.invoke()
                 null
             } else {
                 val queued = state.value.queue.firstOrNull {
@@ -132,6 +134,7 @@ class ConversationSendStore(
                 if (queued == null || attempt.status == SendStatus.ACCEPTED) {
                     attempt
                 } else {
+                    confirmations.remove(attempt.id)?.invoke()
                     attempt.copy(status = SendStatus.QUEUED, confirmedId = queued.id)
                 }
             }
@@ -178,7 +181,8 @@ class ConversationSendStore(
         content: String,
         metadata: JsonObject? = null,
         images: List<JsonObject> = emptyList(),
-        files: List<JsonObject> = emptyList()
+        files: List<JsonObject> = emptyList(),
+        onConfirmed: () -> Unit = {}
     ): Boolean {
         val empty = content.isBlank() && images.isEmpty() && files.isEmpty()
         if (closed || empty) return false
@@ -192,6 +196,7 @@ class ConversationSendStore(
             )
         mutableState.value =
             state.value.copy(attempts = state.value.attempts + attempt, error = null)
+        confirmations[attempt.id] = onConfirmed
         updateQuestions()
         dispatch(attempt)
         return true
@@ -223,6 +228,9 @@ class ConversationSendStore(
             ->
             synchronized(this) {
                 if (!closed) {
+                    if (error == null && result?.success == true) {
+                        confirmations.remove(attempt.id)?.invoke()
+                    }
                     mutableState.value =
                         state.value.copy(
                             attempts = state.value.attempts.map { existing ->
@@ -314,6 +322,7 @@ class ConversationSendStore(
     @Synchronized
     override fun close() {
         closed = true
+        confirmations.clear()
         stop()
     }
 }

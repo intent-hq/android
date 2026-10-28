@@ -103,7 +103,8 @@ fun WorkspaceContent(
                     WorkspaceDestination.Conversations -> WorkspaceConversations(
                         session,
                         workspaceId,
-                        back
+                        back,
+                        connectionScope = sectionScope
                     )
                     else -> Column(Modifier.fillMaxSize()) {
                         when (current) {

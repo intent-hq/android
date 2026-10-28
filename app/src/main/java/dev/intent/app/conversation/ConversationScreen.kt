@@ -31,15 +31,17 @@ import dev.intent.core.protocol.attachments.messageBlock
 import dev.intent.core.protocol.models.ContentBlock
 import dev.intent.core.protocol.models.ConversationMessage
 
+@Suppress("LongParameterList") // Route-owned draft and seen state share the conversation lifetime.
 @Composable
 fun ConversationRoute(
     store: ConversationStore,
     sends: ConversationSendStore,
     modifier: Modifier = Modifier,
     photos: PhotoAttachmentStore? = null,
+    draft: ComposerDraft = remember(store) { ComposerDraft() },
+    seen: ConversationSeen? = null,
     statusStrip: @Composable (Boolean) -> Unit = {}
 ) {
-    val draft = remember(store) { ComposerDraft() }
     val state by store.state.collectAsState()
     val sending by sends.state.collectAsState()
     LaunchedEffect(state.messages) { sends.observe(state.messages) }
@@ -54,6 +56,11 @@ fun ConversationRoute(
     val agent = dev.intent.app.agents.LocalConversationAgent.current
     val streaming = state.isStreaming ||
         (state.isLoading && agent?.conversationRunning() == true)
+    ConversationSeenEffect(
+        seen,
+        state.copy(isStreaming = streaming),
+        agent?.metadata?.string("lastSeenMessageId")
+    )
     ConversationScreen(
         state.copy(isStreaming = streaming),
         store::loadOlder,
@@ -67,21 +74,29 @@ fun ConversationRoute(
         suggestionsEnabled = sending.attempts.isEmpty()
     ) {
         statusStrip(streaming)
-        ConversationComposer(sending, { text ->
-            val ready = photos?.state?.value
-            if (ready?.ready == false) {
-                false
-            } else {
-                val accepted = sends.send(
-                    text,
-                    images = ready?.photos.orEmpty().mapNotNull {
-                        it.placed?.messageBlock(true)
-                    }
-                )
-                if (accepted) photos?.consume()
-                accepted
-            }
-        }, sends::retract, sends::answer, photos, draft, sends::retry, sends::refresh)
+        ConversationComposer(
+            sending, { text ->
+                val ready = photos?.state?.value
+                if (ready?.ready == false) {
+                    false
+                } else {
+                    val confirmed = draft.confirmation()
+                    val accepted = sends.send(
+                        text,
+                        images = ready?.photos.orEmpty().mapNotNull {
+                            it.placed?.messageBlock(true)
+                        },
+                        onConfirmed = {
+                            confirmed()
+                            seen?.sentMessage()
+                        }
+                    )
+                    if (accepted) photos?.consume()
+                    accepted
+                }
+            }, sends::retract, sends::answer, photos, draft, sends::retry, sends::refresh,
+            clearOnSend = false
+        )
     }
 }
 

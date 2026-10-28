@@ -46,7 +46,8 @@ fun ConversationComposer(
     photos: PhotoAttachmentStore? = null,
     draft: ComposerDraft = remember { ComposerDraft() },
     onRetry: (String) -> Unit = {},
-    onCheckDelivery: () -> Unit = {}
+    onCheckDelivery: () -> Unit = {},
+    clearOnSend: Boolean = true
 ) {
     val photoState = photos?.state?.collectAsState()?.value
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -84,10 +85,16 @@ fun ConversationComposer(
                 photos?.let { PhotoPicker(it) }
                 IntentButton(
                     onClick = {
-                        if (onSend(draft.text)) draft.text = ""
+                        if (onSend(draft.text) && clearOnSend) draft.text = ""
                     },
                     enabled =
-                    (photoState?.ready != false) &&
+                    (
+                        clearOnSend ||
+                            state.attempts.all {
+                                it.status == SendStatus.ACCEPTED || it.status == SendStatus.QUEUED
+                            }
+                        ) &&
+                        (photoState?.ready != false) &&
                         (draft.text.isNotBlank() || photoState?.photos?.isNotEmpty() == true)
                 ) {
                     Text("Send")

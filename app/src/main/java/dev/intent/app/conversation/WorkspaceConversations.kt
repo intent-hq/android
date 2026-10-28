@@ -58,7 +58,12 @@ import kotlinx.coroutines.withContext
 // Route lifetime and RPC error presentation.
 @Suppress("LongMethod", "TooGenericExceptionCaught", "CyclomaticComplexMethod")
 @Composable
-fun WorkspaceConversations(session: RpcSession, workspaceId: String, onBack: () -> Unit) {
+fun WorkspaceConversations(
+    session: RpcSession,
+    workspaceId: String,
+    onBack: () -> Unit,
+    connectionScope: String = ""
+) {
     val watches =
         remember(session, workspaceId) { WatchStore(RpcWatchSource(session, workspaceId)) }
     val watchState by watches.state.collectAsState()
@@ -145,6 +150,18 @@ fun WorkspaceConversations(session: RpcSession, workspaceId: String, onBack: () 
                 )
             }
             val context = LocalContext.current.applicationContext
+            val draft = remember(connectionScope, workspaceId, agentId) {
+                if (connectionScope.isBlank()) {
+                    ComposerDraft()
+                } else {
+                    ConversationDraftStore(context, connectionScope).draft(workspaceId, agentId)
+                }
+            }
+            val seen = remember(session, workspaceId, agentId) {
+                ConversationSeen({
+                    markConversationSeen(session, workspaceId, agentId, it)
+                }, ::scheduleSeen)
+            }
             val photos = remember(session, workspaceId, agentId) {
                 PhotoAttachmentStore(
                     AndroidPhotoSource(
@@ -220,7 +237,13 @@ fun WorkspaceConversations(session: RpcSession, workspaceId: String, onBack: () 
                                 ChromeAction(label, enabled = agent != null) { action = label }
                             }
                         )
-                        ConversationRoute(conversation, sends, photos = photos) { streaming ->
+                        ConversationRoute(
+                            conversation,
+                            sends,
+                            photos = photos,
+                            draft = draft,
+                            seen = seen
+                        ) { streaming ->
                             ConversationStatusStrip(
                                 watchState,
                                 agent,

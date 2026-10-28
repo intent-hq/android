@@ -8,6 +8,9 @@ import dev.intent.core.protocol.pairing.PairingPayload
 import dev.intent.core.protocol.session.SessionTransport
 import java.util.concurrent.CopyOnWriteArrayList
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.put
 
 /** In-process protocol fixture. No credentials or requests leave the test process. */
 internal class SmokeServer(
@@ -34,6 +37,10 @@ internal class SmokeServer(
             "hook.list" -> """{"hooks":[]}"""
             "prMonitor.list" -> """{"monitors":[]}"""
             "agent.list" -> """{"agents":[]}"""
+            "agent.markSeen" -> buildJsonObject {
+                put("success", true)
+                put("lastSeenMessageId", request.params!!.jsonObject.getValue("messageId"))
+            }.toString()
             "agent.sendMessage" -> """{"success":true,"queued":false}"""
             else -> error("Unexpected smoke request: ${request.method}")
         }
