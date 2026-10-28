@@ -1,13 +1,13 @@
 package dev.intent.app.smoke
 
 import android.content.Context
-import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.hasText
-import androidx.compose.ui.test.hasAnyAncestor
-import androidx.compose.ui.test.isDialog
-import androidx.compose.material3.Surface
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isDialog
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -51,21 +51,21 @@ class AgentControlsTest {
         compose.setContent {
             IntentTheme(true) {
                 Surface(Modifier.fillMaxSize()) {
-                AgentListScreen(
-                    AgentListState(
-                        listOf(
-                            Agent(
-                                "long",
-                                name,
-                                digest = "Read [the Spec](intent://local/note/spec) " +
-                                    "and **keep formatting plain**."
-                            )
+                    AgentListScreen(
+                        AgentListState(
+                            listOf(
+                                Agent(
+                                    "long",
+                                    name,
+                                    digest = "Read [the Spec](intent://local/note/spec) " +
+                                        "and **keep formatting plain**."
+                                )
+                            ),
+                            isLoading = false
                         ),
-                        isLoading = false
-                    ),
-                    onRefresh = {},
-                    onAgentSelected = {}
-                )
+                        onRefresh = {},
+                        onAgentSelected = {}
+                    )
                 }
             }
         }

@@ -5,8 +5,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -50,7 +50,7 @@ fun AgentModelDialog(
     val scroll = rememberScrollState()
     ModalBottomSheet(
         onDismissRequest = { if (!selection.busy) onDismiss() },
-        modifier = Modifier.fillMaxHeight(0.9f),
+        modifier = Modifier.fillMaxHeight(MODEL_SHEET_HEIGHT_FRACTION),
         sheetState = rememberModalBottomSheetState(
             skipPartiallyExpanded = true,
             confirmValueChange = { !selection.busy }
@@ -167,3 +167,5 @@ private fun ModelChoices(
         }
     }
 }
+
+private const val MODEL_SHEET_HEIGHT_FRACTION = 0.9f
