@@ -12,7 +12,11 @@ data class BrowserState(
     val url: String? = null,
     val loading: Boolean = false,
     val error: String? = null,
-    val revision: Long = 0
+    val revision: Long = 0,
+    val requestedUrl: String? = null,
+    val canGoBack: Boolean = false,
+    val canGoForward: Boolean = false,
+    val resolvedRevision: Long = 0
 )
 
 class BrowserStore(
@@ -30,12 +34,12 @@ class BrowserStore(
     fun open(value: String) {
         if (closed) return
         val ticket = ++generation
-        mutableState.value = BrowserState(loading = true, revision = ticket)
+        mutableState.value =
+            state.value.copy(loading = true, error = null, revision = ticket, requestedUrl = value)
         try {
-            tunnel?.let(closeTunnel)
-            tunnel = null
             PreviewUrl.parse(value)
-            openTunnel().whenCompleteAsync { proxy, error -> resolved(ticket, value, proxy, error) }
+            val pending = tunnel?.let { CompletableFuture.completedFuture(it) } ?: openTunnel()
+            pending.whenCompleteAsync { proxy, error -> resolved(ticket, value, proxy, error) }
         } catch (_: Exception) {
             failed(ticket)
         }
@@ -44,9 +48,9 @@ class BrowserStore(
     @Synchronized
     private fun resolved(ticket: Long, value: String, proxy: BrowserTunnel?, error: Throwable?) {
         if (closed || ticket != generation) {
-            proxy?.let(closeTunnel)
+            proxy?.takeUnless { it === tunnel }?.let(closeTunnel)
         } else if (error != null || proxy == null) {
-            failed(ticket)
+            failed(ticket, TUNNEL_UNAVAILABLE)
         } else {
             tunnel = proxy
             proxy.forward(value).whenCompleteAsync { url, failure ->
@@ -59,10 +63,29 @@ class BrowserStore(
     private fun forwarded(ticket: Long, url: String?, error: Throwable?) {
         if (closed || ticket != generation) return
         if (error != null) {
-            failed(ticket)
+            tunnel?.let(closeTunnel)
+            tunnel = null
+            failed(ticket, TUNNEL_UNAVAILABLE)
         } else {
-            mutableState.value = BrowserState(url = url, loading = true, revision = ticket)
+            mutableState.value =
+                state.value.copy(url = url, loading = true, resolvedRevision = ticket)
         }
+    }
+
+    @Synchronized
+    fun navigated(ticket: Long, address: String, canGoBack: Boolean, canGoForward: Boolean) {
+        if (!closed && ticket == generation) {
+            mutableState.value = state.value.copy(
+                requestedUrl = address,
+                canGoBack = canGoBack,
+                canGoForward = canGoForward
+            )
+        }
+    }
+
+    @Synchronized
+    fun loading(ticket: Long) {
+        if (!closed && ticket == generation) mutableState.value = state.value.copy(loading = true)
     }
 
     @Synchronized
@@ -71,12 +94,12 @@ class BrowserStore(
     }
 
     @Synchronized
-    fun failed(ticket: Long) {
+    fun failed(ticket: Long, message: String = PREVIEW_UNAVAILABLE) {
         if (!closed && ticket == generation) {
             mutableState.value = state.value.copy(
                 url = null,
                 loading = false,
-                error = "Cannot load this preview. Check the server URL and connection, then retry."
+                error = message
             )
         }
     }
@@ -89,3 +112,9 @@ class BrowserStore(
         tunnel = null
     }
 }
+
+private const val TUNNEL_UNAVAILABLE =
+    "The browser tunnel is unavailable. Reconnect and update Intent on the host, then retry."
+
+private const val PREVIEW_UNAVAILABLE =
+    "Cannot load this preview. Check the server URL and connection, then retry."

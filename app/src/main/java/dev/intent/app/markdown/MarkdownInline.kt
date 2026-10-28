@@ -21,6 +21,8 @@ import androidx.compose.ui.text.withStyle
 import dev.intent.app.attachments.MediaPreview
 import dev.intent.app.attachments.MediaReference
 import dev.intent.app.attachments.noteMediaReference
+import dev.intent.app.browser.LocalWorkspaceBrowserLink
+import dev.intent.core.protocol.browser.PreviewUrl
 import org.commonmark.node.Code
 import org.commonmark.node.Emphasis
 import org.commonmark.node.HardLineBreak
@@ -93,6 +95,7 @@ fun MarkdownInline(node: Node, style: TextStyle = MaterialTheme.typography.bodyL
 private fun MarkdownTextRuns(runs: List<MarkdownRun>, style: TextStyle) {
     val uriHandler = LocalUriHandler.current
     val onNote = LocalMarkdownNoteLink.current
+    val onBrowser = LocalWorkspaceBrowserLink.current
     val linkStyle = TextLinkStyles(
         SpanStyle(
             color = MaterialTheme.colorScheme.onSurface,
@@ -114,12 +117,10 @@ private fun MarkdownTextRuns(runs: List<MarkdownRun>, style: TextStyle) {
                 if (url != null && (isMarkdownWebLink(url) || canOpenNote)) {
                     withLink(
                         LinkAnnotation.Clickable(url, linkStyle) {
-                            if (note !=
-                                null
-                            ) {
-                                onNote?.invoke(note)
-                            } else {
-                                runCatching { uriHandler.openUri(url) }
+                            when {
+                                note != null -> onNote?.invoke(note)
+                                PreviewUrl.isHostLocal(url) -> onBrowser?.invoke(url)
+                                else -> runCatching { uriHandler.openUri(url) }
                             }
                         }
                     ) { append(run.text) }

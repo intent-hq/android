@@ -15,6 +15,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import dev.intent.app.browser.WorkspaceBrowser
+import dev.intent.app.browser.WorkspaceBrowserLinks
 import dev.intent.app.cache.OfflineCache
 import dev.intent.app.conversation.WorkspaceConversations
 import dev.intent.app.git.WorkspaceGitRoute
@@ -93,32 +94,34 @@ fun WorkspaceContent(
             destination = WorkspaceDestination.Note(id)
         }
     ) {
-        savedState.SaveableStateProvider(destination.routeKey()) {
-            when (val current = destination) {
-                WorkspaceDestination.Browser -> WorkspaceBrowser(session, workspaceId, back)
-                WorkspaceDestination.Git -> WorkspaceGitRoute(session, workspaceId, back)
-                WorkspaceDestination.Terminals -> WorkspaceTerminals(session, workspaceId, back)
-                WorkspaceDestination.Conversations -> WorkspaceConversations(
-                    session,
-                    workspaceId,
-                    back
-                )
-                else -> Column(Modifier.fillMaxSize()) {
-                    when (current) {
-                        WorkspaceDestination.Notes -> NoteListRoute(
-                            session,
-                            workspaceId,
-                            { destination = WorkspaceDestination.Note(it) },
-                            Modifier.weight(1f)
-                        )
-                        is WorkspaceDestination.Note -> NoteReaderRoute(
-                            source,
-                            workspaceId,
-                            current.id,
-                            Modifier.weight(1f),
-                            cache
-                        )
-                        else -> Unit
+        WorkspaceBrowserLinks(session, workspaceId) {
+            savedState.SaveableStateProvider(destination.routeKey()) {
+                when (val current = destination) {
+                    WorkspaceDestination.Browser -> WorkspaceBrowser(session, workspaceId, back)
+                    WorkspaceDestination.Git -> WorkspaceGitRoute(session, workspaceId, back)
+                    WorkspaceDestination.Terminals -> WorkspaceTerminals(session, workspaceId, back)
+                    WorkspaceDestination.Conversations -> WorkspaceConversations(
+                        session,
+                        workspaceId,
+                        back
+                    )
+                    else -> Column(Modifier.fillMaxSize()) {
+                        when (current) {
+                            WorkspaceDestination.Notes -> NoteListRoute(
+                                session,
+                                workspaceId,
+                                { destination = WorkspaceDestination.Note(it) },
+                                Modifier.weight(1f)
+                            )
+                            is WorkspaceDestination.Note -> NoteReaderRoute(
+                                source,
+                                workspaceId,
+                                current.id,
+                                Modifier.weight(1f),
+                                cache
+                            )
+                            else -> Unit
+                        }
                     }
                 }
             }

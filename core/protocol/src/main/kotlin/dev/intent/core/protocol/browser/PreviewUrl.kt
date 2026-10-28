@@ -4,7 +4,7 @@ import java.net.URI
 
 object PreviewUrl {
     private val daemonHosts =
-        setOf("daemon.localhost", "localhost", "127.0.0.1", "::1", "[::1]", "0.0.0.0")
+        setOf("daemon.localhost", "localhost", "127.0.0.1", "::1", "[::1]", "0.0.0.0", "::", "[::]")
     private const val MAX_PORT = 65535
     private const val HTTP_PORT = 80
     private const val HTTPS_PORT = 443
@@ -12,6 +12,11 @@ object PreviewUrl {
         require(it.scheme?.lowercase() in setOf("http", "https") && !it.host.isNullOrBlank())
         require(it.rawUserInfo == null && (it.port == -1 || it.port in 1..MAX_PORT))
     }
+    fun isHostLocal(value: String): Boolean = runCatching {
+        val url = URI(value)
+        url.scheme?.lowercase() in setOf("http", "https") && url.host?.lowercase() in daemonHosts
+    }.getOrDefault(false)
+
     fun remotePort(url: URI, localPorts: Set<Int> = emptySet()): Int? {
         parse(url.toASCIIString())
         if (url.host.lowercase() !in daemonHosts) return null

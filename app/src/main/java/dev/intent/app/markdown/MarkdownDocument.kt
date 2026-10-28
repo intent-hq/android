@@ -27,7 +27,7 @@ fun markdownNoteId(url: String): String? = runCatching {
 
 fun isMarkdownWebLink(url: String): Boolean = runCatching {
     val uri = URI(url)
-    uri.scheme in setOf("https", "http") && !uri.host.isNullOrBlank()
+    uri.scheme?.lowercase() in setOf("https", "http") && !uri.host.isNullOrBlank()
 }.getOrDefault(false)
 
 private const val NOTE_PATH_SEGMENTS = 3

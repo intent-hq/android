@@ -70,6 +70,20 @@ class BrowserStoreTest {
         }
     }
 
+    @Test
+    fun `unavailable tunnel gives host update instructions without publishing localhost`() {
+        val pending = CompletableFuture<BrowserTunnel>()
+        BrowserStore({ pending }, { it.close() }).use { store ->
+            store.open("http://localhost:4321/preview")
+            pending.completeExceptionally(java.io.IOException("upgrade rejected"))
+            val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5)
+            while (store.state.value.loading && System.nanoTime() < deadline) Thread.yield()
+            assertTrue(store.state.value.error.orEmpty().contains("update Intent on the host"))
+            assertNull(store.state.value.url)
+            assertEquals("http://localhost:4321/preview", store.state.value.requestedUrl)
+        }
+    }
+
     private fun tunnel() = BrowserTunnel({ listener ->
         object : TunnelTransport {
             override fun connect() = listener.opened()
