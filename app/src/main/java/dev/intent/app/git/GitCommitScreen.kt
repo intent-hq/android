@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -16,7 +15,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontFamily
 import dev.intent.app.design.IntentScreen
 import dev.intent.app.design.IntentTextButton as TextButton
 import dev.intent.app.navigation.CompactAppBar
@@ -57,13 +55,7 @@ internal fun GitCommitScreen(
                 item { CommitFilePicker(state, onFile) }
                 item { CommitDiffStatus(state, onFile) }
                 state.diffs.flatMap { it.hunks }.forEach { hunk ->
-                    item {
-                        Text(
-                            "@@ -${hunk.oldStart},${hunk.oldLines} +${hunk.newStart},${hunk.newLines} @@",
-                            fontFamily = FontFamily.Monospace
-                        )
-                    }
-                    items(hunk.lines) { DiffLine(it) }
+                    item { DiffHunk(hunk) }
                 }
             }
         }

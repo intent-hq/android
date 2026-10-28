@@ -14,3 +14,7 @@ dev.intent.app.smoke.AgentDelegationTest#opensCoordinatorWithLiveDelegationPaylo
 dev.intent.app.smoke.TerminalLifecycleTest#createOpenCancelAndConfirmDelete
 dev.intent.app.smoke.TerminalLifecycleTest#failuresStayVisibleAndAllowExplicitRetry
 dev.intent.app.smoke.TerminalLifecycleTest#resourceRequestCreatesAndOpensOnce
+
+dev.intent.app.smoke.DiffReadabilityTest#workingDiffScrollsTogetherWithFixedNumbers
+dev.intent.app.smoke.DiffReadabilityTest#commitDiffScrollsTogetherWithFixedNumbers
+dev.intent.app.smoke.GitChangesTest#repeatedRepositoryNamesShowPathsAndSelectTheIntendedRoot

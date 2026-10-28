@@ -46,6 +46,7 @@ internal object IntentColors {
     val themeSidebarDark = Color(0xFF272727)
     val themeSidebarSelectionLight = Color(0xFFE1E1E1)
     val themeSidebarSelectionDark = Color(0xFF3B3B3B)
+    val diffDeletionLight = Color(0xFFB42318)
     val statusWorking = Color(0xFFD3DE5D)
     val statusComplete = Color(0xFF6FA356)
     val statusAttention = Color(0xFFFAA755)

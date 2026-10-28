@@ -56,6 +56,22 @@ class GitChangesTest {
     }
 
     @Test
+    fun repeatedRepositoryNamesShowPathsAndSelectTheIntendedRoot() = connected {
+        waitFor("M  primary.kt")
+        compose.onNodeWithContentDescription("Repository").performClick()
+        compose.onNodeWithText("/checkouts/one/android").assertIsDisplayed()
+        compose.onNodeWithText("/checkouts/two/android").assertIsDisplayed()
+        screenshot("changes-distinct-repositories")
+        compose.onNodeWithText("/checkouts/two/android").performClick()
+        waitFor("M  secondary.kt")
+        compose.onNodeWithText("/checkouts/two/android").assertIsDisplayed()
+        assertEquals(
+            JsonPrimitive("android-two"),
+            server.requests.last { it.method == "git.status" }.params!!.jsonObject["gitRootId"]
+        )
+    }
+
+    @Test
     fun foldersCollapseIndependentlyAndFileBackKeepsTree() = connected {
         waitFor("M  primary.kt")
         screenshot("changes-tree")
@@ -77,12 +93,12 @@ class GitChangesTest {
         compose.onNode(hasScrollAction()).performScrollToNode(hasText("Primary commit"))
         compose.onNodeWithText("Primary commit").performClick()
         waitFor("Commit changes")
-        waitFor("\t2\t+new line")
+        waitFor("+new line")
         compose.onNodeWithText("File (2)").assertIsDisplayed()
         screenshot("changes-commit-diff")
         compose.onNodeWithText("src/primary.kt").performClick()
         compose.onNodeWithText("other.kt (+1 −0)").performClick()
-        waitFor("\t1\t+other content")
+        waitFor("+other content")
         compose.onNodeWithContentDescription("Back").performClick()
         waitFor("Changes")
         compose.onNodeWithText("Commit changes").assertDoesNotExist()
@@ -98,7 +114,7 @@ class GitChangesTest {
         waitFor("M  secondary.kt")
         compose.onNode(hasScrollAction()).performScrollToNode(hasText("Secondary commit"))
         compose.onNodeWithText("Secondary commit").performClick()
-        waitFor("\t1\t+root content")
+        waitFor("+root content")
         val reads = server.requests.filter {
             it.method == "git.showFile" ||
                 it.method == "git.commitDetails"
@@ -155,7 +171,9 @@ private class ChangesServer(private val listener: WssTransport.Listener) : Sessi
             "events.subscribe" -> """{"subscriptionId":"changes"}"""
             "gitRoot.list" ->
                 """{"gitRoots":[
-                {"id":"library","path":"/library","repoName":"Library"}]}"""
+                {"id":"library","path":"/library","repoName":"Library"},
+                {"id":"android-one","path":"/checkouts/one/android","repoName":"android"},
+                {"id":"android-two","path":"/checkouts/two/android","repoName":"android"}]}"""
             "file-tracking.getChanges" -> """{"changes":[],"truncated":false}"""
             "git.status" -> """{"branch":"main","files":[
                 {"path":"src/${if (root) "secondary" else "primary"}.kt","status":"M","staged":false},

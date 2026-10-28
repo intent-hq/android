@@ -1,8 +1,10 @@
 package dev.intent.app.git
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -33,7 +35,7 @@ internal fun GitRepositoryPicker(
                             "Repository"
                     }
                 ) {
-                    Text(state.selectedRoot?.displayName ?: "Main repository")
+                    RepositoryLabel(state.selectedRoot)
                 }
                 DropdownMenu(expanded, onDismissRequest = { expanded = false }) {
                     DropdownMenuItem(text = { Text("Main repository") }, onClick = {
@@ -42,7 +44,7 @@ internal fun GitRepositoryPicker(
                         onSelect(null)
                     })
                     state.roots.forEach { root ->
-                        DropdownMenuItem(text = { Text(root.displayName) }, onClick = {
+                        DropdownMenuItem(text = { RepositoryLabel(root) }, onClick = {
                             expanded =
                                 false
                             onSelect(root.id)
@@ -55,5 +57,19 @@ internal fun GitRepositoryPicker(
         }
         Text(state.status.branch ?: "No branch", color = IntentScreen.secondaryText)
         state.repositoryError?.let { Text(it, color = IntentScreen.error) }
+    }
+}
+
+@Composable
+private fun RepositoryLabel(root: dev.intent.core.protocol.models.GitRoot?) {
+    Column {
+        Text(root?.displayName ?: "Main repository")
+        root?.let {
+            Text(
+                it.path,
+                style = MaterialTheme.typography.bodySmall,
+                color = IntentScreen.secondaryText
+            )
+        }
     }
 }
