@@ -1,0 +1,3 @@
+
+# Captured terminal streams must retain CR, LF, and escape bytes.
+app/src/androidTest/assets/terminal/*.ansi binary
