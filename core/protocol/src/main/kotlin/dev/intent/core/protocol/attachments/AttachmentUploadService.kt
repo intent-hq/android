@@ -155,6 +155,7 @@ class AttachmentUploadService(
             check(session.maxChunkBytes > 0 && session.uploadId.isNotBlank()) {
                 "Invalid upload session"
             }
+            progress(TransferProgress(TransferStage.UPLOADING, total = size))
             open().use { input ->
                 var sent = 0L
                 var sequence = 0

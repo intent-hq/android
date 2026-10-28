@@ -22,13 +22,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import dev.intent.app.design.IntentTextButton as TextButton
+import dev.intent.core.protocol.attachments.TransferStage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -41,7 +42,10 @@ fun PhotoAttachments(store: PhotoAttachmentStore) {
         state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         state.photos.forEach { photo ->
             androidx.compose.runtime.key(photo.key) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     photo.file?.takeIf { photo.description?.image == true }?.let { file ->
                         MediaPreview(
                             MediaReference("Selected photo", true),
@@ -55,7 +59,11 @@ fun PhotoAttachments(store: PhotoAttachmentStore) {
                         )
                     }
                     Column(Modifier.weight(1f)) {
-                        Text(photo.description?.name ?: "Attachment", maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        Text(
+                            photo.description?.name ?: "Attachment",
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
                         Text(photoStatus(photo))
                         if (photo.error !=
                             null
@@ -85,7 +93,12 @@ fun PhotoAttachments(store: PhotoAttachmentStore) {
 private fun photoStatus(photo: PendingPhoto): String = photo.error ?: if (photo.placed != null) {
     "Attachment ready"
 } else {
-    "${photo.progress.stage.name.lowercase()}: ${photo.progress.transferred} bytes"
+    when (photo.progress.stage) {
+        TransferStage.UPLOADING ->
+            "Uploading ${photo.progress.transferred} of ${photo.progress.total} bytes"
+        TransferStage.COMMITTING -> "Finishing upload…"
+        else -> "Preparing attachment…"
+    }
 }
 
 @Suppress("CyclomaticComplexMethod") // Independent load, decode, retry, and external-open states.

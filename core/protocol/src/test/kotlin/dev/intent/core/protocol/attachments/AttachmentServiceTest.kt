@@ -143,7 +143,13 @@ class AttachmentServiceTest {
             ).placeFile(file, forceChunked = true, onProgress = progress::add).join()
             assertArrayEquals(payload, chunks.toByteArray())
             assertEquals(TransferStage.COMPLETE, progress.last().stage)
-            assertEquals(3, progress.count { it.stage == TransferStage.UPLOADING })
+            assertEquals(
+                3,
+                progress.count {
+                    it.stage == TransferStage.UPLOADING &&
+                        it.transferred > 0
+                }
+            )
         } finally {
             directory.deleteRecursively()
         }
