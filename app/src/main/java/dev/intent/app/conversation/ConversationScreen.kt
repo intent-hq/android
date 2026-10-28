@@ -44,6 +44,10 @@ fun ConversationRoute(
 ) {
     val state by store.state.collectAsState()
     val sending by sends.state.collectAsState()
+    val questionPhotos = remember(photos, sending.questions?.messageId) {
+        sending.questions?.let { photos?.independent() }
+    }
+    DisposableEffect(questionPhotos) { onDispose { questionPhotos?.close() } }
     LaunchedEffect(state.messages) { sends.observe(state.messages) }
     DisposableEffect(store) {
         store.start()
@@ -84,8 +88,15 @@ fun ConversationRoute(
                     val confirmed = draft.confirmation()
                     val accepted = sends.send(
                         text,
-                        images = ready?.photos.orEmpty().mapNotNull {
+                        images = ready?.photos.orEmpty().filter {
+                            it.description?.image == true
+                        }.mapNotNull {
                             it.placed?.messageBlock(true)
+                        },
+                        files = ready?.photos.orEmpty().filter {
+                            it.description?.image != true
+                        }.mapNotNull {
+                            it.placed?.messageBlock()
                         },
                         onConfirmed = {
                             confirmed()
@@ -95,12 +106,29 @@ fun ConversationRoute(
                     if (accepted) photos?.consume()
                     accepted
                 }
-            }, sends::retract, sends::answer, photos, draft, sends::retry, sends::refresh,
+            }, sends::retract, { id, answers ->
+                val ready = questionPhotos?.state?.value
+                if (ready?.ready == false) {
+                    false
+                } else {
+                    val accepted = sends.answer(
+                        id,
+                        answers,
+                        images = ready?.photos.orEmpty().filter { it.description?.image == true }
+                            .mapNotNull { it.placed?.messageBlock(true) },
+                        files = ready?.photos.orEmpty().filter { it.description?.image != true }
+                            .mapNotNull { it.placed?.messageBlock() }
+                    )
+                    if (accepted) questionPhotos?.consume()
+                    accepted
+                }
+            }, photos, draft, sends::retry, sends::refresh,
             clearOnSend = false,
             onStop = sends::stopReply,
             onEditQueued = sends::editQueued,
             onSendNow = sends::sendNow,
-            onDismissQuestions = sends::dismissQuestions
+            onDismissQuestions = sends::dismissQuestions,
+            questionPhotos = questionPhotos
         )
     }
 }

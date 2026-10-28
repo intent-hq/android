@@ -284,7 +284,12 @@ class ConversationSendStore(
     }
 
     @Synchronized
-    fun answer(messageId: String, answers: Map<String, QuestionAnswer>): Boolean {
+    fun answer(
+        messageId: String,
+        answers: Map<String, QuestionAnswer>,
+        images: List<JsonObject> = emptyList(),
+        files: List<JsonObject> = emptyList()
+    ): Boolean {
         val set = state.value.questions?.takeIf {
             it.messageId == messageId && state.value.dismissing == null
         } ?: return false
@@ -293,7 +298,9 @@ class ConversationSendStore(
             buildJsonObject {
                 put("type", "question_answers")
                 put("answeredQuestionsMessageId", messageId)
-            }
+            },
+            images = images,
+            files = files
         )
     }
 

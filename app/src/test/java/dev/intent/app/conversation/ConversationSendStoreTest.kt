@@ -137,7 +137,18 @@ class ConversationSendStoreTest {
         commands.rows = listOf(questionRow())
         store.refresh()
         assertEquals("questions", store.state.value.questions?.messageId)
-        assertTrue(store.answer("questions", mapOf("q" to QuestionAnswer(listOf("One"), "custom"))))
+        val file = buildJsonObject {
+            put("type", "file")
+            put("attachmentId", "document")
+        }
+        assertTrue(
+            store.answer(
+                "questions",
+                mapOf("q" to QuestionAnswer(listOf("One"), "custom")),
+                files = listOf(file)
+            )
+        )
+        assertEquals(listOf(file), commands.files)
         val sent = commands.sent.single()
         assertEquals("Q: Choose?\nA: One, (Other) custom", sent.content)
         assertEquals("questions", sent.metadata.answeredQuestion())
@@ -372,6 +383,7 @@ private class FakeCommands : ConversationCommands {
     override fun dismissQuestions(id: String) =
         CompletableFuture<CommandResult>().also { dismissals.add(it) }
     var images = emptyList<JsonObject>()
+    var files = emptyList<JsonObject>()
     override fun sendAttachments(
         id: String,
         content: String,
@@ -380,6 +392,7 @@ private class FakeCommands : ConversationCommands {
         files: List<JsonObject>
     ): CompletableFuture<SendResult> {
         this.images = images
+        this.files = files
         return send(id, content, metadata)
     }
     val sent = mutableListOf<SentCommand>()

@@ -6,59 +6,51 @@ import android.graphics.BitmapFactory
 import android.graphics.Matrix
 import android.media.ExifInterface
 import android.net.Uri
-import dev.intent.core.protocol.attachments.AttachmentUploadService
-import dev.intent.core.protocol.attachments.TransferProgress
 import java.io.File
 import java.util.concurrent.CompletableFuture
 
-class AndroidPhotoSource(
-    private val context: Context,
-    private val upload: AttachmentUploadService
-) : PhotoAttachmentSource {
+class AndroidPhotoSource(private val context: Context) {
     @Suppress("TooGenericExceptionCaught") // Delete temporary files on every import failure.
-    override fun prepare(uri: String): CompletableFuture<File> = CompletableFuture.supplyAsync {
-        val directory = File(context.cacheDir, "photo-imports").also {
-            check(
-                it.isDirectory || it.mkdirs()
-            )
-        }
-        val raw = File.createTempFile("source-", ".photo", directory)
-        val output = File.createTempFile("photo-", ".jpg", directory)
-        try {
-            context.contentResolver.openInputStream(Uri.parse(uri)).use { input ->
-                requireNotNull(input)
-                raw.outputStream().use { target ->
-                    val buffer = ByteArray(COPY_BUFFER)
-                    var total = 0L
-                    while (true) {
-                        val count = input.read(buffer)
-                        if (count < 0) break
-                        total += count
-                        check(total <= MAX_IMPORT_BYTES)
-                        target.write(buffer, 0, count)
+    fun prepareImage(uri: String, cancelled: () -> Boolean): CompletableFuture<File> =
+        CompletableFuture.supplyAsync {
+            val directory = File(context.cacheDir, "photo-imports").also {
+                check(
+                    it.isDirectory || it.mkdirs()
+                )
+            }
+            val raw = File.createTempFile("source-", ".photo", directory)
+            val output = File.createTempFile("photo-", ".jpg", directory)
+            try {
+                context.contentResolver.openInputStream(Uri.parse(uri)).use { input ->
+                    requireNotNull(input)
+                    raw.outputStream().use { target ->
+                        val buffer = ByteArray(COPY_BUFFER)
+                        var total = 0L
+                        while (true) {
+                            check(!cancelled()) { "Image import cancelled" }
+                            val count = input.read(buffer)
+                            if (count < 0) break
+                            total += count
+                            check(total <= MAX_IMPORT_BYTES)
+                            target.write(buffer, 0, count)
+                        }
                     }
                 }
-            }
-            val bitmap = decodePhoto(raw)
-            try {
-                output.outputStream().use {
-                    check(bitmap.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, it))
+                check(!cancelled()) { "Image import cancelled" }
+                val bitmap = decodePhoto(raw)
+                try {
+                    writeBoundedJPEG(bitmap, output, cancelled)
+                } finally {
+                    bitmap.recycle()
                 }
-                check(output.length() <= MAX_PHOTO_BYTES)
+                output
+            } catch (error: Exception) {
+                output.delete()
+                throw error
             } finally {
-                bitmap.recycle()
+                raw.delete()
             }
-            output
-        } catch (error: Exception) {
-            output.delete()
-            throw error
-        } finally {
-            raw.delete()
         }
-    }
-
-    override fun upload(file: File, key: String, progress: (TransferProgress) -> Unit) =
-        upload.placeFile(file, "photo.jpg", "image/jpeg", key, onProgress = progress)
 }
 
 /** Decode off the main thread. Bound bitmap memory and apply the camera's EXIF orientation. */
@@ -102,7 +94,41 @@ fun decodePhoto(file: File, maxDimension: Int = MAX_DIMENSION): Bitmap {
 }
 
 private const val COPY_BUFFER = 64 * 1024
-private const val MAX_IMPORT_BYTES = 100L * 1024 * 1024
-private const val MAX_PHOTO_BYTES = 7L * 1024 * 1024
-private const val MAX_DIMENSION = 1600
-private const val JPEG_QUALITY = 85
+private const val MAX_IMPORT_BYTES = 30L * 1024 * 1024
+private const val MAX_PHOTO_BYTES = 1L * 1024 * 1024
+private const val MAX_DIMENSION = 2048
+
+@Suppress("MagicNumber") // JPEG quality ladder shared with iOS.
+private val JPEG_QUALITIES = listOf(85, 60, 40)
+private const val RESIZE_PASSES = 3
+
+private fun writeBoundedJPEG(original: Bitmap, output: File, cancelled: () -> Boolean) {
+    var bitmap = original
+    try {
+        repeat(RESIZE_PASSES) { pass ->
+            for (quality in JPEG_QUALITIES) {
+                check(!cancelled()) { "Image import cancelled" }
+                output.outputStream().use {
+                    check(bitmap.compress(Bitmap.CompressFormat.JPEG, quality, it))
+                }
+                if (output.length() <= MAX_PHOTO_BYTES) return
+            }
+            if (pass < RESIZE_PASSES - 1) {
+                val scaled = Bitmap.createScaledBitmap(
+                    bitmap,
+                    maxOf(1, bitmap.width / 2),
+                    maxOf(
+                        1,
+                        bitmap.height / 2
+                    ),
+                    true
+                )
+                if (bitmap !== original && bitmap !== scaled) bitmap.recycle()
+                bitmap = scaled
+            }
+        }
+        error("Image exceeds 1 MiB after resizing")
+    } finally {
+        if (bitmap !== original) bitmap.recycle()
+    }
+}

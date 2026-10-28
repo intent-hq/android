@@ -1,18 +1,16 @@
 package dev.intent.app.attachments
 
 import android.graphics.Bitmap
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.PickVisualMediaRequest
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -23,13 +21,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import dev.intent.app.R
 import dev.intent.app.design.IntentTextButton as TextButton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -37,38 +35,14 @@ import kotlinx.coroutines.withContext
 val LocalAttachmentMedia = staticCompositionLocalOf<MediaSource?> { null }
 
 @Composable
-fun PhotoPicker(store: PhotoAttachmentStore) {
-    val state by store.state.collectAsState()
-    val picker =
-        rememberLauncherForActivityResult(
-            ActivityResultContracts.PickMultipleVisualMedia(MAX_PHOTOS)
-        ) { uris ->
-            store.add(uris.map { it.toString() })
-        }
-    IconButton(
-        onClick = {
-            picker.launch(
-                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-            )
-        },
-        enabled =
-        state.photos.size < MAX_PHOTOS
-    ) {
-        Icon(
-            painterResource(R.drawable.ic_attach),
-            "Attach photos (${state.photos.size}/$MAX_PHOTOS)"
-        )
-    }
-}
-
-@Composable
 fun PhotoAttachments(store: PhotoAttachmentStore) {
     val state by store.state.collectAsState()
-    Column {
+    Column(Modifier.heightIn(max = 160.dp).verticalScroll(rememberScrollState())) {
+        state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         state.photos.forEach { photo ->
             androidx.compose.runtime.key(photo.key) {
-                Row {
-                    photo.file?.let { file ->
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    photo.file?.takeIf { photo.description?.image == true }?.let { file ->
                         MediaPreview(
                             MediaReference("Selected photo", true),
                             remember(file) {
@@ -76,10 +50,12 @@ fun PhotoAttachments(store: PhotoAttachmentStore) {
                                     java.util.concurrent.CompletableFuture.completedFuture(file)
                                 }
                             },
-                            false
+                            false,
+                            showName = false
                         )
                     }
                     Column(Modifier.weight(1f)) {
+                        Text(photo.description?.name ?: "Attachment", maxLines = 2, overflow = TextOverflow.Ellipsis)
                         Text(photoStatus(photo))
                         if (photo.error !=
                             null
@@ -89,7 +65,17 @@ fun PhotoAttachments(store: PhotoAttachmentStore) {
                             }) { Text("Retry upload") }
                         }
                     }
-                    TextButton(onClick = { store.remove(photo.key) }) { Text("Remove") }
+                    TextButton(onClick = { store.remove(photo.key) }) {
+                        Text(
+                            if (photo.error == null &&
+                                photo.placed == null
+                            ) {
+                                "Cancel upload"
+                            } else {
+                                "Remove"
+                            }
+                        )
+                    }
                 }
             }
         }
@@ -97,7 +83,7 @@ fun PhotoAttachments(store: PhotoAttachmentStore) {
 }
 
 private fun photoStatus(photo: PendingPhoto): String = photo.error ?: if (photo.placed != null) {
-    "Photo ready"
+    "Attachment ready"
 } else {
     "${photo.progress.stage.name.lowercase()}: ${photo.progress.transferred} bytes"
 }
@@ -107,7 +93,8 @@ private fun photoStatus(photo: PendingPhoto): String = photo.error ?: if (photo.
 fun MediaPreview(
     reference: MediaReference,
     source: MediaSource? = LocalAttachmentMedia.current,
-    actions: Boolean = true
+    actions: Boolean = true,
+    showName: Boolean = true
 ) {
     val isImage = mediaPreviewKind(reference) == dev.intent.app.files.WorkspacePreviewKind.IMAGE
     var viewer by remember(reference, source) { mutableStateOf(false) }
@@ -129,7 +116,7 @@ fun MediaPreview(
         onDispose { store?.close() }
     }
     Column {
-        Text(reference.name)
+        if (showName) Text(reference.name)
         MediaStatus(state.loading, error ?: state.error, bitmap, actions) {
             if (actions) {
                 viewer =

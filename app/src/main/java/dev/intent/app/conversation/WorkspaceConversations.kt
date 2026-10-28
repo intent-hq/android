@@ -29,7 +29,7 @@ import dev.intent.app.agents.LocalConversationAgent
 import dev.intent.app.agents.NewAgentOptionsStore
 import dev.intent.app.agents.NewAgentScreen
 import dev.intent.app.agents.RpcAgentSession
-import dev.intent.app.attachments.AndroidPhotoSource
+import dev.intent.app.attachments.AndroidAttachmentSource
 import dev.intent.app.attachments.PhotoAttachmentStore
 import dev.intent.app.design.IntentScreen
 import dev.intent.app.drawers.LocalCurrentHistoryAgent
@@ -174,7 +174,7 @@ fun WorkspaceConversations(
             }
             val photos = remember(session, workspaceId, agentId) {
                 PhotoAttachmentStore(
-                    AndroidPhotoSource(
+                    AndroidAttachmentSource(
                         context,
                         AttachmentUploadService(RpcAttachmentClient(session), workspaceId)
                     )

@@ -21,6 +21,72 @@ class AttachmentServiceTest {
     private val info = placement.dropLast(1) + ",\"exists\":true}"
 
     @Test
+    fun overLimitSparseFileIsRejectedBeforeReadingOrRpc() {
+        val file = Files.createTempFile("large", ".bin").toFile()
+        try {
+            java.io.RandomAccessFile(file, "rw").use { it.setLength(MAX_ATTACHMENT_BYTES + 1) }
+            val rpc = Fake { _, _ -> error("No RPC expected") }
+            assertThrows(Exception::class.java) {
+                AttachmentUploadService(rpc, "w", direct).placeFile(file).join()
+            }
+            assertTrue(rpc.methods.isEmpty())
+        } finally {
+            file.delete()
+        }
+    }
+
+    @Test
+    fun cancellationAfterChunkAbortsBeforeCommit() {
+        val file = Files.createTempFile("cancel", ".bin").toFile().apply { writeBytes(payload) }
+        try {
+            var cancelled = false
+            val rpc = Fake { method, _ ->
+                when (method) {
+                    "file.attachmentUpload.begin" -> """{"uploadId":"u","maxChunkBytes":2}"""
+                    "file.attachmentUpload.chunk" -> {
+                        cancelled = true
+                        "{}"
+                    }
+                    else -> "{}"
+                }
+            }
+            assertThrows(Exception::class.java) {
+                AttachmentUploadService(rpc, "w", direct).placeFile(
+                    file,
+                    forceChunked = true,
+                    isCancelled = { cancelled }
+                ).join()
+            }
+            assertEquals(
+                listOf(
+                    "file.attachmentUpload.begin",
+                    "file.attachmentUpload.chunk",
+                    "file.attachmentUpload.abort"
+                ),
+                rpc.methods
+            )
+        } finally {
+            file.delete()
+        }
+    }
+
+    @Test
+    fun cancellationBeforeUploadMakesNoRpc() {
+        val file = Files.createTempFile("cancel", ".bin").toFile()
+        try {
+            val rpc = Fake { _, _ -> error("No RPC expected") }
+            assertThrows(Exception::class.java) {
+                AttachmentUploadService(rpc, "w", direct).placeFile(file, isCancelled = {
+                    true
+                }).join()
+            }
+            assertTrue(rpc.methods.isEmpty())
+        } finally {
+            file.delete()
+        }
+    }
+
+    @Test
     fun `small upload preserves key mime and placement references`() {
         val rpc = Fake { method, params ->
             assertEquals("file.placeAttachment", method)

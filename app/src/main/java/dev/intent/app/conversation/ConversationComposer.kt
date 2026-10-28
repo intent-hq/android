@@ -57,7 +57,8 @@ fun ConversationComposer(
     onStop: () -> Unit = {},
     onEditQueued: (String, String) -> Unit = { _, _ -> },
     onSendNow: (String) -> Unit = {},
-    onDismissQuestions: (String) -> Unit = {}
+    onDismissQuestions: (String) -> Unit = {},
+    questionPhotos: PhotoAttachmentStore? = null
 ) {
     val photoState = photos?.state?.collectAsState()?.value
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -66,7 +67,13 @@ fun ConversationComposer(
             SendAttempts(state, onRetry, onCheckDelivery)
             QueuedConversationMessages(state, onRetract, onEditQueued, onSendNow)
             state.questions?.let {
-                QuestionComposer(it, onAnswer, onDismissQuestions, state.dismissing != null)
+                QuestionComposer(
+                    it,
+                    onAnswer,
+                    onDismissQuestions,
+                    state.dismissing != null,
+                    questionPhotos
+                )
             }
         }
         photos?.let { PhotoAttachments(it) }
@@ -170,8 +177,10 @@ private fun QuestionComposer(
     set: QuestionSet,
     onAnswer: (String, Map<String, QuestionAnswer>) -> Boolean,
     onDismiss: (String) -> Unit,
-    dismissing: Boolean
+    dismissing: Boolean,
+    photos: PhotoAttachmentStore?
 ) {
+    val attachments = photos?.state?.collectAsState()?.value
     var confirmingDismiss by remember(set.messageId) { mutableStateOf(false) }
     var answers by remember(set.messageId) { mutableStateOf(emptyMap<String, QuestionAnswer>()) }
     Column {
@@ -179,8 +188,16 @@ private fun QuestionComposer(
             val answer = answers[question.attachmentId] ?: QuestionAnswer()
             QuestionInput(question, answer) { answers = answers + (question.attachmentId to it) }
         }
+        photos?.let {
+            PhotoAttachments(it)
+            PhotoPicker(it)
+        }
         Row {
-            TextButton(onClick = { onAnswer(set.messageId, answers) }, enabled = !dismissing) {
+            TextButton(
+                onClick = { onAnswer(set.messageId, answers) },
+                enabled =
+                !dismissing && attachments?.ready != false
+            ) {
                 Text("Send answers")
             }
             TextButton(onClick = { confirmingDismiss = true }, enabled = !dismissing) {

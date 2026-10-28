@@ -15,6 +15,28 @@ import org.junit.Test
 
 class AttachmentUiStoreTest {
     @Test
+    fun questionSelectionIsIndependentAndLatePreparationIsDeleted() {
+        val prepared = CompletableFuture<File>()
+        val source = object : PhotoAttachmentSource {
+            override fun prepare(uri: String) = prepared
+            override fun upload(
+                file: File,
+                key: String,
+                progress: (TransferProgress) -> Unit
+            ): CompletableFuture<PlacedAttachment> = error("Removed import must not upload")
+        }
+        val composer = PhotoAttachmentStore(source)
+        val question = composer.independent()
+        question.add(listOf("file"))
+        assertTrue(composer.state.value.photos.isEmpty())
+        question.close()
+        val file = File.createTempFile("import", ".tmp")
+        prepared.complete(file)
+        assertFalse(file.exists())
+        assertTrue(question.state.value.photos.isEmpty())
+    }
+
+    @Test
     fun uploadFailureRetainsPayloadAndKeyForExplicitRetry() {
         val source = FakePhotos()
         val store = PhotoAttachmentStore(source)
@@ -39,6 +61,7 @@ class AttachmentUiStoreTest {
         val store = PhotoAttachmentStore(source)
         store.add(listOf("photo"))
         store.close()
+        assertEquals(source.keys, source.cancelled)
         assertTrue(source.file.exists())
         source.results.single().complete(placed())
         assertFalse(source.file.exists())
@@ -105,6 +128,10 @@ class AttachmentUiStoreTest {
     private class FakePhotos : PhotoAttachmentSource {
         val file = File.createTempFile("photo", ".jpg").also { it.writeText("photo") }
         val keys = mutableListOf<String>()
+        val cancelled = mutableListOf<String>()
+        override fun cancel(key: String) {
+            cancelled.add(key)
+        }
         val results = mutableListOf<CompletableFuture<PlacedAttachment>>()
         var prepares = 0
         override fun prepare(uri: String): CompletableFuture<File> {
