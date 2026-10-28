@@ -142,6 +142,19 @@ fun WorkspaceConversations(
                 }
             }
         } else {
+            val proposals = remember(session, workspaceId, agentId) {
+                dev.intent.app.assistant.ProposalStore(
+                    dev.intent.app.assistant.proposalRequest(
+                        session
+                    ),
+                    workspaceId,
+                    agentId,
+                    {
+                        session.serverCapabilities
+                    }
+                )
+            }
+            DisposableEffect(proposals) { onDispose { proposals.close() } }
             val conversation = remember(session, workspaceId, agentId) {
                 ConversationStore(RpcConversationSession(session, workspaceId, agentId), agentId)
             }
@@ -216,6 +229,7 @@ fun WorkspaceConversations(
                 }
             }
             CompositionLocalProvider(
+                dev.intent.app.assistant.LocalProposalStore provides proposals,
                 LocalCurrentHistoryAgent provides agentId,
                 LocalConversationAgent provides agentState.agents.firstOrNull {
                     it.id == agentId

@@ -58,6 +58,19 @@ fun ConversationRoute(
         }
     }
     val agent = dev.intent.app.agents.LocalConversationAgent.current
+    val proposals = dev.intent.app.assistant.LocalProposalStore.current
+    LaunchedEffect(proposals, state.messages, agent?.metadata, sending.checking) {
+        if (!sending.checking &&
+            state.messages.any { message ->
+                message.contentBlocks.any {
+                    dev.intent.app.assistant.ActionProposal.parse(it) !=
+                        null
+                }
+            }
+        ) {
+            proposals?.refresh()
+        }
+    }
     val streaming = state.isStreaming ||
         (state.isLoading && agent?.conversationRunning() == true)
     ConversationSeenEffect(
@@ -73,6 +86,7 @@ fun ConversationRoute(
         {
             store.refresh()
             sends.refresh()
+            proposals?.refresh()
         },
         modifier,
         onSuggestedPrompt = sends::sendSuggestedPrompt,
@@ -218,7 +232,7 @@ internal fun TranscriptMessage(
     }
 }
 
-@Suppress("LongParameterList")
+@Suppress("LongParameterList", "LongMethod") // Transcript sections and scoped proposal context.
 @Composable
 private fun TranscriptMessageContents(
     message: ConversationMessage,
@@ -266,8 +280,16 @@ private fun TranscriptMessageContents(
         }
         sections.forEach { section ->
             androidx.compose.runtime.key(section.id) {
-                TranscriptSectionContent(section, section == sections.last(), hydrating) { block ->
-                    block.id?.let { onHydrate(message.id, it) }
+                androidx.compose.runtime.CompositionLocalProvider(
+                    dev.intent.app.assistant.LocalProposalMessage provides message.id
+                ) {
+                    TranscriptSectionContent(
+                        section,
+                        section == sections.last(),
+                        hydrating
+                    ) { block ->
+                        block.id?.let { onHydrate(message.id, it) }
+                    }
                 }
             }
         }
@@ -326,7 +348,14 @@ private fun BlockContent(block: ContentBlock) {
                 mimeType = block.mimeType
             )
         )
-        "resource" -> MarkdownContent(block.resource?.text ?: "Resource")
+        "resource" -> {
+            val proposal = remember(block) { dev.intent.app.assistant.ActionProposal.parse(block) }
+            if (proposal != null) {
+                dev.intent.app.assistant.ProposalCard(proposal)
+            } else {
+                MarkdownContent(block.resource?.text ?: "Resource")
+            }
+        }
         else -> Text("${block.type}: ${block.fileName ?: "Content preview unavailable"}")
     }
 }

@@ -118,17 +118,27 @@ fun IntentNavigation(
     }
     val creationPhotos =
         remember(session) { PhotoAttachmentStore(CreationMediaSource(context, session)) }
+    var assistant by rememberSaveable(session) { mutableStateOf(false) }
+    var assistantOwner by remember(session) { mutableStateOf(false) }
+    LaunchedEffect(session) {
+        session.request("principal.me").whenComplete { principal, error ->
+            assistantOwner =
+                error == null &&
+                dev.intent.app.assistant.assistantOwner(principal, session.serverCapabilities)
+        }
+    }
     val selected = selectedWorkspace
     val back = {
         if (!operationBusy) {
             when {
+                assistant -> assistant = false
                 creating -> creating = false
                 transferring -> transferring = false
                 else -> selectedWorkspace = null
             }
         }
     }
-    BackHandler(selected != null || creating, onBack = back)
+    BackHandler(selected != null || creating || assistant, onBack = back)
     val workspaceAction = ChromeAction("Transfer workspace", !operationBusy) { transferring = true }
     val selectedRow = workspaceState.workspaces.firstOrNull { it.id == selected }
     val lifecycleActions = selectedRow?.let { workspace ->
@@ -145,13 +155,23 @@ fun IntentNavigation(
     }.orEmpty()
     WorkspaceActionDialog(lifecycleState, lifecycle)
     CompositionLocalProvider(
+        dev.intent.app.assistant.LocalOpenProposalWorkspace provides { id ->
+            selectedWorkspace = id
+            assistant = false
+            creating = false
+            store.refresh()
+        },
         dev.intent.app.history.LocalHistoryWorkspaceTitles provides
             workspaceState.workspaces.associate { it.id to it.title },
         LocalHistoryAgent provides historyAgent,
         dev.intent.app.history.LocalHistorySelection provides historySelection,
         LocalOpenRecentWorkspaceAgent provides openRecent,
         LocalLauncherActions provides LocalLauncherActions.current?.copy(
-            onCreate = { creating = true }
+            onCreate = {
+                assistant = false
+                creating = true
+            },
+            onAssistant = if (assistantOwner) ({ assistant = true }) else null
         ),
         LocalChromeActions provides (lifecycleActions + listOf(workspaceAction)),
         LocalWorkspaceRepository provides
@@ -162,6 +182,14 @@ fun IntentNavigation(
     ) {
         Column(modifier) {
             when {
+                assistant -> dev.intent.app.assistant.AssistantRoute(session, connectionScope, {
+                    assistant =
+                        false
+                }) {
+                    selectedWorkspace = it
+                    assistant = false
+                    store.refresh()
+                }
                 creating -> {
                     CompactAppBar("Create workspace", onBack = back)
                     WorkspaceCreateScreen(creation, onBusy = { operationBusy = it }, onCreated = {

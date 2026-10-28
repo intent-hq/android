@@ -66,6 +66,7 @@ internal fun WorkspaceActionLauncher(actions: LauncherActions, modifier: Modifie
 @Composable
 private fun LauncherTiles(actions: LauncherActions, close: () -> Unit) {
     val tiles = buildList {
+        actions.onAssistant?.let { add(ChromeAction("Assistant", run = it)) }
         actions.onCreate?.let { add(ChromeAction("New workspace", run = it)) }
         add(ChromeAction("Connections: ${actions.connectionCount}", run = actions.onConnections))
         add(ChromeAction("Appearance: ${actions.appearance.name}", run = actions.onAppearance))
@@ -97,7 +98,17 @@ private fun LauncherTiles(actions: LauncherActions, close: () -> Unit) {
                             "Settings" -> Icons.Default.Settings
                             else -> Icons.Default.Add
                         }
-                        Icon(icon, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (tile.label == "Assistant") {
+                            Icon(
+                                androidx.compose.ui.res.painterResource(
+                                    dev.intent.app.R.drawable.avatar_chief_of_staff
+                                ),
+                                null,
+                                tint = androidx.compose.ui.graphics.Color.Unspecified
+                            )
+                        } else {
+                            Icon(icon, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
                         Spacer(Modifier.weight(1f))
                         Text(tile.label, style = MaterialTheme.typography.titleMedium)
                     }

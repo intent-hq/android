@@ -11,6 +11,7 @@ data class Agent(
     val workspaceId: String? = null,
     val status: String = "idle",
     val parentAgentId: String? = null,
+    val createdByAgentId: String? = null,
     val model: String? = null,
     val provider: String? = null,
     val reasoningEffort: String? = null,

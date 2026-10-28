@@ -9,7 +9,8 @@ internal data class LauncherActions(
     val onAppearance: () -> Unit,
     val onConnections: () -> Unit,
     val onSettings: () -> Unit,
-    val onCreate: (() -> Unit)? = null
+    val onCreate: (() -> Unit)? = null,
+    val onAssistant: (() -> Unit)? = null
 )
 
 internal val LocalLauncherActions = staticCompositionLocalOf<LauncherActions?> { null }
