@@ -112,16 +112,19 @@ fun MediaPreview(
     val isImage = mediaPreviewKind(reference) == dev.intent.app.files.WorkspacePreviewKind.IMAGE
     var viewer by remember(reference, source) { mutableStateOf(false) }
     val store = remember(reference, source) { source?.let { MediaLoadStore(it, reference) } }
-    val state = store?.state?.collectAsState()?.value ?: MediaLoadState()
+    val state = store?.state?.collectAsState(Dispatchers.Main.immediate)?.value ?: MediaLoadState()
     var bitmap by remember(reference, source) { mutableStateOf<Bitmap?>(null) }
     var error by remember(reference, source) { mutableStateOf<String?>(null) }
     androidx.compose.runtime.LaunchedEffect(state.file) {
-        bitmap = null
-        error = null
-        state.file?.takeIf { isImage }?.let { file ->
-            val result = withContext(Dispatchers.IO) { runCatching { decodePhoto(file) } }
-            bitmap = result.getOrNull()
-            if (result.isFailure) error = "Cannot decode image. Open it in another app."
+        // Test effects may be unconfined; publish UI state only on Android main.
+        withContext(Dispatchers.Main.immediate) {
+            bitmap = null
+            error = null
+            state.file?.takeIf { isImage }?.let { file ->
+                val result = withContext(Dispatchers.IO) { runCatching { decodePhoto(file) } }
+                bitmap = result.getOrNull()
+                if (result.isFailure) error = "Cannot decode image. Open it in another app."
+            }
         }
     }
     DisposableEffect(store) {
@@ -131,10 +134,7 @@ fun MediaPreview(
     Column {
         if (showName) Text(reference.name)
         MediaStatus(state.loading, error ?: state.error, bitmap, actions) {
-            if (actions) {
-                viewer =
-                    true
-            }
+            if (actions) viewer = true
         }
         if (source == null) Text("Connect to load attachment")
         val failed = state.error != null || error != null

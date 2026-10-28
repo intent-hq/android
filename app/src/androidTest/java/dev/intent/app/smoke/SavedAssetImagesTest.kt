@@ -1,7 +1,10 @@
 package dev.intent.app.smoke
 
 import android.graphics.Bitmap
+import android.os.Looper
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.snapshots.ObserverHandle
+import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasTestTag
@@ -24,11 +27,15 @@ import java.io.ByteArrayOutputStream
 import java.io.File
 import java.util.Base64
 import java.util.concurrent.CompletableFuture
+import java.util.concurrent.ConcurrentLinkedQueue
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
+import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -36,6 +43,29 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class SavedAssetImagesTest {
     @get:Rule val compose = createIntentComposeRule()
+
+    private val workerWrites = ConcurrentLinkedQueue<String>()
+    private lateinit var writeObserver: ObserverHandle
+
+    @Before
+    fun observeImageStateWrites() {
+        writeObserver = Snapshot.registerGlobalWriteObserver { state ->
+            val thread = Thread.currentThread()
+            if (thread.name.startsWith("ForkJoinPool") ||
+                thread.name.startsWith("DefaultDispatcher")
+            ) {
+                if (Looper.myLooper() != Looper.getMainLooper()) {
+                    workerWrites.add("${thread.name}: ${state.javaClass.simpleName}")
+                }
+            }
+        }
+    }
+
+    @After
+    fun imageWorkersNeverWriteSnapshotState() {
+        writeObserver.dispose()
+        assertTrue("Image workers wrote Compose state: $workerWrites", workerWrites.isEmpty())
+    }
 
     @Test
     fun noteReviewImageLoadsThroughAssetRpcAndOpensViewer() {

@@ -47,18 +47,21 @@ fun MediaViewerRoute(file: File, reference: MediaReference, onBack: () -> Unit) 
     var attempt by remember(file, reference) { mutableStateOf(0) }
     var openError by remember { mutableStateOf(false) }
     LaunchedEffect(file, reference, attempt) {
-        state = PreviewState(file)
-        val result = withContext(Dispatchers.IO) {
-            runCatching { previewContent(file, mediaPreviewKind(reference)) }
+        // Keep state publication on main even when the effect dispatcher is unconfined.
+        withContext(Dispatchers.Main.immediate) {
+            state = PreviewState(file)
+            val result = withContext(Dispatchers.IO) {
+                runCatching { previewContent(file, mediaPreviewKind(reference)) }
+            }
+            state =
+                PreviewState(
+                    file,
+                    result.getOrNull(),
+                    result.exceptionOrNull()?.let {
+                        "Cannot preview file."
+                    }
+                )
         }
-        state =
-            PreviewState(
-                file,
-                result.getOrNull(),
-                result.exceptionOrNull()?.let {
-                    "Cannot preview file."
-                }
-            )
     }
     Dialog(onBack, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         CompositionLocalProvider(LocalChromeActions provides emptyList()) {
