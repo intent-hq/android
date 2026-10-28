@@ -11,6 +11,7 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipe
@@ -193,10 +194,19 @@ class WorkspaceDrawersTest {
         compose.onNodeWithTag("drawer.Agent history").assertDoesNotExist()
         compose.onNodeWithText(WIDE_CODE, substring = true).performTouchInput { swipeRight() }
         compose.onNodeWithTag("drawer.Agent history").assertDoesNotExist()
-        compose.onNodeWithTag("transcript").performTouchInput {
-            swipe(Offset(width - 1f, height * 0.8f), Offset(width * 0.1f, height * 0.8f))
+        val transcript = compose.onNodeWithTag("transcript").fetchSemanticsNode().boundsInRoot
+        val root = compose.onRoot().fetchSemanticsNode().boundsInRoot
+        val swipeY = transcript.center.y - root.top
+        // Transcript padding is content, not the system edge. Start at the screen boundary.
+        compose.onRoot().performTouchInput {
+            swipe(Offset(width - 1f, swipeY), Offset(width * 0.1f, swipeY))
         }
         compose.onNodeWithTag("drawer.Agent history").assertDoesNotExist()
+        compose.onRoot().performTouchInput {
+            swipe(Offset(0f, swipeY), Offset(width * 0.9f, swipeY))
+        }
+        compose.onNodeWithTag("drawer.Agent history").assertDoesNotExist()
+        compose.onNodeWithTag("drawer.Connections").assertDoesNotExist()
     }
 
     @Test
