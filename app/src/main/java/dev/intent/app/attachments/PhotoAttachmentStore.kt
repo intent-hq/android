@@ -125,7 +125,14 @@ class PhotoAttachmentStore(private val source: PhotoAttachmentSource) : Closeabl
         prepared.whenComplete { file, prepareError ->
             synchronized(this) {
                 if (prepareError != null) {
-                    finish(photo, null, "Cannot read this attachment. Select it again or retry.")
+                    finish(
+                        photo,
+                        null,
+                        attachmentFailureMessage(
+                            prepareError,
+                            "Cannot read this attachment. Select it again or retry."
+                        )
+                    )
                 } else if (closed || state.value.photos.none { it.key == photo.key }) {
                     active.remove(photo.key)
                     source.release(photo.key)
@@ -164,7 +171,10 @@ class PhotoAttachmentStore(private val source: PhotoAttachmentSource) : Closeabl
                         if (error !=
                             null
                         ) {
-                            "Upload unconfirmed. Retry uses the same attachment key."
+                            attachmentFailureMessage(
+                                error,
+                                "Upload unconfirmed. Retry uses the same attachment key."
+                            )
                         } else {
                             null
                         }

@@ -65,6 +65,72 @@ class AttachmentInputTest {
     private val context get() = InstrumentationRegistry.getInstrumentation().targetContext
 
     @Test
+    fun oversizedVideoFromMediaAndFilesShowsIOSMessageWithoutUpload() {
+        val directory = File(context.cacheDir, "attachments").also { it.mkdirs() }
+        val file = File(directory, "oversized.mp4")
+        java.io.RandomAccessFile(file, "rw").use { it.setLength(VIDEO_LIMIT + 1) }
+        val uri = FileProvider.getUriForFile(context, "${context.packageName}.attachments", file)
+        val rpc = UploadFixture()
+        val store = store(rpc)
+        show(store, PickerFixture(uri))
+        listOf("Photos and videos", "Files").forEach { picker ->
+            pick(picker)
+            compose.waitUntil(TIMEOUT) { store.state.value.photos.singleOrNull()?.error != null }
+            compose.onNodeWithText("Video is too large to send (max 200 MB).").assertExists()
+            assertTrue(rpc.methods.isEmpty())
+            screenshot("attachment-video-limit")
+            compose.onNodeWithText("Remove").performClick()
+        }
+        store.close()
+        file.delete()
+    }
+
+    @Test
+    fun exactVideoBoundaryAndLargerNonVideoImportButGrownVideoDoesNotUpload() {
+        val directory = File(context.cacheDir, "attachments").also { it.mkdirs() }
+        val original = File(directory, "boundary.mp4")
+        val rpc = UploadFixture()
+        val source = AndroidAttachmentSource(context, AttachmentUploadService(rpc, "workspace"))
+        java.io.RandomAccessFile(original, "rw").use { it.setLength(VIDEO_LIMIT) }
+        val uri = FileProvider.getUriForFile(
+            context,
+            "${context.packageName}.attachments",
+            original
+        )
+        val prepared = source.prepareFile(
+            uri.toString(),
+            "boundary"
+        ).get(30, java.util.concurrent.TimeUnit.SECONDS)
+        assertEquals(VIDEO_LIMIT, prepared.length())
+        java.io.RandomAccessFile(prepared, "rw").use { it.setLength(VIDEO_LIMIT + 1) }
+        val error = org.junit.Assert.assertThrows(
+            java.util.concurrent.CompletionException::class.java
+        ) {
+            source.upload(prepared, "boundary") {}.join()
+        }
+        assertEquals("Video is too large to send (max 200 MB).", error.cause?.message)
+        assertTrue(rpc.methods.isEmpty())
+        source.cleanup(prepared)
+        source.release("boundary")
+        original.delete()
+        val archive = File(directory, "large.zip")
+        java.io.RandomAccessFile(archive, "rw").use { it.setLength(VIDEO_LIMIT + MIB) }
+        val archiveUri = FileProvider.getUriForFile(
+            context,
+            "${context.packageName}.attachments",
+            archive
+        )
+        val copied = source.prepareFile(
+            archiveUri.toString(),
+            "archive"
+        ).get(30, java.util.concurrent.TimeUnit.SECONDS)
+        assertEquals(VIDEO_LIMIT + MIB, copied.length())
+        source.cleanup(copied)
+        source.release("archive")
+        archive.delete()
+    }
+
+    @Test
     fun filePickerRetryAndRemoveKeepOwnedPayloadAndKey() {
         val rpc = UploadFixture(failFirst = true)
         val store = store(rpc)
@@ -324,3 +390,6 @@ private fun AttachmentTestTheme(content: @Composable () -> Unit) {
         Surface(Modifier.fillMaxSize()) { Box(Modifier.padding(16.dp)) { content() } }
     }
 }
+
+private const val MIB = 1024L * 1024
+private const val VIDEO_LIMIT = 200 * MIB

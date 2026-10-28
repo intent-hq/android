@@ -5,6 +5,7 @@ import android.net.Uri
 import android.provider.OpenableColumns
 import android.webkit.MimeTypeMap
 import dev.intent.core.protocol.attachments.AttachmentUploadService
+import dev.intent.core.protocol.attachments.PlacedAttachment
 import dev.intent.core.protocol.attachments.TransferProgress
 import java.io.File
 import java.util.concurrent.CancellationException
@@ -39,7 +40,7 @@ class AndroidAttachmentSource(
             val file = if (description.image) {
                 photos.prepareImage(uri, cancelled::get).join()
             } else {
-                copy(source, cancelled)
+                copy(source, description, cancelled)
             }
             if (cancelled.get()) {
                 file.delete()
@@ -64,15 +65,20 @@ class AndroidAttachmentSource(
         file: File,
         key: String,
         progress: (TransferProgress) -> Unit
-    ): CompletableFuture<dev.intent.core.protocol.attachments.PlacedAttachment> {
-        val cancelled = cancellations.computeIfAbsent(key) { AtomicBoolean() }
+    ): CompletableFuture<PlacedAttachment> {
         val description = describe(file)
+        runCatching { description.validateSize(file.length()) }.exceptionOrNull()?.let {
+            return CompletableFuture<PlacedAttachment>().apply {
+                completeExceptionally(it)
+            }
+        }
+        val cancelled = cancellations.computeIfAbsent(key) { AtomicBoolean() }
         return upload.placeFile(
             file,
             description.name,
             description.mimeType,
             key,
-            forceChunked = description.mimeType.startsWith("video/"),
+            forceChunked = description.isVideo,
             isCancelled = cancelled::get,
             onProgress = progress
         ).whenComplete { _, _ -> cancellations.remove(key, cancelled) }
@@ -98,17 +104,26 @@ class AndroidAttachmentSource(
                 if (it.moveToFirst()) it.getString(0) else null
             }?.substringAfterLast('/')?.substringAfterLast('\\')?.takeIf { it.isNotBlank() }
                 ?: "attachment"
-        val mime = resolver.getType(uri)
-            ?: MimeTypeMap.getSingleton().getMimeTypeFromExtension(
-                name.substringAfterLast('.').lowercase()
-            )
-            ?: "application/octet-stream"
-        return AttachmentDescription(name, mime)
+        val extensionMime = MimeTypeMap.getSingleton().getMimeTypeFromExtension(
+            name.substringAfterLast('.').lowercase()
+        )
+        val reportedMime = resolver.getType(uri)
+        val mime = if (extensionMime?.startsWith("video/") == true &&
+            reportedMime?.startsWith("video/", ignoreCase = true) != true
+        ) {
+            extensionMime
+        } else {
+            reportedMime ?: extensionMime ?: "application/octet-stream"
+        }
+        return AttachmentDescription(name, mime).let { it.copy(image = it.image && !it.isVideo) }
     }
 
     // Remove the owned copy after every provider failure.
     @Suppress("TooGenericExceptionCaught", "NestedBlockDepth")
-    private fun copy(uri: Uri, cancelled: AtomicBoolean): File {
+    private fun copy(uri: Uri, description: AttachmentDescription, cancelled: AtomicBoolean): File {
+        context.contentResolver.query(uri, arrayOf(OpenableColumns.SIZE), null, null, null)?.use {
+            if (it.moveToFirst() && !it.isNull(0)) description.validateSize(it.getLong(0))
+        }
         val directory = File(context.cacheDir, "attachment-imports").also {
             check(
                 it.isDirectory || it.mkdirs()
@@ -130,7 +145,7 @@ class AndroidAttachmentSource(
                         val count = input.read(buffer)
                         if (count < 0) break
                         total += count
-                        require(total <= MAX_FILE_BYTES) { "Attachment exceeds 1 GiB" }
+                        description.validateSize(total)
                         output.write(buffer, 0, count)
                     }
                 }
@@ -143,5 +158,4 @@ class AndroidAttachmentSource(
     }
 }
 
-internal const val MAX_FILE_BYTES = 1024L * 1024 * 1024
 private const val COPY_BUFFER = 64 * 1024
