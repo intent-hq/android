@@ -1,14 +1,19 @@
 package dev.intent.app.conversation
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -89,28 +94,36 @@ fun ConversationComposer(
                         cursorColor = MaterialTheme.colorScheme.onSurface
                     )
                 )
+                photos?.let { PhotoPicker(it) }
                 if (state.running) {
-                    TextButton(onClick = onStop, enabled = !state.stopping) {
-                        Text(if (state.stopping) "Stopping…" else "Stop response")
+                    IntentButton(
+                        onClick = onStop,
+                        enabled = !state.stopping,
+                        modifier = Modifier.semantics { contentDescription = "Stop" }
+                    ) {
+                        Box(
+                            Modifier.size(16.dp)
+                                .background(LocalContentColor.current, RoundedCornerShape(2.dp))
+                        )
                     }
                 } else {
-                    photos?.let { PhotoPicker(it) }
-                }
-                IntentButton(
-                    onClick = {
-                        if (onSend(draft.text) && clearOnSend) draft.text = ""
-                    },
-                    enabled =
-                    (
-                        clearOnSend ||
-                            state.attempts.all {
-                                it.status == SendStatus.ACCEPTED || it.status == SendStatus.QUEUED
-                            }
-                        ) &&
-                        (photoState?.ready != false) &&
-                        (draft.text.isNotBlank() || photoState?.photos?.isNotEmpty() == true)
-                ) {
-                    Text("Send")
+                    IntentButton(
+                        onClick = {
+                            if (onSend(draft.text) && clearOnSend) draft.text = ""
+                        },
+                        enabled =
+                        (
+                            clearOnSend ||
+                                state.attempts.all {
+                                    it.status == SendStatus.ACCEPTED ||
+                                        it.status == SendStatus.QUEUED
+                                }
+                            ) &&
+                            (photoState?.ready != false) &&
+                            (draft.text.isNotBlank() || photoState?.photos?.isNotEmpty() == true)
+                    ) {
+                        Text("Send")
+                    }
                 }
             }
         }

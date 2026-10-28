@@ -5,16 +5,20 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextReplacement
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import dev.intent.app.conversation.ComposerDraft
 import dev.intent.app.conversation.ConversationComposer
+import dev.intent.app.conversation.ConversationSendState
 import dev.intent.app.conversation.ConversationSendStore
 import dev.intent.app.conversation.RpcConversationCommands
 import dev.intent.app.design.IntentTheme
@@ -69,9 +73,9 @@ class ConversationControlsTest {
                     }
                 }
                 screenshot("conversation-controls")
-                compose.onNodeWithText("Stop response").performClick()
+                compose.onNodeWithContentDescription("Stop").performClick()
                 compose.waitUntil(TIMEOUT) { server.requests.any { it.method == "agent.stop" } }
-                compose.onNodeWithText("Stopping…").assertIsNotEnabled()
+                compose.onNodeWithContentDescription("Stop").assertIsNotEnabled()
                 compose.onNodeWithText("Edit").performScrollTo().performClick()
                 compose.onNodeWithText(
                     "Edit queued message"
@@ -139,6 +143,52 @@ class ConversationControlsTest {
         }
     }
 
+    @Test
+    fun stopReplacesSendAndPreservesDraftInBothThemes() {
+        val dark = mutableStateOf(false)
+        val state = mutableStateOf(ConversationSendState(running = true))
+        val draft = ComposerDraft().apply { text = "Keep this draft" }
+        var stops = 0
+        compose.setContent {
+            IntentTheme(darkTheme = dark.value) {
+                Surface(Modifier.fillMaxSize()) {
+                    ConversationComposer(
+                        state.value,
+                        { false },
+                        {},
+                        { _, _ -> false },
+                        draft = draft,
+                        onStop = {
+                            stops++
+                            state.value = state.value.copy(stopping = true)
+                        }
+                    )
+                }
+            }
+        }
+        listOf(false, true).forEach { darkTheme ->
+            compose.runOnIdle {
+                dark.value = darkTheme
+                state.value = ConversationSendState(running = true)
+            }
+            val theme = if (darkTheme) "dark" else "light"
+            compose.onNodeWithContentDescription("Stop").assertIsDisplayed()
+            compose.onNodeWithText("Stop response").assertDoesNotExist()
+            compose.onNodeWithText("Send").assertDoesNotExist()
+            screenshot("stop-working-$theme", suffix = "")
+            compose.onNodeWithContentDescription("Stop").performClick()
+            compose.onNodeWithContentDescription("Stop").assertIsNotEnabled().performClick()
+            compose.runOnIdle {
+                assertEquals(if (darkTheme) 2 else 1, stops)
+                assertEquals("Keep this draft", draft.text)
+                state.value = ConversationSendState()
+            }
+            compose.onNodeWithContentDescription("Stop").assertDoesNotExist()
+            compose.onNodeWithText("Send").assertIsDisplayed()
+            screenshot("stop-idle-$theme", suffix = "")
+        }
+    }
+
     private fun responses() = mapOf(
         "agent.get" to
             """{"agent":{"id":"agent","name":"Agent","turnInFlight":true,"metadata":{"pendingQuestionsMessageId":"questions"}}}""",
@@ -152,7 +202,7 @@ class ConversationControlsTest {
         "agent.dismissQuestions" to """{"success":true,"dismissedQuestionsMessageId":"questions"}"""
     )
 
-    private fun screenshot(name: String) {
+    private fun screenshot(name: String, suffix: String = "-dark") {
         compose.waitForIdle()
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val directory = InstrumentationRegistry.getArguments().getString("additionalTestOutputDir")
@@ -163,7 +213,7 @@ class ConversationControlsTest {
             )
         check(directory.mkdirs() || directory.isDirectory)
         val bitmap = checkNotNull(instrumentation.uiAutomation.takeScreenshot())
-        File(directory, "$name-dark.png").outputStream().use {
+        File(directory, "$name$suffix.png").outputStream().use {
             check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, it))
         }
         bitmap.recycle()

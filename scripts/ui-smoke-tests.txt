@@ -9,3 +9,4 @@ dev.intent.app.smoke.ConversationPersistenceTest#turnCompletionWaitsOneSecondAnd
 dev.intent.app.smoke.PrMonitorActionsTest#menuChecksFlushesOpensAndCancelsWithFakeSession
 dev.intent.app.smoke.PrMonitorActionsTest#failedActionKeepsMonitorAndCanRetry
 dev.intent.app.smoke.ConversationControlsTest#stopEditSendNowAndDismissUseScopedCommands
+dev.intent.app.smoke.ConversationControlsTest#stopReplacesSendAndPreservesDraftInBothThemes
