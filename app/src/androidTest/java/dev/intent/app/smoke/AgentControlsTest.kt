@@ -3,6 +3,11 @@ package dev.intent.app.smoke
 import android.content.Context
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.isDialog
+import androidx.compose.material3.Surface
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -45,6 +50,7 @@ class AgentControlsTest {
             "and preserve every long task name"
         compose.setContent {
             IntentTheme(true) {
+                Surface(Modifier.fillMaxSize()) {
                 AgentListScreen(
                     AgentListState(
                         listOf(
@@ -60,13 +66,14 @@ class AgentControlsTest {
                     onRefresh = {},
                     onAgentSelected = {}
                 )
+                }
             }
         }
         compose.onNodeWithText("Read the Spec and keep formatting plain.").assertIsDisplayed()
         screenshot("agent-plain-preview-dark")
         compose.onNodeWithText(name).performTouchInput { longClick() }
         compose.onNodeWithText("Read full name").performClick()
-        compose.onNodeWithText(name).assertIsDisplayed()
+        compose.onNode(hasText(name) and hasAnyAncestor(isDialog())).assertIsDisplayed()
         screenshot("agent-full-name-dark")
         compose.onNodeWithText("Close").performClick()
     }

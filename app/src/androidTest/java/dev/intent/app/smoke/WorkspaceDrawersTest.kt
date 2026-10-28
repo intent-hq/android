@@ -108,7 +108,7 @@ class WorkspaceDrawersTest {
         connected(seed = true) { controller ->
             compose.onNodeWithContentDescription("Agent history").performClick()
             compose.onNodeWithTag("history.second.agent").assertIsDisplayed()
-            val name = compose.onNodeWithText("Remote agent").fetchSemanticsNode().boundsInRoot
+            val name = compose.onNodeWithText("Remote agent", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
             val context = compose.onNodeWithText(
                 "Remote workspace",
                 substring = true
