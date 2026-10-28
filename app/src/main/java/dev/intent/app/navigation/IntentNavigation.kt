@@ -113,7 +113,12 @@ fun IntentNavigation(
     val selectedRow = workspaceState.workspaces.firstOrNull { it.id == selected }
     val lifecycleActions = selectedRow?.let { workspace ->
         WorkspaceAction.entries.map { action ->
-            ChromeAction("${action.label} workspace", !lifecycleState.busy) {
+            ChromeAction(
+                "${action.label} workspace",
+                !lifecycleState.busy,
+                destructive =
+                action == WorkspaceAction.Delete
+            ) {
                 lifecycle.begin(workspace, action)
             }
         }

@@ -12,12 +12,15 @@ import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performTouchInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import dev.intent.app.agents.AgentListScreen
+import dev.intent.app.agents.AgentListState
 import dev.intent.app.connection.ConnectionController
 import dev.intent.app.connection.ConnectionRoot
 import dev.intent.app.connection.createConnectionSession
 import dev.intent.app.design.IntentTheme
 import dev.intent.app.testing.createIntentComposeRule
 import dev.intent.core.protocol.JsonRpcMessage
+import dev.intent.core.protocol.models.Agent
 import dev.intent.core.protocol.pairing.PairingPayload
 import dev.intent.core.protocol.session.SessionTransport
 import kotlinx.serialization.json.Json
@@ -36,6 +39,37 @@ import org.junit.runner.RunWith
 class AgentControlsTest {
     @get:Rule val compose = createIntentComposeRule()
     private lateinit var server: SmokeServer
+
+    @Test fun longAgentNameAndPlainPreview() {
+        val name = "Review the complete Android companion agent list " +
+            "and preserve every long task name"
+        compose.setContent {
+            IntentTheme(true) {
+                AgentListScreen(
+                    AgentListState(
+                        listOf(
+                            Agent(
+                                "long",
+                                name,
+                                digest = "Read [the Spec](intent://local/note/spec) " +
+                                    "and **keep formatting plain**."
+                            )
+                        ),
+                        isLoading = false
+                    ),
+                    onRefresh = {},
+                    onAgentSelected = {}
+                )
+            }
+        }
+        compose.onNodeWithText("Read the Spec and keep formatting plain.").assertIsDisplayed()
+        screenshot("agent-plain-preview-dark")
+        compose.onNodeWithText(name).performTouchInput { longClick() }
+        compose.onNodeWithText("Read full name").performClick()
+        compose.onNodeWithText(name).assertIsDisplayed()
+        screenshot("agent-full-name-dark")
+        compose.onNodeWithText("Close").performClick()
+    }
 
     @Test fun renameAndDeleteConfirmOrCancel() = connected {
         openConversation()
@@ -85,9 +119,14 @@ class AgentControlsTest {
         menu("Model settings")
         waitFor("Other provider")
         compose.onNodeWithText("Other provider").performClick()
+        compose.onNodeWithText("Show models").performClick()
         waitFor("New model")
         compose.onNodeWithText("New model").performScrollTo().performClick()
+        compose.onNodeWithText("Reasoning").assertIsDisplayed()
+        compose.onNodeWithText("Cancel").assertIsDisplayed()
+        compose.onNodeWithText("Save").assertIsDisplayed()
         compose.onNodeWithText("high").performScrollTo().performClick()
+        screenshot("agent-model-settings-light")
         compose.onNodeWithText("Save").performClick()
         waitFor("Message")
         compose.onNodeWithText("Provider default").assertDoesNotExist()
@@ -102,6 +141,7 @@ class AgentControlsTest {
         )
         menu("Model settings")
         waitFor("New model")
+        compose.onNodeWithText("Show models").performClick()
         compose.onNodeWithText("Provider default").performScrollTo().performClick()
         compose.onNodeWithText("Save").performClick()
         waitFor("Message")
@@ -110,6 +150,44 @@ class AgentControlsTest {
             "null",
             request("agent.update")["changes"]?.jsonObject?.get("reasoningEffort").toString()
         )
+    }
+
+    @Test fun largeModelCatalogKeepsActionsVisible() = connected(
+        mapOf(
+            "models.list" to """{"models":[${(1..24).joinToString(",") {
+                """{"id":"m$it","name":"Model choice $it","provider":"other"}"""
+            }}]}"""
+        )
+    ) {
+        openConversation()
+        menu("Model settings")
+        waitFor("Other provider")
+        compose.onNodeWithText("Other provider").performClick()
+        compose.onNodeWithText("Reasoning").assertIsDisplayed()
+        compose.onNodeWithText("Show models").performClick()
+        waitFor("Model choice 24")
+        compose.onNodeWithText("Scroll for more settings ↓").assertIsDisplayed()
+        compose.onNodeWithText("Cancel").assertIsDisplayed()
+        compose.onNodeWithText("Save").assertIsDisplayed()
+        screenshot("agent-model-overflow-light")
+        compose.onNodeWithText("Model choice 24").performScrollTo().performClick()
+        compose.onNodeWithText("Reasoning").assertIsDisplayed()
+        compose.onNodeWithText("Cancel").performClick()
+        assertFalse(server.requests.any { it.method == "agent.setModel" })
+    }
+
+    private fun screenshot(name: String) {
+        compose.waitForIdle()
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val directory = InstrumentationRegistry.getArguments().getString("additionalTestOutputDir")
+            ?.let { java.io.File(it) }
+            ?: java.io.File(instrumentation.targetContext.cacheDir, "screenshots")
+        directory.mkdirs()
+        val bitmap = checkNotNull(instrumentation.uiAutomation.takeScreenshot())
+        java.io.File(directory, "$name.png").outputStream().use {
+            bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
+        }
+        bitmap.recycle()
     }
 
     private fun openConversation() {
@@ -136,7 +214,7 @@ class AgentControlsTest {
         return params
     }
 
-    private fun connected(test: () -> Unit) {
+    private fun connected(extra: Map<String, String> = emptyMap(), test: () -> Unit) {
         InstrumentationRegistry.getInstrumentation().targetContext.getSharedPreferences(
             "workspace-sections",
             Context.MODE_PRIVATE
@@ -148,7 +226,7 @@ class AgentControlsTest {
         repository.select(saved.id)
         ConnectionController(repository, { connection, callback ->
             createConnectionSession(connection, callback, transport = {
-                val replies = responses.toMutableMap()
+                val replies = (responses + extra).toMutableMap()
                 val fixture = SmokeServer(it, replies).also { server = it }
                 object : SessionTransport by fixture {
                     override fun send(message: JsonRpcMessage): Boolean {

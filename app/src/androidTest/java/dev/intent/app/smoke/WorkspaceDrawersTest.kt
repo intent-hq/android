@@ -108,6 +108,12 @@ class WorkspaceDrawersTest {
         connected(seed = true) { controller ->
             compose.onNodeWithContentDescription("Agent history").performClick()
             compose.onNodeWithTag("history.second.agent").assertIsDisplayed()
+            val name = compose.onNodeWithText("Remote agent").fetchSemanticsNode().boundsInRoot
+            val context = compose.onNodeWithText(
+                "Remote workspace",
+                substring = true
+            ).fetchSemanticsNode().boundsInRoot
+            assertTrue(name.top < context.top)
             screenshot("agent-history-drawer")
             compose.onNodeWithTag("history.second.agent").performClick()
             waitFor("Message")

@@ -73,6 +73,8 @@ class WorkspaceActionsTest {
     @Test
     fun leftSwipeRevealsActionsAndDeleteRequiresConfirmation() = connected {
         compose.onNodeWithTag("workspace.row.workspace").performTouchInput { swipeLeft() }
+        compose.onNodeWithText(TITLE).assertIsDisplayed()
+        screenshot("workspace-swipe-actions")
         compose.onNodeWithText("Delete").performClick()
         assertTrue(server.requests.none { it.method == "workspace.delete" })
         fixtureResponses["workspace.list"] = """{"workspaces":[]}"""
@@ -88,6 +90,7 @@ class WorkspaceActionsTest {
         compose.onNodeWithTag("workspace.row.workspace").performTouchInput { longClick() }
         compose.onNodeWithText("Open most recent agent").assertIsDisplayed()
         compose.onNodeWithText("Archive workspace").assertIsDisplayed()
+        screenshot("workspace-destructive-menu")
         compose.onNodeWithText("Delete workspace").performClick()
         compose.onNodeWithText("Delete", substring = false).performClick()
         waitFor("The server did not confirm the workspace change. Try again.")
@@ -108,6 +111,20 @@ class WorkspaceActionsTest {
                 it.method == "agent.getConversation" && it.params.toString().contains("recent")
             }
         )
+    }
+
+    private fun screenshot(name: String) {
+        compose.waitForIdle()
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val directory = InstrumentationRegistry.getArguments().getString("additionalTestOutputDir")
+            ?.let { java.io.File(it) }
+            ?: java.io.File(instrumentation.targetContext.cacheDir, "screenshots")
+        directory.mkdirs()
+        val bitmap = checkNotNull(instrumentation.uiAutomation.takeScreenshot())
+        java.io.File(directory, "$name.png").outputStream().use {
+            bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
+        }
+        bitmap.recycle()
     }
 
     private fun openWorkspace() {

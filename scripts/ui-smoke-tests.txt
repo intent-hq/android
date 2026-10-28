@@ -24,3 +24,5 @@ dev.intent.app.smoke.ListSpaceTest#noteFilterPersistsAfterSearchAndResultsStayCo
 dev.intent.app.smoke.WorkspaceFilesTest#filesAreDirectAndSearchIsSeparateFromNotes
 dev.intent.app.smoke.SavedAssetImagesTest#noteReviewImageLoadsThroughAssetRpcAndOpensViewer
 dev.intent.app.smoke.SavedAssetImagesTest#conversationAssetFailureCanRetryWithoutHttpFallback
+dev.intent.app.smoke.AgentControlsTest#longAgentNameAndPlainPreview
+dev.intent.app.smoke.AgentControlsTest#largeModelCatalogKeepsActionsVisible

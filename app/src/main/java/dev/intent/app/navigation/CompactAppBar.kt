@@ -85,7 +85,7 @@ fun CompactAppBar(
                 DropdownMenu(expanded, onDismissRequest = { expanded = false }) {
                     menu.forEach { action ->
                         DropdownMenuItem(
-                            text = { Text(action.label) },
+                            text = { ActionLabel(action) },
                             enabled = action.enabled,
                             onClick = {
                                 expanded = false
@@ -97,4 +97,16 @@ fun CompactAppBar(
             }
         }
     }
+}
+
+@Composable
+private fun ActionLabel(action: ChromeAction) {
+    Text(
+        action.label,
+        color = if (action.destructive) {
+            MaterialTheme.colorScheme.error
+        } else {
+            MaterialTheme.colorScheme.onSurface
+        }
+    )
 }

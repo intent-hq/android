@@ -122,12 +122,12 @@ fun AgentHistoryDrawer(
                     visit.connectionId ==
                         state.activeId
                 }
-                Text(liveTitle ?: visit.workspaceTitle ?: visit.agentName)
+                Text(visit.agentName, style = MaterialTheme.typography.titleSmall)
                 if (current) CurrentAgentLabel()
                 Text(
                     listOfNotNull(
-                        saved[visit.connectionId]?.displayName,
-                        visit.agentName
+                        liveTitle ?: visit.workspaceTitle,
+                        saved[visit.connectionId]?.displayName
                     ).joinToString(" · "),
                     color = IntentScreen.secondaryText,
                     style = MaterialTheme.typography.bodySmall

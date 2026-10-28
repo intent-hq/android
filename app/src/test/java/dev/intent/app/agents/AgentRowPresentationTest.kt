@@ -47,6 +47,22 @@ class AgentRowPresentationTest {
     }
 
     @Test
+    fun previewStripsLinksAndMarkupButPreservesVisibleLabels() {
+        assertEquals(
+            "Read the Spec and code with emphasis.",
+            agentPreviewText(
+                "Read the [**Spec**](intent://local/note/spec) and `code` with *emphasis*."
+            )
+        )
+        assertEquals(
+            "Picture next",
+            agentPreviewText("![Picture](https://example.com/a.png)\n\nnext")
+        )
+        assertEquals("First Second", agentPreviewText("- First\n- Second"))
+        assertEquals("A & B", agentPreviewText("<b>A</b> &amp; B"))
+    }
+
+    @Test
     fun previewUsesLatestRoleAndNormalizesLineBreaks() {
         val agent = Agent(
             "a",

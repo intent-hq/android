@@ -44,7 +44,22 @@ internal fun WorkspaceActionDialog(state: WorkspaceActionState, store: Workspace
         },
         confirmButton = {
             TextButton(enabled = !state.busy, onClick = { store.submit(draft) }) {
-                Text(if (action == WorkspaceAction.Rename) "Save" else action.label)
+                Text(
+                    if (action ==
+                        WorkspaceAction.Rename
+                    ) {
+                        "Save"
+                    } else {
+                        action.label
+                    },
+                    color = if (action ==
+                        WorkspaceAction.Delete
+                    ) {
+                        IntentScreen.error
+                    } else {
+                        IntentScreen.text
+                    }
+                )
             }
         },
         dismissButton = {

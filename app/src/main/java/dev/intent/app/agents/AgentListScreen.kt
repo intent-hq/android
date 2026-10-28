@@ -12,6 +12,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
@@ -174,21 +177,39 @@ private fun AgentTreeItem(
 @Composable
 private fun AgentRowMenu(agent: Agent, onClick: () -> Unit, onMute: ((Agent) -> Unit)?) {
     var expanded by remember(agent.id) { mutableStateOf(false) }
+    var showName by remember(agent.id) { mutableStateOf(false) }
     Box {
-        AgentRow(agent, onClick) { if (onMute != null) expanded = true }
+        AgentRow(agent, onClick) { expanded = true }
         DropdownMenu(expanded, onDismissRequest = { expanded = false }) {
             DropdownMenuItem(
-                text = {
-                    Text(
-                        agent.muteActionLabel()
-                    )
-                },
+                text = { Text("Read full name") },
                 onClick = {
                     expanded = false
-                    onMute?.invoke(agent)
+                    showName = true
                 }
             )
+            if (onMute != null) {
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            agent.muteActionLabel()
+                        )
+                    },
+                    onClick = {
+                        expanded = false
+                        onMute?.invoke(agent)
+                    }
+                )
+            }
         }
+    }
+    if (showName) {
+        AlertDialog(
+            onDismissRequest = { showName = false },
+            title = { Text("Agent name") },
+            text = { Text(agent.name, Modifier.verticalScroll(rememberScrollState())) },
+            confirmButton = { TextButton(onClick = { showName = false }) { Text("Close") } }
+        )
     }
 }
 
@@ -197,8 +218,7 @@ private fun AgentRow(agent: Agent, onClick: () -> Unit, onLongClick: () -> Unit)
     Row(
         Modifier.fillMaxWidth().combinedClickable(
             onLongClick = onLongClick,
-            onLongClickLabel =
-            agent.muteActionLabel(),
+            onLongClickLabel = "Agent actions",
             onClick = onClick
         ).padding(horizontal = 12.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -209,7 +229,7 @@ private fun AgentRow(agent: Agent, onClick: () -> Unit, onLongClick: () -> Unit)
             Text(
                 agent.name,
                 style = MaterialTheme.typography.titleSmall,
-                maxLines = 1,
+                maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
             Text(
@@ -246,7 +266,7 @@ internal fun Agent.rowStatus(): String = when (val state = avatarState()) {
 
 internal fun Agent.rowPreview(): String? = (
     if (lastMessageRole == "user") lastUserMessage else digest ?: lastAgentResponse
-    )?.replace(Regex("\\s+"), " ")?.trim()?.takeIf { it.isNotEmpty() }
+    )?.let(::agentPreviewText)?.takeIf { it.isNotEmpty() }
 
 @Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
