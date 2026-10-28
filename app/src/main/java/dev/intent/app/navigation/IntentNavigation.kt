@@ -171,7 +171,7 @@ fun IntentNavigation(
                     WorkspaceTransferScreen(session, selected, destinations, onBusy = {
                         operationBusy =
                             it
-                    })
+                    }, onDone = { transferring = false })
                 }
                 else -> workspaceContent(selected) { selectedWorkspace = null }
             }

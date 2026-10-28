@@ -101,10 +101,11 @@ private class FakeOperations(val respond: (String, JsonObject) -> JsonObject) :
     override fun events(workspaceId: String, receive: (JsonObject) -> Unit): Closeable =
         Closeable { }
 }
-private class TransferFixture(
+internal class TransferFixture(
     val failCommit: Boolean = false,
     val corruptChunk: Boolean = false,
-    val version: String = "1"
+    val version: String = "1",
+    val beforeReply: (String) -> Unit = {}
 ) {
     val calls = mutableListOf<String>()
     var closed = false
@@ -112,6 +113,7 @@ private class TransferFixture(
     private val source = object : WorkspaceOperations {
         override fun request(method: String, params: JsonObject): JsonObject {
             calls += method
+            beforeReply(method)
             return when (method) {
                 "workspace.transfer.plan" -> json(
                     """{"plan":{"manifest":{"workspaceId":"ws","creatingIntentdVersion":"1"}}}"""
@@ -158,6 +160,7 @@ private class TransferFixture(
     }
     private val target = FakeOperations { method, _ ->
         calls += method
+        beforeReply(method)
         when (method) {
             "principal.me" -> json("""{"id":"owner2","isAdministrator":true}""")
             "system.status" -> json("""{"version":"$version"}""")
@@ -172,5 +175,6 @@ private class TransferFixture(
             else -> error(method)
         }
     }
-    fun relay(): WorkspaceTransfer = WorkspaceTransfer(source, target, "ws")
+    fun relay(control: TransferControl = TransferControl()): WorkspaceTransfer =
+        WorkspaceTransfer(source, target, "ws", control)
 }
