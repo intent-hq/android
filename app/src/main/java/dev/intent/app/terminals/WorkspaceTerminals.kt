@@ -52,12 +52,7 @@ fun WorkspaceTerminals(
         onDispose { store.close() }
     }
     val state by store.state.collectAsState()
-    LaunchedEffect(createOnOpen, state.loading) {
-        if (createOnOpen && !state.loading) {
-            onCreateHandled()
-            if (state.connected) store.create()
-        }
-    }
+    TerminalCreationEffect(store, state, createOnOpen, onCreateHandled)
     val back = { if (state.selected != null) store.select(null) else onBack() }
     BackHandler(onBack = back)
     Column(Modifier.fillMaxSize()) {
@@ -89,6 +84,23 @@ fun WorkspaceTerminals(
                 if (state.ended) Text("This terminal has ended.")
                 TerminalInput(state.ready && !state.sending, state.selected, store::send)
             }
+        }
+    }
+}
+
+@Composable
+private fun TerminalCreationEffect(
+    store: TerminalStore,
+    state: TerminalState,
+    createOnOpen: Boolean,
+    onCreateHandled: () -> Unit
+) {
+    var createHandled by remember(store, createOnOpen) { mutableStateOf(false) }
+    LaunchedEffect(createOnOpen, state.loading) {
+        if (createOnOpen && !createHandled && !state.loading) {
+            createHandled = true
+            onCreateHandled()
+            if (state.connected) store.create()
         }
     }
 }

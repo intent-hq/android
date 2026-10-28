@@ -98,6 +98,9 @@ class TerminalLifecycleTest {
         withTerminal(createOnOpen = true) { server ->
             waitText("Terminal input")
             assertEquals(1, server.actions.size)
+            compose.onNodeWithContentDescription("More actions").performClick()
+            compose.onNodeWithText("Refresh").performClick()
+            waitText("Terminal input")
             compose.onNodeWithContentDescription("Back").performClick()
             compose.onNodeWithTag("terminal-open-new").assertIsDisplayed()
             compose.waitForIdle()
