@@ -114,7 +114,8 @@ class WorkspaceDrawersTest {
             ).fetchSemanticsNode().boundsInRoot
             val context = compose.onNodeWithText(
                 "Remote workspace",
-                substring = true
+                substring = true,
+                useUnmergedTree = true
             ).fetchSemanticsNode().boundsInRoot
             assertTrue(name.top < context.top)
             screenshot("agent-history-drawer")
