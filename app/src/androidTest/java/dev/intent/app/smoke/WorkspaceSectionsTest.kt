@@ -57,6 +57,7 @@ class WorkspaceSectionsTest {
         compose.onNodeWithText("Agent 35").assertIsDisplayed()
         val agentAnchor = firstVisibleRow("Agent ")
         compose.onNodeWithText("Context").performClick()
+        waitForVisibleText("Plan 1")
         compose.waitUntil(TIMEOUT) {
             compose.onAllNodes(
                 androidx.compose.ui.test.hasContentDescription("Search notes and tasks")
@@ -71,6 +72,7 @@ class WorkspaceSectionsTest {
         compose.onNodeWithText("Changes").performClick()
         compose.onNodeWithText("Changes").assertIsSelected()
         waitForText("Commit history")
+        waitForText("Commit 1")
         compose.onNode(hasScrollAction()).performScrollToNode(hasText("Commit 35"))
         val commitAnchor = firstVisibleRow("Commit ")
         rotate()
@@ -98,7 +100,9 @@ class WorkspaceSectionsTest {
         openWorkspace()
         compose.onNodeWithText("Agent 1").performClick()
         compose.onNodeWithContentDescription("Message").assertIsDisplayed()
+        waitForVisibleText("Linked plan")
         compose.onNodeWithText("Linked plan").performTouchInput { click(Offset(20f, center.y)) }
+        waitForVisibleText("Note body")
         compose.onNodeWithText("Note body").assertIsDisplayed()
         back()
         compose.onNodeWithContentDescription("Message").assertIsDisplayed()
@@ -109,21 +113,26 @@ class WorkspaceSectionsTest {
         compose.onNodeWithText("Context").performClick()
         waitForText("Plan 1")
         compose.onNodeWithText("Plan 1").performClick()
+        waitForVisibleText("Note body")
         compose.onNodeWithText("Note body").assertIsDisplayed()
         back()
         compose.onNodeWithText("Context").assertIsSelected()
         compose.onNodeWithText("Changes").performClick()
+        waitForVisibleText("M  app.kt")
         compose.onNodeWithText("M  app.kt").performClick()
+        waitForVisibleText("Unstaged diff")
         compose.onNodeWithText("Unstaged diff").assertIsDisplayed()
         back()
         compose.onNodeWithText("Changes").assertIsSelected()
         compose.onNodeWithContentDescription("More actions").performClick()
         compose.onNodeWithText("Terminals").performClick()
+        waitForVisibleText("No terminal sessions")
         compose.onNodeWithText("No terminal sessions").assertIsDisplayed()
         back()
         compose.onNodeWithText("Changes").assertIsSelected()
         InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
         compose.onNodeWithText("Workspaces").assertIsDisplayed()
+        waitForVisibleText("Android smoke workspace")
         compose.onNodeWithText("Android smoke workspace").performClick()
         compose.onNodeWithText("Changes").assertIsSelected()
         compose.onNodeWithText("Context").performClick()
@@ -154,6 +163,7 @@ class WorkspaceSectionsTest {
             listOf("Settings", "Connections", "Disconnect")
         )
         compose.onNodeWithText("Agent 1").performClick()
+        waitForVisibleText("Linked plan")
         screenshot("conversation-header")
         menu(
             listOf("Model settings", "Rename agent", "Delete agent"),
@@ -161,27 +171,34 @@ class WorkspaceSectionsTest {
         )
         back()
         compose.onNodeWithText("Context").performClick()
+        waitForVisibleText("Plan 1")
         screenshot("context-header")
         menu(
             listOf("Transfer workspace", "Rename workspace"),
             listOf("Settings", "Disconnect", "Model settings")
         )
+        waitForVisibleText("Plan 1")
         compose.onNodeWithText("Plan 1").performClick()
+        waitForVisibleText("Note body")
         screenshot("note-header")
         menu(listOf("Refresh", "Comments"), listOf("Transfer workspace", "Settings", "Connections"))
         back()
         compose.onNodeWithText("Changes").performClick()
+        waitForVisibleText("M  app.kt")
         screenshot("changes-header")
         menu(
             listOf("Transfer workspace", "Rename workspace"),
             listOf("Settings", "Disconnect", "Model settings")
         )
+        waitForVisibleText("M  app.kt")
         compose.onNodeWithText("M  app.kt").performClick()
+        waitForVisibleText("Unstaged diff")
         screenshot("diff-header")
         menu(listOf("Refresh diff"), listOf("Transfer workspace", "Settings", "Connections"))
         back()
         compose.onNodeWithContentDescription("More actions").performClick()
         compose.onNodeWithText("Terminals").performClick()
+        waitForVisibleText("No terminal sessions")
         screenshot("terminals-header")
         compose.onNodeWithContentDescription("More actions").assertDoesNotExist()
     }
@@ -192,6 +209,7 @@ class WorkspaceSectionsTest {
         compose.onNodeWithText("Context").performClick()
         waitForText("Plan 1")
         compose.onNodeWithText("Plan 1").performClick()
+        waitForVisibleText("Note body")
         compose.onNodeWithText("Note body").assertIsDisplayed()
         menu(
             listOf("Refresh", "Comments"),
@@ -204,6 +222,7 @@ class WorkspaceSectionsTest {
         compose.onNodeWithContentDescription("More actions").assertDoesNotExist()
         screenshot("note-comments-route")
         back()
+        waitForVisibleText("Note body")
         compose.onNodeWithText("Note body").assertIsDisplayed()
         menu(
             listOf("Refresh", "Comments"),
@@ -256,6 +275,7 @@ class WorkspaceSectionsTest {
     }
 
     private fun openWorkspace() {
+        waitForVisibleText("Android smoke workspace")
         compose.onNodeWithText("Android smoke workspace").performClick()
         compose.waitUntil(TIMEOUT) {
             compose.onAllNodes(hasText("Agent 1")).fetchSemanticsNodes().isNotEmpty()

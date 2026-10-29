@@ -94,12 +94,14 @@ class WorkspaceDrawersTest {
         compose.onNodeWithTag("drawer.Agent history").assertDoesNotExist()
         compose.onNodeWithTag("workspace.row.workspace").performTouchInput { swipeRight() }
         compose.onNodeWithTag("workspace.row.workspace").performTouchInput { swipeRight() }
-        waitFor("Message")
+        waitForConversation()
         compose.onNodeWithContentDescription("Back").performClick()
+        waitFor("Other agent")
         compose.onNodeWithContentDescription("Back").performClick()
         compose.onNodeWithContentDescription("Agent history").performClick()
+        waitForHistory("history.first.agent", selected = false)
         compose.onNodeWithTag("history.first.agent").assertIsDisplayed().performClick()
-        waitFor("Message")
+        waitForConversation()
         assertTrue(servers.getValue("first").requests.any { it.method == "agent.getConversation" })
     }
 
@@ -107,6 +109,7 @@ class WorkspaceDrawersTest {
     fun historySwitchesConnectionAndOpensExactConversation() =
         connected(seed = true) { controller ->
             compose.onNodeWithContentDescription("Agent history").performClick()
+            waitForHistory("history.second.agent", selected = false)
             compose.onNodeWithTag("history.second.agent").assertIsDisplayed()
             val name = compose.onNodeWithText(
                 "Remote agent",
@@ -119,8 +122,9 @@ class WorkspaceDrawersTest {
             ).fetchSemanticsNode().boundsInRoot
             assertTrue(name.top < context.top)
             screenshot("agent-history-drawer")
+            waitForHistory("history.second.agent", selected = false)
             compose.onNodeWithTag("history.second.agent").performClick()
-            waitFor("Message")
+            waitForConversation()
             compose.waitUntil(TIMEOUT) { controller.state.value.activeId == "second" }
             assertTrue(
                 servers.getValue("second").requests.any {
@@ -129,6 +133,7 @@ class WorkspaceDrawersTest {
             )
             assertEquals("second", controller.state.value.activeId)
             compose.onNodeWithContentDescription("Back").performClick()
+            waitFor("Other agent")
             compose.onNodeWithContentDescription("Back").performClick()
             compose.onNodeWithContentDescription("Connections").performClick()
             compose.onNodeWithTag("drawer.connection.first").performClick()
@@ -169,11 +174,7 @@ class WorkspaceDrawersTest {
                 swipe(Offset(width * 0.8f, height * 0.8f), Offset(width * 0.1f, height * 0.8f))
             }
             compose.onNodeWithTag("drawer.Agent history").assertIsDisplayed()
-            compose.waitUntil(TIMEOUT) {
-                runCatching {
-                    compose.onNodeWithTag("history.first.agent").assertIsDisplayed()
-                }.isSuccess
-            }
+            waitForHistory("history.first.agent", selected = true)
             compose.onNodeWithTag("history.first.agent").assertIsSelected()
             compose.onNodeWithText("Current agent").assertIsDisplayed()
             screenshot("conversation-history-light")
@@ -181,14 +182,17 @@ class WorkspaceDrawersTest {
             compose.onNodeWithTag("drawer.Agent history").assertDoesNotExist()
             compose.onNodeWithText("Message").assertIsDisplayed()
             compose.onNodeWithContentDescription("Agent history").performClick()
+            waitForHistory("history.second.agent", selected = false)
             compose.onNodeWithTag("history.second.agent").performClick()
-            waitFor("Message")
+            waitForConversation()
             compose.waitUntil(TIMEOUT) { controller.state.value.activeId == "second" }
             compose.onNodeWithContentDescription("Agent history").performClick()
+            waitForHistory("history.second.agent", selected = true)
             compose.onNodeWithTag("history.second.agent").assertIsSelected()
+            waitForHistory("history.first.agent", selected = false)
             compose.onNodeWithTag("history.first.agent").performClick()
             compose.waitUntil(TIMEOUT) { controller.state.value.activeId == "first" }
-            waitFor("Message")
+            waitForConversation()
         }
 
     @Test
@@ -199,6 +203,7 @@ class WorkspaceDrawersTest {
         compose.runOnIdle { dispatcher.onBackPressed() }
         openConversation()
         compose.onNodeWithContentDescription("Agent history").performClick()
+        waitForHistory("history.first.agent", selected = true)
         screenshot("conversation-history-dark")
     }
 
@@ -228,20 +233,43 @@ class WorkspaceDrawersTest {
     fun repeatedHistorySelectionAfterManualNavigationOpensTheAgent() = connected {
         openConversation()
         compose.onNodeWithContentDescription("Agent history").performClick()
+        waitForHistory("history.first.agent", selected = false)
         compose.onNodeWithTag("history.first.agent").performClick()
         compose.onNodeWithContentDescription("Back").performClick()
+        waitFor("Other agent")
         compose.onNodeWithText("Other agent").performClick()
         waitFor("Message")
         compose.onNodeWithContentDescription("Agent history").performClick()
+        waitForHistory("history.first.other", selected = true)
         compose.onNodeWithTag("history.first.other").assertIsSelected()
+        waitForHistory("history.first.agent", selected = false)
         compose.onNodeWithTag("history.first.agent").performClick()
         compose.onNodeWithContentDescription("Agent history").performClick()
+        waitForHistory("history.first.agent", selected = true)
         compose.onNodeWithTag("history.first.agent").assertIsSelected()
     }
 
     private fun openConversation() {
         compose.onNodeWithTag("workspace.row.workspace").performTouchInput { swipeRight() }
+        waitForConversation()
+    }
+
+    private fun waitForConversation() {
         waitFor("Message")
+        compose.waitUntil(TIMEOUT) {
+            runCatching {
+                compose.onNodeWithText(WIDE_CODE, substring = true).assertIsDisplayed()
+            }.isSuccess
+        }
+    }
+
+    private fun waitForHistory(tag: String, selected: Boolean) {
+        compose.waitUntil(TIMEOUT) {
+            runCatching {
+                val row = compose.onNodeWithTag(tag).assertIsDisplayed()
+                if (selected) row.assertIsSelected()
+            }.isSuccess
+        }
     }
 
     private fun screenshot(name: String) {
