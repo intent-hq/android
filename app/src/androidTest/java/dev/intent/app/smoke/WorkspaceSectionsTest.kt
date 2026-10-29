@@ -102,6 +102,7 @@ class WorkspaceSectionsTest {
         compose.onNodeWithText("Note body").assertIsDisplayed()
         back()
         compose.onNodeWithContentDescription("Message").assertIsDisplayed()
+        waitForVisibleText("Linked plan")
         compose.onNodeWithText("Linked plan").assertIsDisplayed()
         back()
         compose.onNodeWithText("Agents").assertIsSelected()

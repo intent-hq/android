@@ -169,6 +169,11 @@ class WorkspaceDrawersTest {
                 swipe(Offset(width * 0.8f, height * 0.8f), Offset(width * 0.1f, height * 0.8f))
             }
             compose.onNodeWithTag("drawer.Agent history").assertIsDisplayed()
+            compose.waitUntil(TIMEOUT) {
+                runCatching {
+                    compose.onNodeWithTag("history.first.agent").assertIsDisplayed()
+                }.isSuccess
+            }
             compose.onNodeWithTag("history.first.agent").assertIsSelected()
             compose.onNodeWithText("Current agent").assertIsDisplayed()
             screenshot("conversation-history-light")
