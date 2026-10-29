@@ -13,7 +13,7 @@ permissions:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main') }}
 
 jobs:
   build:
@@ -42,13 +42,14 @@ jobs:
         run: ./gradlew build ktlintCheck detekt test
 
   instrumentation:
-    name: Android emulator UI tests (API ${{ matrix.api }})
+    name: Android emulator UI tests (API ${{ matrix.api }}, shard ${{ matrix.shard }})
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
         api: [34]
+        shard: [0, 1, 2]
     steps:
       - uses: actions/checkout@v7
         with:
@@ -58,6 +59,16 @@ jobs:
           distribution: temurin
           java-version: '21'
       - uses: android-actions/setup-android@v4
+      - name: Cache SDK, emulator, and system image
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ env.ANDROID_HOME }}/platform-tools
+            ${{ env.ANDROID_HOME }}/platforms/android-37.0
+            ${{ env.ANDROID_HOME }}/build-tools/36.0.0
+            ${{ env.ANDROID_HOME }}/emulator
+            ${{ env.ANDROID_HOME }}/system-images/android-${{ matrix.api }}
+          key: android-sdk-${{ runner.os }}-${{ runner.arch }}-api${{ matrix.api }}-compile37-build36-v1
       - name: Install SDK and emulator
         run: sdkmanager "platform-tools" "platforms;android-37.0" "build-tools;36.0.0" "emulator" "system-images;android-${{ matrix.api }};google_apis;x86_64"
       - name: Enable KVM
@@ -69,24 +80,40 @@ jobs:
         with:
           cache-provider: basic
           cache-read-only: ${{ github.ref != 'refs/heads/main' }}
-      - name: Run full test suite on managed Pixel 8
+      - name: Run test shard on managed Pixel 8
         shell: bash
         run: |
           ./gradlew :app:pixel8Api34DebugAndroidTest -Ptailcat.enabled=false \
-            -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader_indirect
-      - name: Check screenshot export
-        run: python3 scripts/check-ui-screenshots.py
+            -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader_indirect \
+            -Pandroid.testInstrumentationRunnerArguments.numShards=3 \
+            -Pandroid.testInstrumentationRunnerArguments.shardIndex=${{ matrix.shard }}
       - name: Retain UI reports and light/dark screenshots
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: android-ui-api-${{ matrix.api }}
+          name: android-ui-api-${{ matrix.api }}-shard-${{ matrix.shard }}
           retention-days: 14
           if-no-files-found: error
           path: |
             app/build/reports/androidTests/
             app/build/outputs/androidTest-results/
             app/build/outputs/managed_device_android_test_additional_output/
+
+  instrumentation-reports:
+    name: Check combined UI screenshots
+    needs: instrumentation
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: android-ui-api-*-shard-*
+          path: ui-shards
+      - name: Check screenshot export across all shards
+        run: python3 scripts/check-ui-screenshots.py ui-shards
 
   pr-title:
     name: Conventional PR title
