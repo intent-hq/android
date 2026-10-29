@@ -69,13 +69,11 @@ jobs:
         with:
           cache-provider: basic
           cache-read-only: ${{ github.ref != 'refs/heads/main' }}
-      - name: Run smoke tests on managed Pixel 8
+      - name: Run full test suite on managed Pixel 8
         shell: bash
         run: |
-          selectors=$(python3 scripts/ui-smoke-tests.py)
           ./gradlew :app:pixel8Api34DebugAndroidTest -Ptailcat.enabled=false \
-            -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader_indirect \
-            "-Pandroid.testInstrumentationRunnerArguments.class=$selectors"
+            -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader_indirect
       - name: Check screenshot export
         run: python3 scripts/check-ui-screenshots.py
       - name: Retain UI reports and light/dark screenshots

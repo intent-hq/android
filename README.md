@@ -51,7 +51,7 @@ The debug APK is `app/build/outputs/apk/debug/app-debug.apk`. Open this director
 
 Tests cover protocol fixtures, pinned transport, pairing, session bootstrap, stores, and the offline cache. Camera scanning and live desktop pairing still need device verification.
 
-## Emulator UI smoke tests
+## Emulator UI tests
 
 The smoke suite uses an in-process fake transport. It covers manual pairing, workspace selection,
 note tasks, comment threads, and conversation sending. It captures light and dark screenshots;
@@ -65,7 +65,8 @@ python3 scripts/check-ui-screenshots.py
 ```
 
 Gradle downloads the emulator image for the host architecture. The first run can take several minutes.
-CI uses `scripts/ui-smoke-tests.txt` for exact method selection; `scripts/ui-smoke-tests.py` rejects stale selectors.
+CI runs the full `androidTest` suite without a class or method filter.
+The shared Compose rule disables Bluetooth only on the managed emulator and captures failures before activity teardown.
 Reports are in `app/build/reports/androidTests/`. Screenshots are in
 `app/build/outputs/managed_device_android_test_additional_output/`.
 The separate CI instrumentation job retains both for 14 days, including failed runs.

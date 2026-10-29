@@ -4,6 +4,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.test.platform.app.InstrumentationRegistry
+import org.junit.runner.Description
+import org.junit.runners.model.Statement
 
 fun createIntentComposeRule() = IntentComposeRule()
 
@@ -14,6 +16,20 @@ class IntentComposeRule private constructor(
         >
 ) : ComposeContentTestRule by delegate {
     constructor() : this(createAndroidComposeRule<ComposeTestActivity>())
+
+    override fun apply(base: Statement, description: Description) = delegate.apply(
+        object : Statement() {
+            override fun evaluate() {
+                try {
+                    base.evaluate()
+                } catch (failure: Throwable) {
+                    captureFailureScreenshot(description, failure)
+                    throw failure
+                }
+            }
+        },
+        description
+    )
 
     override fun setContent(composable: @Composable () -> Unit) {
         // The API 34 managed emulator can loop Bluetooth crashes and steal window focus.
