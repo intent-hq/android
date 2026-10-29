@@ -65,11 +65,15 @@ python3 scripts/check-ui-screenshots.py
 ```
 
 Gradle downloads the emulator image for the host architecture. The first run can take several minutes.
-CI runs the full `androidTest` suite without a class or method filter.
+CI runs the full `androidTest` suite across three parallel runners, without a class or method filter.
+AndroidJUnitRunner assigns each test to one shard with `numShards=3` and `shardIndex=0`, `1`, or `2`.
+CI caches the SDK, emulator, and system image. Each runner creates its own managed AVD;
+snapshots are not shared between hosts. New main pushes cancel older main runs. Pull request runs use separate groups.
 The shared Compose rule disables Bluetooth only on the managed emulator and captures failures before activity teardown.
 Reports are in `app/build/reports/androidTests/`. Screenshots are in
 `app/build/outputs/managed_device_android_test_additional_output/`.
-The separate CI instrumentation job retains both for 14 days, including failed runs.
+Each CI shard retains reports and screenshots for 14 days, including failed runs.
+A final job checks the required screenshots across all shard artifacts.
 
 ## Release artifacts (under development)
 
