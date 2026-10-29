@@ -3,6 +3,7 @@ package dev.intent.core.protocol.browser
 import java.net.Socket
 import java.net.URI
 import java.nio.ByteBuffer
+import java.util.concurrent.Executors
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
 import org.junit.Assert.assertEquals
@@ -55,7 +56,8 @@ class BrowserTunnelTest {
     @Test
     fun `old daemon receives no credit and teardown closes listeners`() {
         val fake = FakeTunnel()
-        val tunnel = BrowserTunnel(fake::create, false)
+        val workers = Executors.newCachedThreadPool()
+        val tunnel = BrowserTunnel(fake::create, false, workers)
         val url = URI(tunnel.forward("http://localhost:4000/").get(5, TimeUnit.SECONDS))
         Socket(url.host, url.port).use { socket ->
             socket.soTimeout = 5000
@@ -68,6 +70,9 @@ class BrowserTunnelTest {
             assertEquals(-1, socket.getInputStream().read())
         }
         assertTrue(tunnel.forward("http://localhost:4000").isCompletedExceptionally)
+        // Socket.close wakes accept(), but the JDK releases its descriptor when accept exits.
+        // Join the workers before checking the OS listener, rather than racing that release.
+        assertTrue("Tunnel workers did not stop", workers.awaitTermination(5, TimeUnit.SECONDS))
         assertThrows(java.net.ConnectException::class.java) { Socket(url.host, url.port).close() }
     }
 

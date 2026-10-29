@@ -7,6 +7,7 @@ import java.net.ServerSocket
 import java.net.Socket
 import java.nio.ByteBuffer
 import java.util.concurrent.CompletableFuture
+import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.RejectedExecutionException
 import java.util.concurrent.TimeUnit
@@ -15,12 +16,17 @@ import java.util.concurrent.atomic.AtomicInteger
 
 /** One browser owns a pinned socket and bounded loopback forwards. Never replays stream data. */
 @Suppress("TooManyFunctions")
-class BrowserTunnel(
+class BrowserTunnel internal constructor(
     factory: (TunnelTransport.Listener) -> TunnelTransport,
-    private val supportsCredit: Boolean
+    private val supportsCredit: Boolean,
+    private val workers: ExecutorService
 ) : Closeable {
+    constructor(
+        factory: (TunnelTransport.Listener) -> TunnelTransport,
+        supportsCredit: Boolean
+    ) : this(factory, supportsCredit, Executors.newCachedThreadPool())
+
     private val control = Executors.newSingleThreadScheduledExecutor()
-    private val workers = Executors.newCachedThreadPool()
     private val ready = CompletableFuture<Unit>()
     private val listeners = mutableMapOf<Int, ServerSocket>()
     private val streams = mutableMapOf<Int, TunnelStream>()
