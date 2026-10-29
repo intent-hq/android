@@ -59,6 +59,14 @@ jobs:
           distribution: temurin
           java-version: '21'
       - uses: android-actions/setup-android@v4
+      - name: Prepare SDK cache ownership
+        shell: bash
+        run: |
+          # Preinstalled SDK directories belong to root; cache extraction restores their metadata.
+          for package in platform-tools platforms/android-37.0 build-tools/36.0.0 emulator system-images/android-${{ matrix.api }}; do
+            mkdir -p "$ANDROID_HOME/$package"
+            sudo chown -R "$(id -u):$(id -g)" "$ANDROID_HOME/$package"
+          done
       - name: Cache SDK, emulator, and system image
         uses: actions/cache@v4
         with:
