@@ -57,6 +57,44 @@ class CreationParityTest {
         assertEquals(CreationStep.NEW_REPOSITORY, draft.back().step)
     }
 
+    @Test fun branchChoicesRetainResolvedDefaultForBadgeAndSelection() {
+        val store = CreationRepositoryStore(
+            CreationFakeOperations { method, _ ->
+                when (method) {
+                    "github.branches.list" -> json("""{"branches":["feature","main"]}""")
+                    "github.repos.get" -> json("""{"repo":{"defaultBranch":"main"}}""")
+                    else -> error(method)
+                }
+            }
+        )
+        val choices = store.branchChoices(CreationRepository("owner", "repo"), "")
+        assertEquals("main", choices.defaultBranch)
+        assertEquals(listOf("main", "feature"), choices.branches)
+    }
+
+    @Test fun creationWithoutSpecialistPassesValidationAndOmitsWireField() {
+        val operations = CreationFakeOperations { method, params ->
+            when (method) {
+                "providers.catalog" -> json(
+                    """{"providers":[{"id":"codex","visible":true,"canBeDisabled":false}]}"""
+                )
+                "settings.get" -> json("""{"path":"providers.enabled","value":null}""")
+                "host.providerAuthStatus" -> json(
+                    """{"providers":[{"id":"codex","authenticated":true}]}"""
+                )
+                "specialist.list" -> json("""{"specialists":[]}""")
+                "models.list" -> json("""{"models":[]}""")
+                "workspace.create" -> {
+                    assertFalse(params.obj("initialAgent").containsKey("specialist"))
+                    json("""{"workspace":{"id":"created"}}""")
+                }
+                else -> error(method)
+            }
+        }
+        val workflow = CreationWorkflow(operations, WorkspaceDraft(provider = "codex"))
+        assertEquals("created", workflow.create())
+    }
+
     @Test fun lostCreationReplyReusesPersistedRequestAcrossRestart() {
         var persisted = WorkspaceDraft(prompt = "Original", provider = "codex")
         val sent = mutableListOf<kotlinx.serialization.json.JsonObject>()

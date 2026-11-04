@@ -40,6 +40,7 @@ internal fun CreationAgent(
     var loading by remember { mutableStateOf(true) }
     var modelsLoading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    var modelError by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(retry) {
         loading = true
         error = null
@@ -65,7 +66,7 @@ internal fun CreationAgent(
                         }.orEmpty(),
                         specialist =
                         current.specialist.takeIf { id -> loaded.specialists.any { it.id == id } }
-                            ?: loaded.defaultSpecialist?.id.orEmpty()
+                            .orEmpty()
                     )
                 )
             }
@@ -82,6 +83,7 @@ internal fun CreationAgent(
     LaunchedEffect(draft.provider, retry) {
         models = emptyList()
         modelsLoading = true
+        modelError = null
         try {
             if (draft.provider.isNotBlank()) {
                 models =
@@ -97,7 +99,7 @@ internal fun CreationAgent(
         } catch (cancelled: kotlinx.coroutines.CancellationException) {
             throw cancelled
         } catch (failure: Exception) {
-            error = "Models could not load. Retry to use this provider."
+            modelError = "Models could not load. Retry to use this provider."
         } finally {
             modelsLoading =
                 false
@@ -114,10 +116,7 @@ internal fun CreationAgent(
             description.image
         )
     }
-    val repositoryLabel =
-        draft.repository?.fullName.takeUnless { draft.newRepository } ?: draft.repositoryPath
-    if (repositoryLabel.isNotBlank()) Text(repositoryLabel)
-    if (!draft.newRepository && draft.baseRef.isNotBlank()) Text(draft.baseRef)
+    CreationSourceSummary(draft)
     IntentTextField(draft.title, {
         workflow.update(draft.copy(title = it))
     }, label = { Text("Title (optional)") }, enabled = enabled)
@@ -153,11 +152,16 @@ internal fun CreationAgent(
         }
     }
     if (loading || modelsLoading) Text("Loading agent choices…")
-    error?.let { Text(it) }
-    IntentTextButton(onClick = {
-        retry++
-    }, enabled = enabled && !loading && !modelsLoading) { Text("Retry agent choices") }
+    (error ?: modelError)?.let {
+        Text(it)
+        IntentTextButton(onClick = {
+            retry++
+        }, enabled = enabled && !loading && !modelsLoading) { Text("Retry agent choices") }
+    }
     IntentSection("Specialist") {
+        FilterChip(draft.specialist.isEmpty(), {
+            workflow.update(draft.copy(specialist = ""))
+        }, label = { Text("None") }, enabled = enabled)
         options?.specialists.orEmpty().forEach { choice ->
             FilterChip(draft.specialist == choice.id, {
                 workflow.update(draft.copy(specialist = choice.id))
@@ -165,6 +169,9 @@ internal fun CreationAgent(
         }
     }
     IntentSection("Provider") {
+        if (!loading && error == null && options?.providers.orEmpty().none { it.selectable }) {
+            Text("No providers are ready. Enable a provider and sign in on the host.")
+        }
         options?.providers.orEmpty().forEach { choice ->
             FilterChip(
                 draft.provider == choice.id,
@@ -200,7 +207,7 @@ internal fun CreationAgent(
     val ready =
         !loading &&
             !modelsLoading &&
-            error == null &&
+            error == null && modelError == null &&
             options?.providers.orEmpty().any { it.id == draft.provider && it.selectable }
     androidx.compose.runtime.SideEffect { onReady(enabled && ready && additions?.ready != false) }
 }
