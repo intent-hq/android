@@ -77,6 +77,8 @@ fun ConnectionRoot(
     )
     CompositionLocalProvider(
         dev.intent.app.navigation.LocalConnectionReady provides (state.status == "Connected"),
+        dev.intent.app.navigation.LocalConnectionName provides
+            (state.connections.firstOrNull { it.id == state.activeId }?.displayName ?: "Connected host"),
         dev.intent.app.navigation.LocalLauncherActions provides launcher,
         LocalHistoryNavigation provides
             HistoryNavigation(history, state.activeId, historyTarget) { historyTarget = null },
@@ -120,7 +122,8 @@ fun ConnectionRoot(
                     Modifier.weight(1f),
                     preferences,
                     state,
-                    onDisconnect = controller::disconnect
+                    onDisconnect = controller::disconnect,
+                    onPair = { utilities = utilities.openUtility("Pair connection") }
                 ) {
                     utilities = utilities.openUtility("Connections")
                 }
