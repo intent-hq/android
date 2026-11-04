@@ -12,13 +12,20 @@ internal data class ManualPairingErrors(
     val isValid: Boolean get() = listOf(host, port, token, fingerprint).all { it == null }
 }
 
-internal fun manualPairingErrors(input: ManualPairingInput): ManualPairingErrors =
+internal fun manualPairingErrors(
+    input: ManualPairingInput,
+    tunnelAvailable: Boolean = true
+): ManualPairingErrors =
     ManualPairingErrors(
         host = if (runCatching {
                 input.copy(port = "443", token = "validation").toPayload()
             }.isFailure
         ) {
-            "Enter a host name or IP address."
+            "Enter a host name, IP address, or Tailcat address."
+        } else if (!tunnelAvailable &&
+            input.copy(port = "443", token = "validation").toPayload().hosts.isEmpty()
+        ) {
+            TUNNEL_UNAVAILABLE_MESSAGE
         } else {
             null
         },

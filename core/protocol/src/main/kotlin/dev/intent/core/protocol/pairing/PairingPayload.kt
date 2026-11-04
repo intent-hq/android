@@ -118,16 +118,22 @@ data class ManualPairingInput(
     val certFingerprint: String = "",
     val tcAddress: String = ""
 ) {
-    fun toPayload(): PairingPayload = PairingPayload(
-        hosts =
-        host.trim().takeIf {
-            it.isNotEmpty()
-        }?.split(',')?.map(String::trim) ?: emptyList(),
-        port = requireNotNull(port.trim().toIntOrNull()) { "Invalid pairing port" },
-        token = token.trim(),
-        certFingerprint = certFingerprint.trim().takeIf { it.isNotEmpty() },
-        tcAddress = tcAddress.trim().takeIf { it.isNotEmpty() }
-    )
+    fun toPayload(): PairingPayload {
+        val target = host.trim()
+        val tunnel = target.takeIf(::isTailcatAddress)
+        val explicitTunnel = tcAddress.trim().takeIf { it.isNotEmpty() }
+        require(tunnel == null || explicitTunnel == null || tunnel == explicitTunnel) {
+            "Conflicting tunnel addresses"
+        }
+        return PairingPayload(
+            hosts = target.takeIf { it.isNotEmpty() && tunnel == null }
+                ?.split(',')?.map(String::trim) ?: emptyList(),
+            port = requireNotNull(port.trim().toIntOrNull()) { "Invalid pairing port" },
+            token = token.trim(),
+            certFingerprint = certFingerprint.trim().takeIf { it.isNotEmpty() },
+            tcAddress = tunnel ?: explicitTunnel
+        )
+    }
 
     override fun toString(): String = "ManualPairingInput(redacted)"
 }

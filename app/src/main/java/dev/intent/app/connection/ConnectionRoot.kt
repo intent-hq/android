@@ -127,12 +127,13 @@ fun ConnectionRoot(
                     state.busy,
                     onScan,
                     controller::prepareManual,
-                    Modifier.weight(1f)
+                    Modifier.weight(1f),
+                    tunnelAvailable = controller.tunnelAvailable
                 )
                 utility == "Connections" || state.session == null -> ConnectionScreen(
                     state,
                     onSelect = {
-                        controller.select(it)
+                        if (it != state.activeId || state.session == null) controller.select(it)
                         utilities = emptyList()
                     },
                     onForget = controller::forget,
@@ -141,7 +142,12 @@ fun ConnectionRoot(
                 )
                 else -> key(state.session, state.cacheScope) {
                     contentState.SaveableStateProvider(state.cacheScope ?: "connected") {
-                        ConnectedContent(state, Modifier.weight(1f), notificationWorkspace)
+                        Column(Modifier.weight(1f)) {
+                            ConnectionRecoveryBanner(state) {
+                                utilities = utilities.openUtility("Connections")
+                            }
+                            ConnectedContent(state, Modifier.weight(1f), notificationWorkspace)
+                        }
                     }
                 }
             }
@@ -151,7 +157,7 @@ fun ConnectionRoot(
         PairingConfirmation(payload, state.busy, controller::probeCertificate, {
             controller.confirmPairing()
             utilities = emptyList()
-        }, controller::cancelPairing)
+        }, controller::cancelPairing, controller.tunnelAvailable)
     }
 }
 

@@ -18,6 +18,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTextReplacement
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import dev.intent.app.comments.CommentScreen
@@ -63,24 +64,30 @@ class CoreFlowsTest {
     fun manualPairingConnectsToWorkspaceList() {
         val repository = MemoryConnections()
         lateinit var server: SmokeServer
+        lateinit var connectionState: (SessionState) -> Unit
         ConnectionController(repository, { saved, callback ->
+            connectionState = callback
             createConnectionSession(saved, callback, transport = { listener ->
                 SmokeServer(listener).also { server = it }
             })
         }).use { controller ->
             content { ConnectionRoot(controller, {}) }
             compose.onNodeWithText("Scan QR code").assertIsDisplayed()
+            screenshots("pairing-landing")
             compose.onNodeWithText("Enter connection details").performClick()
             compose.onNodeWithText("Review connection").assertIsNotEnabled()
-            compose.onNodeWithText("Host").performTextInput("desktop.test")
-            compose.onNodeWithText("Port").performTextInput("443")
-            compose.onNodeWithText("Pairing token").performTextInput("smoke-token")
+            compose.onNodeWithText("Host / Tailcat address").performTextInput("desktop.test")
+            compose.onNodeWithText("Port").performTextReplacement("443")
+            compose.onNodeWithText("Pairing token").performScrollTo().performTextInput("smoke-token")
+            compose.onNodeWithText("Show token").performClick()
+            compose.onNodeWithText("Hide token").assertIsDisplayed().performClick()
             compose.onNodeWithText("Certificate fingerprint (optional)")
                 .performScrollTo().performTextInput("AB".repeat(32))
             screenshots("pairing")
             compose.onNodeWithText("Review connection").performScrollTo().performClick()
             compose.waitUntil(TIMEOUT) { controller.state.value.pending != null }
             compose.onNodeWithText("Trust and connect?").assertIsDisplayed()
+            screenshots("pairing-trust")
             assertTrue(repository.list().isEmpty())
             compose.onNodeWithText("Trust and connect").performClick()
             compose.waitUntil(TIMEOUT) { controller.state.value.session != null }
@@ -97,6 +104,19 @@ class CoreFlowsTest {
                 }
             )
             screenshots("paired-workspaces")
+            val admitted = controller.state.value.session
+            connectionState(SessionState.DISCONNECTED)
+            compose.waitUntil(TIMEOUT) { controller.state.value.status == "Connection lost. Retrying." }
+            compose.onNodeWithText("Reconnecting…").assertIsDisplayed()
+            compose.onNodeWithText("Android smoke workspace").assertIsDisplayed()
+            screenshots("connection-reconnecting")
+            compose.onNodeWithText("Saved connections").performClick()
+            compose.onNodeWithText("Return to workspace").performClick()
+            compose.onNodeWithText("Android smoke workspace").assertIsDisplayed()
+            assertEquals(admitted, controller.state.value.session)
+            connectionState(SessionState.READY)
+            compose.waitUntil(TIMEOUT) { controller.state.value.status == "Connected" }
+            compose.onNodeWithText("Reconnecting…").assertDoesNotExist()
         }
     }
 

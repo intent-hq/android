@@ -8,8 +8,9 @@
 
     <Button
         android:id="@+id/close_scanner"
-        android:layout_width="match_parent"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:layout_gravity="end"
         android:text="@string/close_pairing_scanner" />
 
     <com.journeyapps.barcodescanner.DecoratedBarcodeView
