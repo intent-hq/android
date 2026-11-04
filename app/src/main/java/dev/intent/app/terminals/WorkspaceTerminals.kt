@@ -19,8 +19,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.focusProperties
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.viewinterop.AndroidView
 import dev.intent.app.design.IntentScreen
 import dev.intent.app.design.IntentTextButton as TextButton
@@ -65,7 +65,12 @@ fun WorkspaceTerminals(
             }
         )
         if (state.selected == null) {
-            TerminalListScreen(state, store::refresh, store::select, store::create, store::delete, store::rename)
+            TerminalListScreen(
+                state,
+                store::refresh,
+                store::select,
+                TerminalListActions(store::create, store::delete, store::rename)
+            )
         } else {
             Column(
                 Modifier.weight(1f).intentPageInsets().imePadding(),
@@ -75,7 +80,10 @@ fun WorkspaceTerminals(
                 state.actionError?.let { Text(it, color = IntentScreen.error) }
                 state.notice?.let { Text(it) }
                 if (state.loading) Text("Loading terminals…")
-                Text(state.terminals.firstOrNull { it.id == state.selected }?.let(state::title) ?: "Terminal")
+                Text(
+                    state.terminals.firstOrNull { it.id == state.selected }?.let(state::title)
+                        ?: "Terminal"
+                )
                 TerminalSurface(store, state, Modifier.weight(1f))
                 if (state.ended) Text("This terminal has ended.")
             }
@@ -138,7 +146,17 @@ internal fun TerminalSurface(store: TerminalStore, state: TerminalState, modifie
                     TerminalKey(label, state.ready) { canvas.arrow(code) }
                 }
                 listOf("~", "|", "/", "-", "_", "$", "Enter").forEach { key ->
-                    TerminalKey(key, state.ready) { canvas.input(if (key == "Enter") "\r" else key) }
+                    TerminalKey(key, state.ready) {
+                        canvas.input(
+                            if (key ==
+                                "Enter"
+                            ) {
+                                "\r"
+                            } else {
+                                key
+                            }
+                        )
+                    }
                 }
                 TerminalKey("Copy output", true, canvas::copyOutput)
                 TerminalKey("Paste", state.ready, canvas::paste)

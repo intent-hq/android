@@ -86,6 +86,6 @@ internal data class WatchedAgentTarget(val workspaceId: String, val agentId: Str
 internal fun WatchedAgent.navigationTarget(currentWorkspaceId: String?): WatchedAgentTarget? {
     if (deleted || agent.id.isBlank()) return null
     val workspaceId = agent.workspaceId?.takeIf(String::isNotBlank)
-        ?: currentWorkspaceId?.takeIf(String::isNotBlank) ?: return null
-    return WatchedAgentTarget(workspaceId, agent.id)
+        ?: currentWorkspaceId?.takeIf(String::isNotBlank)
+    return workspaceId?.let { WatchedAgentTarget(it, agent.id) }
 }

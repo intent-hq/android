@@ -91,20 +91,20 @@ class AgentStore(private val session: AgentSession, private val workspaceId: Str
                     mutableState.value = state.value.copy(
                         retiredLoading = false,
                         retiredError = if (error != null) "Cannot load retired agents" else null,
-                        retiredAgents = if (error != null) state.value.retiredAgents else
-                            scoped(rows).filter { it.isRetired() }
+                        retiredAgents = if (error != null) {
+                            state.value.retiredAgents
+                        } else {
+                            scopedAgents(rows, workspaceId).filter { it.isRetired() }
+                        }
                     )
                 }
             }
         }
     }
 
-    private fun scoped(rows: List<Agent>) = rows.distinctBy { it.id }.filter {
-        (it.workspaceId == null || it.workspaceId == workspaceId) && it.status != "deleted"
-    }.sortedWith(compareByDescending<Agent> { it.lastActivity ?: it.updatedAt }.thenBy { it.id })
 
     private fun publish(rows: List<Agent>) {
-        val scoped = scoped(rows)
+        val scoped = scopedAgents(rows, workspaceId)
         mutableState.value = state.value.copy(
             agents = scoped.filterNot { it.isRetired() },
             retiredAgents = scoped.filter { it.isRetired() },
@@ -132,9 +132,11 @@ class AgentStore(private val session: AgentSession, private val workspaceId: Str
         revision++
         retiredRevision++
         mutableState.value = state.value.copy(retiredLoading = false)
-        publish((state.value.agents + state.value.retiredAgents).map {
-            if (it.id == agent.id) agent else it
-        })
+        publish(
+            (state.value.agents + state.value.retiredAgents).map {
+                if (it.id == agent.id) agent else it
+            }
+        )
     }
 
     @Synchronized
@@ -161,3 +163,8 @@ class AgentStore(private val session: AgentSession, private val workspaceId: Str
         stop()
     }
 }
+
+private fun scopedAgents(rows: List<Agent>, workspaceId: String) = rows.distinctBy { it.id }.filter {
+    (it.workspaceId == null || it.workspaceId == workspaceId) && it.status != "deleted"
+}.sortedWith(compareByDescending<Agent> { it.lastActivity ?: it.updatedAt }.thenBy { it.id })
+

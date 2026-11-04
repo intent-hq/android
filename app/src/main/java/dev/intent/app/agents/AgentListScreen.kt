@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -85,12 +86,12 @@ fun AgentListScreen(
             query,
             { query = it },
             "Search agents",
-            state.agents.isNotEmpty() || state.retiredAgents.isNotEmpty(),
+            state.hasAgents,
             currentOnly,
             { currentOnly = it }
         ) { contentPadding ->
             RefreshableList(state.isLoading, onRefresh) {
-                if (state.isLoading && state.agents.isEmpty() && state.retiredAgents.isEmpty()) {
+                if (state.isLoading && !state.hasAgents) {
                     Spacer(Modifier.fillMaxSize())
                 } else {
                     LazyColumn(
@@ -98,51 +99,10 @@ fun AgentListScreen(
                         contentPadding = contentPadding,
                         verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        state.error?.let {
-                            item { Text(it, color = MaterialTheme.colorScheme.error) }
-                        }
-                        if (!state.isLoading && state.error == null && state.agents.isEmpty() &&
-                            state.retiredAgents.isEmpty() && !state.retiredLoading) {
-                            item { Text("No agents yet") }
-                        }
-                        if (groups.isEmpty() && searching) {
-                            item { Text("No matching agents. Change the search or select All.") }
-                        }
-                        if (state.retiredLoading) item { Text("Loading retired agents…") }
-                        state.retiredError?.let { error ->
-                            item { TextButton(onClick = onRefresh) { Text("$error · Retry") } }
-                        }
+                        agentListFeedback(state, groups.isEmpty() && searching, onRefresh)
+                        val display = AgentGroupDisplay(expanded.toSet(), searching, ::toggle)
                         groups.forEach { section ->
-                            val groupKey = "group-${section.group.name}"
-                            val open = searching || section.group == AgentGroup.FOREGROUND ||
-                                groupKey in expanded
-                            if (section.group != AgentGroup.FOREGROUND) {
-                                item(key = groupKey) {
-                                    TextButton(onClick = { toggle(groupKey) }) {
-                                        Text(
-                                            "${if (open) "▾" else "▸"} ${section.group.title}" +
-                                                " · ${section.agents.size} · ${section.running} running"
-                                        )
-                                    }
-                                }
-                            }
-                            if (open) {
-                                val collapsed = if (searching) emptySet() else
-                                    section.agents.map { it.id }.toSet() - expanded.toSet()
-                                items(AgentTree(section.agents).rows(collapsed), key = { it.agent.id }) { row ->
-                                    AgentTreeItem(
-                                        row,
-                                        searching || row.agent.id in expanded,
-                                        section.agents.count {
-                                            it.delegationParent() == row.agent.id &&
-                                                it.avatarState() == AgentAvatarState.Running
-                                        },
-                                        onToggle = { toggle(row.agent.id) },
-                                        onClick = { onAgentSelected(row.agent.id) },
-                                        onMute = onMute
-                                    )
-                                }
-                            }
+                            agentGroupItems(section, display, onAgentSelected, onMute)
                         }
                         if (resources != null) item { resources() }
                     }
@@ -152,11 +112,75 @@ fun AgentListScreen(
     }
 }
 
+private val AgentListState.hasAgents: Boolean
+    get() = agents.isNotEmpty() || retiredAgents.isNotEmpty()
+
+private val AgentListState.finishedLoading: Boolean
+    get() = !isLoading && !retiredLoading
+
+private data class AgentGroupDisplay(
+    val expanded: Set<String>,
+    val searching: Boolean,
+    val toggle: (String) -> Unit
+)
+
+private fun LazyListScope.agentListFeedback(
+    state: AgentListState,
+    noMatches: Boolean,
+    onRefresh: () -> Unit
+) {
+    state.error?.let { item { Text(it, color = MaterialTheme.colorScheme.error) } }
+    if (state.finishedLoading && !state.hasAgents && state.error == null) {
+        item { Text("No agents yet") }
+    }
+    if (noMatches) item { Text("No matching agents. Change the search or select All.") }
+    if (state.retiredLoading) item { Text("Loading retired agents…") }
+    state.retiredError?.let { error ->
+        item { TextButton(onClick = onRefresh) { Text("$error · Retry") } }
+    }
+}
+
+private fun LazyListScope.agentGroupItems(
+    section: AgentGroupSection,
+    display: AgentGroupDisplay,
+    onAgentSelected: (String) -> Unit,
+    onMute: ((Agent) -> Unit)?
+) {
+    val groupKey = "group-${section.group.name}"
+    val open = display.searching || section.group == AgentGroup.FOREGROUND ||
+        groupKey in display.expanded
+    if (section.group != AgentGroup.FOREGROUND) {
+        item(key = groupKey) {
+            TextButton(onClick = { display.toggle(groupKey) }) {
+                Text(
+                    "${if (open) "▾" else "▸"} ${section.group.title}" +
+                        " · ${section.agents.size} · ${section.running} running"
+                )
+            }
+        }
+    }
+    if (open) {
+        val collapsed = if (display.searching) {
+            emptySet()
+        } else {
+            section.agents.map { it.id }.toSet() - display.expanded
+        }
+        items(AgentTree(section.agents).rows(collapsed), key = { it.agent.id }) { row ->
+            AgentTreeItem(
+                row,
+                display.searching || row.agent.id in display.expanded,
+                onToggle = { display.toggle(row.agent.id) },
+                onClick = { onAgentSelected(row.agent.id) },
+                onMute = onMute
+            )
+        }
+    }
+}
+
 @Composable
 private fun AgentTreeItem(
     row: AgentTreeRow,
     expanded: Boolean,
-    runningChildren: Int,
     onToggle: () -> Unit,
     onClick: () -> Unit,
     onMute: ((Agent) -> Unit)?
@@ -183,7 +207,7 @@ private fun AgentTreeItem(
             if (row.childCount > 0) {
                 TextButton(onClick = onToggle) {
                     Text(
-                        "${if (expanded) "▾" else "▸"} ${row.childCount} delegated · $runningChildren running"
+                        "${if (expanded) "▾" else "▸"} ${row.childCount} delegated · ${row.runningChildCount} running"
                     )
                 }
             }

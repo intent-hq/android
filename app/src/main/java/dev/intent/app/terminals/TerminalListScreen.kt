@@ -26,20 +26,43 @@ import dev.intent.app.design.IntentScreen
 import dev.intent.app.design.IntentSection
 import dev.intent.app.design.IntentTextButton as TextButton
 import dev.intent.app.lists.RefreshableList
+import dev.intent.core.protocol.models.TerminalInfo
+
+internal data class TerminalListActions(
+    val create: () -> Unit = {},
+    val delete: (String) -> Unit = {},
+    val rename: (String, String) -> Unit = { _, _ -> }
+)
+
+private class TerminalDialogState {
+    var renaming by mutableStateOf<String?>(null)
+    var name by mutableStateOf("")
+    var deleting by mutableStateOf<String?>(null)
+}
+
+private val TerminalState.mutationsEnabled: Boolean
+    get() = connected && !loading && !creating && deleting == null
 
 @Composable
 internal fun TerminalListScreen(
     state: TerminalState,
     onRefresh: () -> Unit,
     onSelect: (String) -> Unit,
-    onCreate: () -> Unit = {},
-    onDelete: (String) -> Unit = {},
-    onRename: (String, String) -> Unit = { _, _ -> }
+    actions: TerminalListActions = TerminalListActions()
 ) {
-    var renaming by remember { mutableStateOf<String?>(null) }
-    var name by remember { mutableStateOf("") }
-    var deleting by remember { mutableStateOf<String?>(null) }
-    val enabled = state.connected && !state.loading && !state.creating && state.deleting == null
+    val dialogs = remember { TerminalDialogState() }
+    TerminalListContent(state, onRefresh, onSelect, dialogs, actions)
+    TerminalDialogs(state, dialogs, actions)
+}
+
+@Composable
+private fun TerminalListContent(
+    state: TerminalState,
+    onRefresh: () -> Unit,
+    onSelect: (String) -> Unit,
+    dialogs: TerminalDialogState,
+    actions: TerminalListActions
+) {
     RefreshableList(state.loading, onRefresh) {
         LazyColumn(
             Modifier.fillMaxSize(),
@@ -47,7 +70,7 @@ internal fun TerminalListScreen(
             verticalArrangement = Arrangement.spacedBy(IntentScreen.itemSpacing)
         ) {
             item {
-                TextButton(onClick = onCreate, enabled = enabled) {
+                TextButton(onClick = actions.create, enabled = state.mutationsEnabled) {
                     Text(if (state.creating) "Creating terminal…" else "New terminal")
                 }
             }
@@ -61,75 +84,106 @@ internal fun TerminalListScreen(
                 }
             }
             items(state.terminals, key = { it.id }) { terminal ->
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    TextButton(
-                        onClick = { onSelect(terminal.id) },
-                        enabled = !state.loading && state.deleting != terminal.id,
-                        modifier = Modifier.weight(1f).testTag("terminal-open-${terminal.id}")
-                    ) {
-                        Text("${state.title(terminal)}\n${terminal.cwd}")
-                    }
-                    IconButton(
-                        onClick = {
-                            name = state.title(terminal)
-                            renaming = terminal.id
-                        },
-                        enabled = state.deleting != terminal.id,
-                        modifier = Modifier.testTag("terminal-rename-${terminal.id}")
-                    ) {
-                        Icon(Icons.Outlined.Edit, contentDescription = "Rename terminal ${state.title(terminal)}")
-                    }
-                    IconButton(
-                        onClick = { deleting = terminal.id },
-                        enabled = enabled,
-                        modifier = Modifier.testTag("terminal-delete-${terminal.id}")
-                    ) {
-                        Icon(
-                            Icons.Outlined.Delete,
-                            contentDescription = "Delete terminal ${state.title(terminal)}"
-                        )
-                    }
-                    if (state.deleting == terminal.id) Text("Deleting…")
-                }
+                TerminalListRow(terminal, state, onSelect, dialogs)
             }
         }
     }
-    renaming?.let { id ->
-        AlertDialog(
-            onDismissRequest = { renaming = null },
-            title = { Text("Rename terminal") },
-            text = {
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text("Terminal name") },
-                    supportingText = { Text("Saved on this device. Leave empty to use the default name.") },
-                    singleLine = true,
-                    modifier = Modifier.testTag("terminal-name")
-                )
+}
+
+@Composable
+private fun TerminalListRow(
+    terminal: TerminalInfo,
+    state: TerminalState,
+    onSelect: (String) -> Unit,
+    dialogs: TerminalDialogState
+) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        TextButton(
+            onClick = { onSelect(terminal.id) },
+            enabled = !state.loading && state.deleting != terminal.id,
+            modifier = Modifier.weight(1f).testTag("terminal-open-${terminal.id}")
+        ) {
+            Text("${state.title(terminal)}\n${terminal.cwd}")
+        }
+        IconButton(
+            onClick = {
+                dialogs.name = state.title(terminal)
+                dialogs.renaming = terminal.id
             },
-            confirmButton = {
-                TextButton(
-                    enabled = state.terminals.any { it.id == id } && state.deleting != id,
-                    onClick = {
-                        onRename(id, name)
-                        renaming = null
-                    }
-                ) { Text("Rename") }
-            },
-            dismissButton = { TextButton(onClick = { renaming = null }) { Text("Cancel") } }
-        )
+            enabled = state.deleting != terminal.id,
+            modifier = Modifier.testTag("terminal-rename-${terminal.id}")
+        ) {
+            Icon(Icons.Outlined.Edit, contentDescription = "Rename terminal ${state.title(terminal)}")
+        }
+        IconButton(
+            onClick = { dialogs.deleting = terminal.id },
+            enabled = state.mutationsEnabled,
+            modifier = Modifier.testTag("terminal-delete-${terminal.id}")
+        ) {
+            Icon(Icons.Outlined.Delete, contentDescription = "Delete terminal ${state.title(terminal)}")
+        }
+        if (state.deleting == terminal.id) Text("Deleting…")
     }
-    deleting?.let { id ->
-        TerminalDeleteConfirmation(
-            enabled = enabled && state.terminals.any { it.id == id },
-            onDismiss = { deleting = null },
+}
+
+@Composable
+private fun TerminalDialogs(
+    state: TerminalState,
+    dialogs: TerminalDialogState,
+    actions: TerminalListActions
+) {
+    dialogs.renaming?.let { id ->
+        TerminalRenameDialog(
+            name = dialogs.name,
+            onNameChange = { dialogs.name = it },
+            enabled = state.terminals.any { it.id == id } && state.deleting != id,
+            onDismiss = { dialogs.renaming = null },
             onConfirm = {
-                deleting = null
-                onDelete(id)
+                actions.rename(id, dialogs.name)
+                dialogs.renaming = null
             }
         )
     }
+    dialogs.deleting?.let { id ->
+        TerminalDeleteConfirmation(
+            enabled = state.mutationsEnabled && state.terminals.any { it.id == id },
+            onDismiss = { dialogs.deleting = null },
+            onConfirm = {
+                dialogs.deleting = null
+                actions.delete(id)
+            }
+        )
+    }
+}
+
+@Composable
+private fun TerminalRenameDialog(
+    name: String,
+    onNameChange: (String) -> Unit,
+    enabled: Boolean,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Rename terminal") },
+        text = {
+            OutlinedTextField(
+                value = name,
+                onValueChange = onNameChange,
+                label = { Text("Terminal name") },
+                supportingText = {
+                    Text("Saved on this device. Leave empty to use the default name.")
+                },
+                singleLine = true,
+                modifier = Modifier.testTag("terminal-name")
+            )
+        },
+        confirmButton = {
+            TextButton(enabled = enabled, onClick = onConfirm) { Text("Rename") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+    )
 }
 
 @Composable
