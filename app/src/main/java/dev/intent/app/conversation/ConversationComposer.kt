@@ -56,6 +56,7 @@ fun ConversationComposer(
     questionPhotos: PhotoAttachmentStore? = null
 ) {
     val photoState = photos?.state?.collectAsState()?.value
+    val hasContent = draft.text.isNotBlank() || photoState?.photos?.isNotEmpty() == true
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Column(Modifier.heightIn(max = 120.dp).verticalScroll(rememberScrollState())) {
             state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
@@ -109,21 +110,12 @@ fun ConversationComposer(
                         )
                     }
                 }
-                if (!state.running || draft.text.isNotBlank() || photoState?.photos?.isNotEmpty() == true) {
+                if (!state.running || hasContent) {
                     IntentButton(
                         onClick = {
                             if (onSend(draft.text) && clearOnSend) draft.text = ""
                         },
-                        enabled =
-                        (
-                            clearOnSend ||
-                                state.attempts.all {
-                                    it.status == SendStatus.ACCEPTED ||
-                                        it.status == SendStatus.QUEUED
-                                }
-                            ) &&
-                            (photoState?.ready != false) &&
-                            (draft.text.isNotBlank() || photoState?.photos?.isNotEmpty() == true)
+                        enabled = state.canSendDraft(clearOnSend, hasContent, photoState?.ready != false)
                     ) {
                         Text("Send")
                     }
@@ -132,6 +124,13 @@ fun ConversationComposer(
         }
     }
 }
+
+private fun ConversationSendState.canSendDraft(
+    clearOnSend: Boolean,
+    hasContent: Boolean,
+    attachmentsReady: Boolean
+): Boolean = hasContent && attachmentsReady &&
+    (clearOnSend || attempts.all { it.status == SendStatus.ACCEPTED || it.status == SendStatus.QUEUED })
 
 @Composable
 private fun SendAttempts(
