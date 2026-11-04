@@ -26,15 +26,12 @@ import dev.intent.app.markdown.LocalMarkdownListItemRenderer
 import dev.intent.app.markdown.LocalMarkdownNoteLink
 import dev.intent.app.markdown.MarkdownNode
 import dev.intent.app.markdown.children
-import dev.intent.app.markdown.markdownNoteId
 import dev.intent.app.markdown.markdownRuns
 import dev.intent.app.navigation.ChromeAction
 import dev.intent.app.navigation.CompactAppBar
 import dev.intent.core.protocol.models.Note
 import dev.intent.core.protocol.models.NoteTaskRow
-import org.commonmark.node.Link
 import org.commonmark.node.ListItem
-import org.commonmark.node.Paragraph
 
 // Independent note, task, and error states with explicit page actions.
 @Suppress("CyclomaticComplexMethod", "LongParameterList", "LongMethod")
@@ -184,11 +181,7 @@ private fun InlineNoteTask(
                     enabled && linked?.metadata?.task != null,
                     { onLinkedStatus(linkedId, it) }
                 )
-                val body = noteTaskBody(item)
-                body.filterIndexed { index, node ->
-                    val link = (node as? Paragraph)?.children()?.singleOrNull() as? Link
-                    index != 0 || link == null || markdownNoteId(link.destination) != linkedId
-                }.forEach { MarkdownNode(it) }
+                linkedNoteTaskBody(item, linkedId).forEach { MarkdownNode(it) }
             }
         }
     }

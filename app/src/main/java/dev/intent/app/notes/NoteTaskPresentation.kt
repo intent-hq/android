@@ -7,6 +7,7 @@ import dev.intent.app.markdown.parseMarkdown
 import dev.intent.core.protocol.models.Note
 import dev.intent.core.protocol.models.NoteTaskRow
 import org.commonmark.ext.task.list.items.TaskListItemMarker
+import org.commonmark.node.Link
 import org.commonmark.node.ListItem
 import org.commonmark.node.Node
 import org.commonmark.node.Paragraph
@@ -59,6 +60,16 @@ internal fun noteTaskForItem(
 
 internal fun noteTaskBody(item: ListItem): List<Node> =
     item.children().filterNot { it is TaskListItemMarker }
+
+/** The card title replaces only a title-only first paragraph, never prose or nested blocks. */
+internal fun linkedNoteTaskBody(item: ListItem, linkedId: String): List<Node> =
+    noteTaskBody(item).filterIndexed { index, node ->
+        val content = (node as? Paragraph)?.children()?.filterNot {
+            it is TaskListItemMarker || (it is Text && it.literal.isBlank())
+        }
+        val link = content?.singleOrNull() as? Link
+        index != 0 || link == null || markdownNoteId(link.destination) != linkedId
+    }
 
 internal fun linkedTaskId(task: NoteTaskRow): String? =
     (task.taskNoteId ?: task.linkedTaskNoteId)?.takeIf(::validNoteReference)

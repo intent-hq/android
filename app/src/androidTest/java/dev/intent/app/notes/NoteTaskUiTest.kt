@@ -78,7 +78,8 @@ class NoteTaskUiTest {
                                 "spec",
                                 "Task plan",
                                 content = "Before\n\n" +
-                                    "- [ ] [Old title](intent://local/task/task)\n\nAfter",
+                                    "- [ ] [Old title](intent://local/task/task)\n" +
+                                    "  - Nested detail\n\n  Extra paragraph\n\nAfter",
                                 tags = listOf("planning")
                             ),
                             tasks = listOf(
@@ -95,6 +96,9 @@ class NoteTaskUiTest {
             }
         }
         compose.onAllNodes(isToggleable()).assertCountEquals(0)
+        compose.onNodeWithText("Old title").assertDoesNotExist()
+        compose.onNodeWithText("Nested detail").assertIsDisplayed()
+        compose.onNodeWithText("Extra paragraph").assertIsDisplayed()
         compose.onNodeWithText("Live task title").performClick()
         compose.runOnIdle { assertEquals("task", selected) }
         compose.onNodeWithText("Waiting").performClick()
@@ -107,6 +111,9 @@ class NoteTaskUiTest {
         listOf(false, true).forEach { night ->
             compose.runOnIdle { dark.value = night }
             compose.waitForIdle()
+            compose.onNodeWithText("Old title").assertDoesNotExist()
+            compose.onNodeWithText("Nested detail").assertIsDisplayed()
+            compose.onNodeWithText("Extra paragraph").assertIsDisplayed()
             screenshot("note-inline-linked-${if (night) "dark" else "light"}")
         }
     }

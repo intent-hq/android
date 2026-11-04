@@ -96,6 +96,33 @@ class NoteTaskPresentationTest {
     }
 
     @Test
+    fun `linked card removes obsolete title but preserves nested content for every marker`() {
+        listOf(" ", "x", "/").forEach { marker ->
+            val source = "- [$marker] [Old title](intent://local/task/task)\n" +
+                "  - Nested detail\n\n  Extra paragraph"
+            val row = NoteTaskRow(1, "Old title", "todo", taskNoteId = "task")
+            val item = listItems(parseNoteMarkdown(source, listOf(row))).first()
+            val rendered = linkedNoteTaskBody(item, "task").flatMap { markdownRuns(it) }
+                .joinToString("") { it.text }
+            assertFalse(rendered.contains("Old title"))
+            assertTrue(rendered.contains("Nested detail"))
+            assertTrue(rendered.contains("Extra paragraph"))
+            assertTrue(markdownRuns(item).any { it.text == "Old title" })
+        }
+    }
+
+    @Test
+    fun `linked card preserves additional inline prose and links to other targets`() {
+        listOf(
+            "- [ ] [Old title](intent://local/task/task) with extra context",
+            "- [ ] [Other task](intent://local/task/other)"
+        ).forEach { source ->
+            val item = listItems(parseNoteMarkdown(source)).single()
+            assertEquals(noteTaskBody(item), linkedNoteTaskBody(item, "task"))
+        }
+    }
+
+    @Test
     fun `linked ids prefer canonical field and reject malformed navigation targets`() {
         val row = NoteTaskRow(1, "Task", "todo", "canonical", "legacy")
         assertEquals("canonical", linkedTaskId(row))
