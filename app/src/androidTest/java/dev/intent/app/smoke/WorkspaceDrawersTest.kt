@@ -113,6 +113,7 @@ class WorkspaceDrawersTest {
             compose.onNodeWithTag("history.second.agent").assertIsDisplayed()
             val name = compose.onNodeWithText(
                 "Remote agent",
+                substring = true,
                 useUnmergedTree = true
             ).fetchSemanticsNode().boundsInRoot
             val context = compose.onNodeWithText(
@@ -120,7 +121,7 @@ class WorkspaceDrawersTest {
                 substring = true,
                 useUnmergedTree = true
             ).fetchSemanticsNode().boundsInRoot
-            assertTrue(name.top < context.top)
+            assertTrue(context.top < name.top)
             screenshot("agent-history-drawer")
             waitForHistory("history.second.agent", selected = false)
             compose.onNodeWithTag("history.second.agent").performClick()
@@ -176,7 +177,7 @@ class WorkspaceDrawersTest {
             compose.onNodeWithTag("drawer.Agent history").assertIsDisplayed()
             waitForHistory("history.first.agent", selected = true)
             compose.onNodeWithTag("history.first.agent").assertIsSelected()
-            compose.onNodeWithText("Current agent").assertIsDisplayed()
+            compose.onNodeWithText("Current agent", substring = true).assertIsDisplayed()
             screenshot("conversation-history-light")
             compose.runOnIdle { dispatcher.onBackPressed() }
             compose.onNodeWithTag("drawer.Agent history").assertDoesNotExist()
