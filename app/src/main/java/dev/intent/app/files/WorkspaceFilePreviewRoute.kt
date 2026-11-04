@@ -52,7 +52,7 @@ fun WorkspaceFilePreviewRoute(source: WorkspaceFileSource, path: String, onBack:
 }
 
 internal sealed interface FilePreviewContent {
-    data class TextFile(val text: String) : FilePreviewContent
+    data class TextFile(val text: String, val path: String = "") : FilePreviewContent
     data class ImageFile(val bitmap: Bitmap) : FilePreviewContent
     data class PdfFile(val file: File) : FilePreviewContent
     data class VideoFile(val file: File) : FilePreviewContent
@@ -96,12 +96,7 @@ private fun FilePreviewBody(source: WorkspaceFileSource, path: String, modifier:
     }
     Column(modifier.fillMaxSize()) {
         state.file?.let { file ->
-            TextButton(onClick = {
-                runCatching {
-                    openMedia(context, file, MediaReference(file.name, false, path = path))
-                }
-                    .onFailure { openError = "No app can open this file." }
-            }) { Text("Open in another app") }
+            OpenPreviewButton(file, path, state.content is FilePreviewContent.PdfFile) { openError = it }
         }
         openError?.let { Text(it, color = IntentScreen.error) }
         if (state.content is FilePreviewContent.ImageFile) {
@@ -117,6 +112,28 @@ private fun FilePreviewBody(source: WorkspaceFileSource, path: String, modifier:
 }
 
 @Composable
+private fun OpenPreviewButton(file: File, path: String, isPdf: Boolean, onError: (String?) -> Unit) {
+    val context = LocalContext.current
+    TextButton(onClick = {
+        onError(null)
+        runCatching {
+            openMedia(
+                context,
+                file,
+                MediaReference(
+                    file.name,
+                    false,
+                    path = path,
+                    mimeType = if (isPdf) "application/pdf" else null
+                )
+            )
+        }.onFailure { onError("No app can open this file.") }
+    }) {
+        Text(if (isPdf) "Open PDF in another app" else "Open in another app")
+    }
+}
+
+@Composable
 internal fun ColumnScope.PreviewContent(state: PreviewState, onRetry: () -> Unit) {
     when (val content = state.content) {
         is FilePreviewContent.PdfFile -> WorkspacePdfPreview(content.file, Modifier.weight(1f))
@@ -124,7 +141,8 @@ internal fun ColumnScope.PreviewContent(state: PreviewState, onRetry: () -> Unit
         is FilePreviewContent.HtmlFile -> WorkspaceHtmlPreview(content.text, Modifier.weight(1f))
         is FilePreviewContent.TextFile -> WorkspaceTextPreview(
             content.text,
-            Modifier.weight(1f)
+            Modifier.weight(1f),
+            path = content.path
         )
         is FilePreviewContent.ImageFile -> WorkspaceImagePreview(
             content.bitmap,
@@ -165,7 +183,7 @@ internal fun previewContent(file: File, kind: WorkspacePreviewKind): FilePreview
             decodePhoto(file, IMAGE_MAX_EDGE)
         )
         WorkspacePreviewKind.TEXT -> runCatching {
-            FilePreviewContent.TextFile(readWorkspaceText(file))
+            FilePreviewContent.TextFile(readWorkspaceText(file), file.name)
         }
             .getOrElse { FilePreviewContent.Unsupported }
         WorkspacePreviewKind.UNSUPPORTED -> FilePreviewContent.Unsupported

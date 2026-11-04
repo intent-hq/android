@@ -180,6 +180,9 @@ private fun CommitRow(commit: GitCommit) {
                 style = MaterialTheme.typography.bodySmall
             )
         }
+        commitPushLabel(commit.isPushed)?.let {
+            Text(it, color = IntentScreen.secondaryText, style = MaterialTheme.typography.bodySmall)
+        }
     }
 }
 
