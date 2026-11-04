@@ -52,6 +52,10 @@ val LocalMarkdownFenceRenderer =
         { language, code -> MermaidFence(language, code) }
     }
 
+/** Notes can replace a list item in place; ordinary Markdown remains read-only. */
+val LocalMarkdownListItemRenderer =
+    staticCompositionLocalOf<(@Composable (ListItem) -> Boolean)?> { null }
+
 @Composable
 fun MarkdownContent(content: String, modifier: Modifier = Modifier) {
     val document = remember(content) { parseMarkdown(content) }
@@ -103,6 +107,9 @@ fun MarkdownNode(node: Node) {
 private fun MarkdownList(node: Node, start: Int?) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         node.children().filterIsInstance<ListItem>().forEachIndexed { index, item ->
+            if (LocalMarkdownListItemRenderer.current?.invoke(item) == true) {
+                return@forEachIndexed
+            }
             val marker = item.children().filterIsInstance<TaskListItemMarker>().firstOrNull()
             Row {
                 if (marker != null) {

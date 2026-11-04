@@ -15,6 +15,8 @@ import java.util.concurrent.CompletionException
 interface NoteSource {
     fun note(workspaceId: String, noteId: String): CompletableFuture<Note>
     fun tasks(workspaceId: String, noteId: String): CompletableFuture<List<NoteTaskRow>>
+    fun relatedNotes(workspaceId: String): CompletableFuture<List<Note>> =
+        CompletableFuture.completedFuture(emptyList())
     fun updateLine(
         workspaceId: String,
         noteId: String,
@@ -47,7 +49,9 @@ data class NoteReaderState(
     val deleted: Boolean = false,
     val saving: Boolean = false,
     val mutationError: String? = null,
-    val error: String? = null
+    val error: String? = null,
+    val relatedNotes: List<Note> = emptyList(),
+    val relatedNotesError: String? = null
 )
 
 /** A store owns one visible note. All callbacks and state changes are serialized by its lock. */
@@ -113,6 +117,19 @@ class NoteStore(private val source: NoteSource, private val cache: OfflineCache?
                 tasks
             ->
             NoteReaderState(note = note, tasks = tasks, loading = false)
+        }.thenCombine(
+            source.relatedNotes(workspaceId).handle { notes, error ->
+                notes to error
+            }
+        ) { result, related ->
+            result.copy(
+                relatedNotes = related.first.orEmpty(),
+                relatedNotesError = if (related.second != null) {
+                    "Related task details are unavailable. Refresh to retry."
+                } else {
+                    null
+                }
+            )
         }.whenComplete { result, error ->
             synchronized(this) {
                 if (current == generation && revision == request) {
@@ -151,6 +168,25 @@ class NoteStore(private val source: NoteSource, private val cache: OfflineCache?
         }
         mutate(state.copy(tasks = rows)) {
             source.updateLine(workspaceId, noteId, task.lineNumber, status, expected).thenApply {
+                check(it.ok)
+                null
+            }
+        }
+    }
+
+    @Suppress("ReturnCount") // Only resolved linked tasks can receive task-note status writes.
+    @Synchronized
+    fun updateLinkedStatus(taskId: String, status: String) {
+        if (status !in taskNoteStatuses || state.saving || state.loading) return
+        if (state.tasks.none { linkedTaskId(it) == taskId }) return
+        if (taskId == noteId) {
+            updateStatus(status)
+            return
+        }
+        val linked = state.relatedNotes.firstOrNull { it.id == taskId } ?: return
+        if (linked.metadata?.task == null || linked.isArchived) return
+        mutate(state) {
+            source.updateStatus(workspaceId, taskId, status, linked.rev).thenApply {
                 check(it.ok)
                 null
             }
@@ -209,7 +245,7 @@ class NoteStore(private val source: NoteSource, private val cache: OfflineCache?
     private fun receive(event: NoteEvent) {
         if (event.type == "note:deleted" && event.noteId == noteId) {
             deleted()
-        } else if (event.type.startsWith("task:") || event.noteId == noteId) {
+        } else if (event.type.startsWith("task:") || event.type.startsWith("note:")) {
             refresh()
         }
     }

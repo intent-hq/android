@@ -4,14 +4,20 @@ import java.net.URI
 import org.commonmark.ext.gfm.tables.TablesExtension
 import org.commonmark.ext.task.list.items.TaskListItemsExtension
 import org.commonmark.node.Node
+import org.commonmark.parser.IncludeSourceSpans
 import org.commonmark.parser.Parser
 
 private val parser = Parser.builder().extensions(
     listOf(TablesExtension.create(), TaskListItemsExtension.create())
 ).build()
 
+private val positionedParser = Parser.builder().extensions(
+    listOf(TablesExtension.create(), TaskListItemsExtension.create())
+).includeSourceSpans(IncludeSourceSpans.BLOCKS).build()
+
 /** Each render owns its tree, including partial fences received during streaming. */
-fun parseMarkdown(source: String): Node = parser.parse(source)
+fun parseMarkdown(source: String, sourcePositions: Boolean = false): Node =
+    (if (sourcePositions) positionedParser else parser).parse(source)
 
 fun Node.children(): List<Node> = generateSequence(firstChild) { it.next }.toList()
 

@@ -96,6 +96,69 @@ class TaskMutationStoreTest {
         assertFalse(store.state.saving)
     }
 
+    @Test
+    fun `linked status uses task note vocabulary and its own revision without replacing parent`() {
+        val source = MutationSource().apply {
+            linkedId = "linked"
+            related = listOf(
+                Note(
+                    "linked", "Linked work", rev = 42,
+                    metadata = NoteMetadata(TaskMetadata("blocked"))
+                )
+            )
+        }
+        val store = loaded(source)
+        store.updateLinkedStatus("linked", "done")
+        store.updateLinkedStatus("not-linked", "complete")
+        assertEquals(0, source.statusCalls)
+        store.updateLinkedStatus("linked", "review_required")
+        assertEquals("linked", source.statusNoteId)
+        assertEquals(42L, source.expectedVersion)
+        assertEquals("review_required", source.statusValue)
+        source.statusWrite.complete(
+            TaskUpdateNoteStatusResult(true, "linked", "review_required", source.related.single())
+        )
+        assertEquals("note", store.state.note?.id)
+        source.related = listOf(
+            source.related.single().copy(metadata = NoteMetadata(TaskMetadata("review_required")))
+        )
+        source.complete("todo", "not_started")
+        source.event(NoteEvent("note:updated", "linked"))
+        source.complete("todo", "not_started")
+        assertEquals("review_required", store.state.relatedNotes.single().metadata?.task?.status)
+    }
+
+    @Test
+    fun `missing and archived linked notes cannot receive a task status write`() {
+        val source = MutationSource().apply { linkedId = "linked" }
+        val store = loaded(source)
+        store.updateLinkedStatus("linked", "complete")
+        assertEquals(0, source.statusCalls)
+        source.related = listOf(
+            Note(
+                "linked", "Archived", isArchived = true,
+                metadata = NoteMetadata(TaskMetadata("waiting"))
+            )
+        )
+        source.event(NoteEvent("note:updated", "linked"))
+        source.complete("todo", "not_started")
+        store.updateLinkedStatus("linked", "complete")
+        assertEquals(0, source.statusCalls)
+    }
+
+    @Test
+    fun `related metadata failure leaves note readable and a refresh recovers`() {
+        val source = MutationSource().apply { relatedFailure = true }
+        val store = loaded(source)
+        assertEquals("note", store.state.note?.id)
+        assertEquals(null, store.state.error)
+        assertNotNull(store.state.relatedNotesError)
+        source.relatedFailure = false
+        source.event(NoteEvent("note:created", "linked"))
+        source.complete("todo", "not_started")
+        assertEquals(null, store.state.relatedNotesError)
+    }
+
     private fun loaded(source: MutationSource): NoteStore = NoteStore(source).also {
         it.open("ws", "note")
         source.refresh()
@@ -111,6 +174,11 @@ private class MutationSource : NoteSource {
     var expected: String? = null
     var expectedVersion: Long? = null
     var statusCalls = 0
+    var statusNoteId: String? = null
+    var statusValue: String? = null
+    var linkedId: String? = null
+    var related = emptyList<Note>()
+    var relatedFailure = false
     lateinit var refresh: () -> Unit
     lateinit var event: (NoteEvent) -> Unit
 
@@ -118,6 +186,14 @@ private class MutationSource : NoteSource {
         CompletableFuture<Note>().also(reads::add)
     override fun tasks(workspaceId: String, noteId: String) =
         CompletableFuture<List<NoteTaskRow>>().also(rows::add)
+    override fun relatedNotes(workspaceId: String): CompletableFuture<List<Note>> =
+        if (relatedFailure) {
+            CompletableFuture<List<Note>>().also {
+                it.completeExceptionally(IllegalStateException("Unavailable"))
+            }
+        } else {
+            CompletableFuture.completedFuture(related)
+        }
     override fun updateLine(
         workspaceId: String,
         noteId: String,
@@ -135,6 +211,8 @@ private class MutationSource : NoteSource {
         expectedVersion: Long
     ): CompletableFuture<TaskUpdateNoteStatusResult> {
         this.expectedVersion = expectedVersion
+        statusNoteId = noteId
+        statusValue = status
         statusCalls++
         return statusWrite
     }
@@ -157,6 +235,6 @@ private class MutationSource : NoteSource {
     )
     fun complete(rowStatus: String, status: String) {
         reads.last().complete(fixture(rowStatus, status))
-        rows.last().complete(listOf(NoteTaskRow(1, "Work", rowStatus)))
+        rows.last().complete(listOf(NoteTaskRow(1, "Work", rowStatus, taskNoteId = linkedId)))
     }
 }

@@ -49,6 +49,16 @@ class SessionNoteSourceTest {
                 server.reply(subscribe, """{"subscriptionId":"lease"}""")
                 val noteRequest = server.request()
                 val tasksRequest = server.request()
+                val relatedRequest = server.request()
+                assertEquals("note.list", relatedRequest.method)
+                assertEquals(
+                    JsonPrimitive("slim"),
+                    relatedRequest.params!!.jsonObject["projection"]
+                )
+                assertEquals(
+                    JsonPrimitive("workspace"),
+                    relatedRequest.params!!.jsonObject["workspaceId"]
+                )
                 assertEquals("note.get", noteRequest.method)
                 assertEquals("note.listTasks", tasksRequest.method)
                 val expectedParams = buildJsonObject {
@@ -65,6 +75,7 @@ class SessionNoteSourceTest {
                 server.reply(noteRequest, buildJsonObject { put("note", note) }.toString())
                 // intentd's note.listTasks router returns the array itself, including [].
                 server.reply(tasksRequest, tasks)
+                server.reply(relatedRequest, """{"notes":[]}""")
                 val barrier = rpc.request("test.barrier")
                 server.reply(server.request(), "{}")
                 barrier.get(2, TimeUnit.SECONDS)

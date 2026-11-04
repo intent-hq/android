@@ -30,7 +30,9 @@ internal fun contextNoteRows(
 
 internal fun contextStatusLabel(status: String): String = when (status) {
     "not_started" -> "Not started"
-    "in_progress" -> "In progress"
+    "in_progress", "in-progress" -> "In progress"
+    "todo" -> "To do"
+    "done" -> "Done"
     "review_required" -> "Needs review"
     "discussion_needed" -> "Needs discussion"
     "complete" -> "Complete"
