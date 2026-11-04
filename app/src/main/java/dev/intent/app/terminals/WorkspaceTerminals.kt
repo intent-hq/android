@@ -18,6 +18,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import dev.intent.app.design.IntentScreen
@@ -35,8 +37,13 @@ fun WorkspaceTerminals(
     createOnOpen: Boolean = false,
     onCreateHandled: () -> Unit = {}
 ) {
-    val store =
-        remember(session, workspaceId) { TerminalStore(RpcTerminalSession(session, workspaceId)) }
+    val context = LocalContext.current
+    val store = remember(session, workspaceId) {
+        TerminalStore(
+            RpcTerminalSession(session, workspaceId),
+            SavedTerminalNames(context.getSharedPreferences("terminal-names", 0), workspaceId)
+        )
+    }
     DisposableEffect(store) {
         store.start()
         onDispose { store.close() }
@@ -58,7 +65,7 @@ fun WorkspaceTerminals(
             }
         )
         if (state.selected == null) {
-            TerminalListScreen(state, store::refresh, store::select, store::create, store::delete)
+            TerminalListScreen(state, store::refresh, store::select, store::create, store::delete, store::rename)
         } else {
             Column(
                 Modifier.weight(1f).intentPageInsets().imePadding(),
@@ -68,7 +75,7 @@ fun WorkspaceTerminals(
                 state.actionError?.let { Text(it, color = IntentScreen.error) }
                 state.notice?.let { Text(it) }
                 if (state.loading) Text("Loading terminals…")
-                Text(state.terminals.firstOrNull { it.id == state.selected }?.name ?: "Terminal")
+                Text(state.terminals.firstOrNull { it.id == state.selected }?.let(state::title) ?: "Terminal")
                 TerminalSurface(store, state, Modifier.weight(1f))
                 if (state.ended) Text("This terminal has ended.")
             }
@@ -104,6 +111,7 @@ internal fun TerminalSurface(store: TerminalStore, state: TerminalState, modifie
         }
     }
     var control by remember(canvas) { mutableStateOf(false) }
+    var expanded by remember(canvas) { mutableStateOf(false) }
     var fontSize by remember(canvas) { mutableStateOf(DEFAULT_FONT_SIZE) }
     Column(modifier) {
         AndroidView(
@@ -121,24 +129,27 @@ internal fun TerminalSurface(store: TerminalStore, state: TerminalState, modifie
             TerminalKey("Esc", state.ready) { canvas.input("\u001b") }
             TerminalKey("Ctrl${if (control) " ✓" else ""}", state.ready) { control = !control }
             TerminalKey("Tab", state.ready) { canvas.input("\t") }
-            listOf("←" to 'D', "↑" to 'A', "↓" to 'B', "→" to 'C').forEach { (label, code) ->
-                TerminalKey(label, state.ready) { canvas.arrow(code) }
-            }
-            listOf("~", "|", "/", "-", "_", "$", "Enter").forEach { key ->
-                TerminalKey(key, state.ready) { canvas.input(if (key == "Enter") "\r" else key) }
-            }
-        }
-        Row(Modifier.horizontalScroll(rememberScrollState())) {
             TerminalKey("Keyboard", state.ready, canvas::toggleKeyboard)
-            TerminalKey("Copy output", true, canvas::copyOutput)
-            TerminalKey("Paste", state.ready, canvas::paste)
-            TerminalKey("A−", fontSize > MIN_FONT_SIZE) {
-                fontSize--
-                canvas.fontSize(fontSize)
-            }
-            TerminalKey("A+", fontSize < MAX_FONT_SIZE) {
-                fontSize++
-                canvas.fontSize(fontSize)
+            TerminalKey(if (expanded) "Less keys" else "More keys", true) { expanded = !expanded }
+        }
+        if (expanded) {
+            Row(Modifier.horizontalScroll(rememberScrollState()).testTag("terminal-extra-keys")) {
+                listOf("←" to 'D', "↑" to 'A', "↓" to 'B', "→" to 'C').forEach { (label, code) ->
+                    TerminalKey(label, state.ready) { canvas.arrow(code) }
+                }
+                listOf("~", "|", "/", "-", "_", "$", "Enter").forEach { key ->
+                    TerminalKey(key, state.ready) { canvas.input(if (key == "Enter") "\r" else key) }
+                }
+                TerminalKey("Copy output", true, canvas::copyOutput)
+                TerminalKey("Paste", state.ready, canvas::paste)
+                TerminalKey("A−", fontSize > MIN_FONT_SIZE) {
+                    fontSize--
+                    canvas.fontSize(fontSize)
+                }
+                TerminalKey("A+", fontSize < MAX_FONT_SIZE) {
+                    fontSize++
+                    canvas.fontSize(fontSize)
+                }
             }
         }
     }
@@ -146,7 +157,11 @@ internal fun TerminalSurface(store: TerminalStore, state: TerminalState, modifie
 
 @Composable
 private fun TerminalKey(label: String, enabled: Boolean, action: () -> Unit) {
-    TextButton(enabled = enabled, onClick = action) { Text(label) }
+    TextButton(
+        enabled = enabled,
+        onClick = action,
+        modifier = Modifier.focusProperties { canFocus = false }
+    ) { Text(label) }
 }
 
 private const val DEFAULT_FONT_SIZE = 12

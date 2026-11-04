@@ -68,17 +68,16 @@ fun AgentListScreen(
 ) {
     var query by rememberSaveable { mutableStateOf("") }
     var currentOnly by rememberSaveable { mutableStateOf(false) }
-    var collapsed by rememberSaveable(query, currentOnly) { mutableStateOf(arrayListOf<String>()) }
-    val tree = remember(state.agents, query, currentOnly) {
-        if (query.isBlank() &&
-            !currentOnly
-        ) {
-            state.tree
-        } else {
-            AgentTree(filterAgents(state.agents, query, currentOnly))
-        }
+    var expanded by rememberSaveable(query, currentOnly) { mutableStateOf(arrayListOf<String>()) }
+    val groups = remember(state.agents, state.retiredAgents, query, currentOnly) {
+        agentGroups(state.agents + state.retiredAgents).map { section ->
+            section.copy(agents = filterAgents(section.agents, query, currentOnly))
+        }.filter { it.agents.isNotEmpty() }
     }
-    val rows = tree.rows(collapsed.toSet())
+    val searching = query.isNotBlank() || currentOnly
+    fun toggle(id: String) {
+        expanded = ArrayList(if (id in expanded) expanded - id else expanded + id)
+    }
     val resources = LocalWorkspaceResources.current
     Column(modifier) {
         WorkspaceSectionAppBar("Agents")
@@ -86,12 +85,12 @@ fun AgentListScreen(
             query,
             { query = it },
             "Search agents",
-            state.agents.isNotEmpty(),
+            state.agents.isNotEmpty() || state.retiredAgents.isNotEmpty(),
             currentOnly,
             { currentOnly = it }
         ) { contentPadding ->
             RefreshableList(state.isLoading, onRefresh) {
-                if (state.isLoading && state.agents.isEmpty()) {
+                if (state.isLoading && state.agents.isEmpty() && state.retiredAgents.isEmpty()) {
                     Spacer(Modifier.fillMaxSize())
                 } else {
                     LazyColumn(
@@ -102,30 +101,48 @@ fun AgentListScreen(
                         state.error?.let {
                             item { Text(it, color = MaterialTheme.colorScheme.error) }
                         }
-                        if (!state.isLoading && state.error == null && state.agents.isEmpty()) {
+                        if (!state.isLoading && state.error == null && state.agents.isEmpty() &&
+                            state.retiredAgents.isEmpty() && !state.retiredLoading) {
                             item { Text("No agents yet") }
                         }
-                        if (rows.isEmpty() && (query.isNotBlank() || currentOnly)) {
+                        if (groups.isEmpty() && searching) {
                             item { Text("No matching agents. Change the search or select All.") }
                         }
-                        items(rows, key = { it.agent.id }) { row ->
-                            AgentTreeItem(
-                                row,
-                                row.agent.id !in collapsed,
-                                onToggle = {
-                                    collapsed = ArrayList(
-                                        if (row.agent.id in
-                                            collapsed
-                                        ) {
-                                            collapsed - row.agent.id
-                                        } else {
-                                            collapsed + row.agent.id
-                                        }
+                        if (state.retiredLoading) item { Text("Loading retired agents…") }
+                        state.retiredError?.let { error ->
+                            item { TextButton(onClick = onRefresh) { Text("$error · Retry") } }
+                        }
+                        groups.forEach { section ->
+                            val groupKey = "group-${section.group.name}"
+                            val open = searching || section.group == AgentGroup.FOREGROUND ||
+                                groupKey in expanded
+                            if (section.group != AgentGroup.FOREGROUND) {
+                                item(key = groupKey) {
+                                    TextButton(onClick = { toggle(groupKey) }) {
+                                        Text(
+                                            "${if (open) "▾" else "▸"} ${section.group.title}" +
+                                                " · ${section.agents.size} · ${section.running} running"
+                                        )
+                                    }
+                                }
+                            }
+                            if (open) {
+                                val collapsed = if (searching) emptySet() else
+                                    section.agents.map { it.id }.toSet() - expanded.toSet()
+                                items(AgentTree(section.agents).rows(collapsed), key = { it.agent.id }) { row ->
+                                    AgentTreeItem(
+                                        row,
+                                        searching || row.agent.id in expanded,
+                                        section.agents.count {
+                                            it.delegationParent() == row.agent.id &&
+                                                it.avatarState() == AgentAvatarState.Running
+                                        },
+                                        onToggle = { toggle(row.agent.id) },
+                                        onClick = { onAgentSelected(row.agent.id) },
+                                        onMute = onMute
                                     )
-                                },
-                                onClick = { onAgentSelected(row.agent.id) },
-                                onMute = onMute
-                            )
+                                }
+                            }
                         }
                         if (resources != null) item { resources() }
                     }
@@ -139,13 +156,14 @@ fun AgentListScreen(
 private fun AgentTreeItem(
     row: AgentTreeRow,
     expanded: Boolean,
+    runningChildren: Int,
     onToggle: () -> Unit,
     onClick: () -> Unit,
     onMute: ((Agent) -> Unit)?
 ) {
     val primary = row.agent.isCoordinator()
     val color = if (primary) {
-        MaterialTheme.colorScheme.primaryContainer
+        MaterialTheme.colorScheme.surfaceContainerLow
     } else {
         MaterialTheme.colorScheme.surface
     }
@@ -165,7 +183,7 @@ private fun AgentTreeItem(
             if (row.childCount > 0) {
                 TextButton(onClick = onToggle) {
                     Text(
-                        "${if (expanded) "▾ Hide" else "▸ Show"} ${row.childCount} delegated agents"
+                        "${if (expanded) "▾" else "▸"} ${row.childCount} delegated · $runningChildren running"
                     )
                 }
             }

@@ -49,7 +49,9 @@ fun ConversationStatusStrip(
     onAgent: (String) -> Unit = {},
     agentWatches: AgentWatches = AgentWatches(),
     onRetryAgents: () -> Unit = {},
-    onPrAction: (String, PrMonitorAction) -> Unit = { _, _ -> }
+    onPrAction: (String, PrMonitorAction) -> Unit = { _, _ -> },
+    onWatchedAgent: ((workspaceId: String, agentId: String) -> Unit)? =
+        dev.intent.app.navigation.LocalOpenWorkspaceAgent.current
 ) {
     val now = watchClock()
     Column(
@@ -68,8 +70,17 @@ fun ConversationStatusStrip(
             Column {
                 agentWatches.rows.forEach { row ->
                     AssistChip(
-                        onClick = { onAgent(row.agent.id) },
-                        enabled = !row.deleted && row.agent.workspaceId == agent?.workspaceId,
+                        onClick = {
+                            val target = row.navigationTarget(agent?.workspaceId)
+                            if (target != null && onWatchedAgent != null) {
+                                onWatchedAgent(target.workspaceId, target.agentId)
+                            } else {
+                                onAgent(row.agent.id)
+                            }
+                        },
+                        enabled = row.navigationTarget(agent?.workspaceId)?.let {
+                            onWatchedAgent != null || it.workspaceId == agent?.workspaceId
+                        } == true,
                         modifier = Modifier.testTag("watched-agent-${row.agent.id}"),
                         label = { Text("${row.agent.name} · ${row.label}") }
                     )

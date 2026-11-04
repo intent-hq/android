@@ -45,7 +45,7 @@ class ListFiltersTest {
                 )
             }
         }
-        compose.onNodeWithText("▾ Hide 2 delegated agents").performClick()
+        compose.onNodeWithText("▸ 2 delegated · 1 running").assertIsDisplayed()
         compose.onNodeWithText("Fix search").assertDoesNotExist()
         compose.waitUntil(5_000) {
             compose.onAllNodes(androidx.compose.ui.test.hasContentDescription("Search agents"))
@@ -66,6 +66,7 @@ class ListFiltersTest {
         compose.onNodeWithText("Old work").assertDoesNotExist()
         compose.onNodeWithText("Fix search").assertIsDisplayed()
         compose.onNodeWithText("All").performClick()
+        compose.onNodeWithText("▸ 2 delegated · 1 running").performClick()
         compose.onNodeWithText("Old work").assertIsDisplayed()
     }
 

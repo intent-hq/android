@@ -1,5 +1,6 @@
 package dev.intent.app.status
 
+import dev.intent.core.protocol.models.Agent
 import dev.intent.core.protocol.models.WireJson
 import kotlinx.serialization.json.jsonObject
 import org.junit.Assert.assertEquals
@@ -7,6 +8,15 @@ import org.junit.Assert.assertFalse
 import org.junit.Test
 
 class AgentWatchesTest {
+    @Test fun navigationCarriesRemoteWorkspaceAndRejectsDeletedAgents() {
+        val remote = WatchedAgent(Agent("agent", "Remote", workspaceId = "other"))
+        assertEquals(WatchedAgentTarget("other", "agent"), remote.navigationTarget("current"))
+        assertEquals(null, remote.copy(deleted = true).navigationTarget("current"))
+        val legacy = WatchedAgent(Agent("legacy", "Legacy"))
+        assertEquals(WatchedAgentTarget("current", "legacy"), legacy.navigationTarget("current"))
+        assertEquals(null, legacy.navigationTarget(null))
+    }
+
     @Test fun capturedAfterAllPayloadProvidesRowsWithoutParentWaitingFlags() {
         val payload = requireNotNull(javaClass.getResource("/agent-watches-live.json")).readText()
         val result = parseAgentWatches(WireJson.parseToJsonElement(payload).jsonObject)

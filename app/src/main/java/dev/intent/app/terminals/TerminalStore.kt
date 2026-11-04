@@ -21,12 +21,18 @@ data class TerminalState(
     val sending: Boolean = false,
     val ended: Boolean = false,
     val error: String? = null,
-    val notice: String? = null
-)
+    val notice: String? = null,
+    val names: Map<String, String> = emptyMap()
+) {
+    fun title(terminal: TerminalInfo): String = names[terminal.id] ?: terminal.name
+}
 
 /** One workspace subscription, with fenced reads and no input replay on reconnect. */
 @Suppress("TooManyFunctions", "ReturnCount")
-class TerminalStore(private val session: TerminalSession) : Closeable {
+class TerminalStore(
+    private val session: TerminalSession,
+    private val names: TerminalNames = MemoryTerminalNames()
+) : Closeable {
     private val mutableState = MutableStateFlow(TerminalState())
     val state = mutableState.asStateFlow()
     val terminal = TerminalEngine(::send)
@@ -92,6 +98,9 @@ class TerminalStore(private val session: TerminalSession) : Closeable {
                         boot = result.daemonBootId
                         mutableState.value = state.value.copy(
                             terminals = result.terminals,
+                            names = result.terminals.mapNotNull { terminal ->
+                                names.get(result.daemonBootId, terminal.id)?.let { terminal.id to it }
+                            }.toMap(),
                             selected = selected,
                             loading = false,
                             connected = true,
@@ -176,6 +185,18 @@ class TerminalStore(private val session: TerminalSession) : Closeable {
                 }
             }
         }
+    }
+
+    @Synchronized
+    fun rename(id: String, name: String) {
+        val bootId = boot ?: return
+        if (closed || state.value.terminals.none { it.id == id } || state.value.deleting == id) return
+        val customName = name.trim().takeIf(String::isNotEmpty)
+        names.set(bootId, id, customName)
+        mutableState.value = state.value.copy(
+            names = if (customName == null) state.value.names - id else
+                state.value.names + (id to customName)
+        )
     }
 
     private fun canMutate() = !closed &&

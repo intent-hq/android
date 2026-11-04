@@ -8,6 +8,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -36,6 +37,8 @@ import dev.intent.core.protocol.models.WireJson
 import java.io.File
 import java.time.Instant
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import kotlinx.serialization.json.jsonObject
 import org.junit.Rule
 import org.junit.Test
@@ -45,6 +48,57 @@ import org.junit.runner.RunWith
 class ConversationStatusTest {
     @get:Rule val compose = createIntentComposeRule()
     private val agent = Agent("a", "Coordinator")
+
+    @Test fun watchedAgentsNavigateAcrossWorkspacesAndDeletedRowsStayDisabled() {
+        var target: Pair<String, String>? = null
+        compose.setContent {
+            IntentTheme {
+                ConversationStatusStrip(
+                    WatchState(), agent.copy(workspaceId = "current"), {}, {}, {},
+                    agentWatches = dev.intent.app.status.AgentWatches(
+                        rows = listOf(
+                            dev.intent.app.status.WatchedAgent(Agent("remote", "Other workspace", "other")),
+                            dev.intent.app.status.WatchedAgent(Agent("gone", "Deleted", "other"), deleted = true)
+                        )
+                    ),
+                    onWatchedAgent = { workspace, id -> target = workspace to id }
+                )
+            }
+        }
+        compose.onNodeWithTag("watched-agent-remote").performClick()
+        compose.runOnIdle { check(target == ("other" to "remote")) }
+        compose.onNodeWithTag("watched-agent-gone").assertIsNotEnabled()
+        screenshot("agent-cross-workspace-watch")
+    }
+
+    @Test fun agentGroupsExpandWithoutLosingDelegatedRows() {
+        val rows = listOf(
+            Agent("root", "Primary agent"),
+            Agent("child", "Delegated task", parentAgentId = "root", isActive = true),
+            Agent("background", "Background task", metadata = buildJsonObject { put("isBackground", true) }),
+            Agent("orphan", "Unlinked task", parentAgentId = "missing")
+        )
+        compose.setContent {
+            IntentTheme {
+                AgentListScreen(
+                    AgentListState(
+                        agents = rows,
+                        isLoading = false,
+                        retiredAgents = listOf(Agent("old", "Previous task", retiredAt = "now"))
+                    ), {}, {}
+                )
+            }
+        }
+        compose.onNodeWithText("Delegated task").assertDoesNotExist()
+        screenshot("agent-groups-collapsed")
+        compose.onNodeWithText("▸ 1 delegated · 1 running").performClick()
+        compose.onNodeWithText("▸ Background agents · 1 · 0 running").performClick()
+        compose.onNodeWithText("▸ Orphaned delegated agents · 1 · 0 running").performClick()
+        compose.onNodeWithText("▸ Retired agents · 1 · 0 running").performClick()
+        compose.onNodeWithText("Previous task").assertIsDisplayed()
+        compose.onNodeWithText("Delegated task").assertIsDisplayed()
+        screenshot("agent-groups-expanded")
+    }
 
     @Test fun scriptsHooksAndPrsShowAboveComposerAndOpenDetails() {
         val selected = mutableStateOf<WatchDetail?>(null)

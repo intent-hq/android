@@ -12,6 +12,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
 interface AgentSession {
+    fun retired(): CompletableFuture<List<Agent>> = CompletableFuture.completedFuture(emptyList())
     fun list(): CompletableFuture<List<Agent>>
     fun subscribe(
         onPush: (SubscriptionPush<Agent>) -> Unit,
@@ -25,6 +26,15 @@ class RpcAgentSession(private val session: RpcSession, private val workspaceId: 
     override fun list(): CompletableFuture<List<Agent>> = session.request(
         "agent.list",
         buildJsonObject { put("workspaceId", workspaceId) },
+        AgentListResult.serializer()
+    ).thenApply { it.agents }
+
+    override fun retired(): CompletableFuture<List<Agent>> = session.request(
+        "agent.list",
+        buildJsonObject {
+            put("workspaceId", workspaceId)
+            put("retiredOnly", true)
+        },
         AgentListResult.serializer()
     ).thenApply { it.agents }
 

@@ -8,9 +8,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -31,8 +33,11 @@ internal fun TerminalListScreen(
     onRefresh: () -> Unit,
     onSelect: (String) -> Unit,
     onCreate: () -> Unit = {},
-    onDelete: (String) -> Unit = {}
+    onDelete: (String) -> Unit = {},
+    onRename: (String, String) -> Unit = { _, _ -> }
 ) {
+    var renaming by remember { mutableStateOf<String?>(null) }
+    var name by remember { mutableStateOf("") }
     var deleting by remember { mutableStateOf<String?>(null) }
     val enabled = state.connected && !state.loading && !state.creating && state.deleting == null
     RefreshableList(state.loading, onRefresh) {
@@ -62,7 +67,17 @@ internal fun TerminalListScreen(
                         enabled = !state.loading && state.deleting != terminal.id,
                         modifier = Modifier.weight(1f).testTag("terminal-open-${terminal.id}")
                     ) {
-                        Text("${terminal.name}\n${terminal.cwd}")
+                        Text("${state.title(terminal)}\n${terminal.cwd}")
+                    }
+                    IconButton(
+                        onClick = {
+                            name = state.title(terminal)
+                            renaming = terminal.id
+                        },
+                        enabled = state.deleting != terminal.id,
+                        modifier = Modifier.testTag("terminal-rename-${terminal.id}")
+                    ) {
+                        Icon(Icons.Outlined.Edit, contentDescription = "Rename terminal ${state.title(terminal)}")
                     }
                     IconButton(
                         onClick = { deleting = terminal.id },
@@ -71,13 +86,39 @@ internal fun TerminalListScreen(
                     ) {
                         Icon(
                             Icons.Outlined.Delete,
-                            contentDescription = "Delete terminal ${terminal.name}"
+                            contentDescription = "Delete terminal ${state.title(terminal)}"
                         )
                     }
                     if (state.deleting == terminal.id) Text("Deleting…")
                 }
             }
         }
+    }
+    renaming?.let { id ->
+        AlertDialog(
+            onDismissRequest = { renaming = null },
+            title = { Text("Rename terminal") },
+            text = {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("Terminal name") },
+                    supportingText = { Text("Saved on this device. Leave empty to use the default name.") },
+                    singleLine = true,
+                    modifier = Modifier.testTag("terminal-name")
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = state.terminals.any { it.id == id } && state.deleting != id,
+                    onClick = {
+                        onRename(id, name)
+                        renaming = null
+                    }
+                ) { Text("Rename") }
+            },
+            dismissButton = { TextButton(onClick = { renaming = null }) { Text("Cancel") } }
+        )
     }
     deleting?.let { id ->
         TerminalDeleteConfirmation(

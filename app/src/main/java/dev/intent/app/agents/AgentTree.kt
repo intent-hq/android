@@ -20,7 +20,7 @@ class AgentTree(agents: List<Agent>) {
             .thenBy { it.id }
     )
     private val ids = ordered.map { it.id }.toSet()
-    private val children = ordered.groupBy { it.parentAgentId }
+    private val children = ordered.groupBy { it.delegationParent() }
 
     fun rows(collapsed: Set<String> = emptySet()): List<AgentTreeRow> {
         val result = mutableListOf<AgentTreeRow>()
@@ -37,7 +37,7 @@ class AgentTree(agents: List<Agent>) {
                 descendants.asReversed().forEach { pending.addLast(it to nextDepth) }
             }
         }
-        ordered.filter { it.parentAgentId !in ids || it.parentAgentId == it.id }.forEach(::visit)
+        ordered.filter { it.delegationParent() !in ids || it.delegationParent() == it.id }.forEach(::visit)
         ordered.filter { it.id !in visited }.forEach(::visit)
         return result
     }
