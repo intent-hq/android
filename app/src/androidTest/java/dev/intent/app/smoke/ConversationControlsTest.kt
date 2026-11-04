@@ -8,6 +8,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -21,6 +22,7 @@ import dev.intent.app.conversation.ConversationComposer
 import dev.intent.app.conversation.ConversationSendState
 import dev.intent.app.conversation.ConversationSendStore
 import dev.intent.app.conversation.RpcConversationCommands
+import dev.intent.app.conversation.SendStatus
 import dev.intent.app.design.IntentTheme
 import dev.intent.app.testing.createIntentComposeRule
 import dev.intent.core.protocol.session.RpcSession
@@ -30,6 +32,8 @@ import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -76,7 +80,8 @@ class ConversationControlsTest {
                 compose.onNodeWithContentDescription("Stop").performClick()
                 compose.waitUntil(TIMEOUT) { server.requests.any { it.method == "agent.stop" } }
                 compose.onNodeWithContentDescription("Stop").assertIsNotEnabled()
-                compose.onNodeWithText("Edit").performScrollTo().performClick()
+                compose.onNodeWithContentDescription("Queued message actions").performScrollTo().performClick()
+                compose.onNodeWithText("Edit").performClick()
                 compose.onNodeWithText(
                     "Edit queued message"
                 ).performTextReplacement("Updated queue text")
@@ -96,19 +101,20 @@ class ConversationControlsTest {
                         }.params as JsonObject
                         )["content"]
                 )
-                compose.onNodeWithText("Send now").performScrollTo().performClick()
+                compose.onNodeWithContentDescription("Queued message actions").performScrollTo().performClick()
+                compose.onNodeWithText("Send now").performClick()
                 compose.waitUntil(TIMEOUT) {
                     server.requests.any {
                         it.method ==
                             "agent.sendQueuedMessageNow"
                     }
                 }
-                compose.onNodeWithText("Dismiss questions").performScrollTo().performClick()
+                compose.onNodeWithContentDescription("Dismiss questions").performClick()
                 compose.onNodeWithText("Dismiss questions?").assertIsDisplayed()
                 screenshot("conversation-dismiss-confirmation")
                 compose.onNodeWithText("Cancel").performClick()
                 assertEquals(0, server.requests.count { it.method == "agent.dismissQuestions" })
-                compose.onNodeWithText("Dismiss questions").performScrollTo().performClick()
+                compose.onNodeWithContentDescription("Dismiss questions").performClick()
                 compose.onNodeWithText("Dismiss").performClick()
                 compose.waitUntil(TIMEOUT) { sends.state.value.questions == null }
                 compose.onNodeWithText("Choose?").assertDoesNotExist()
@@ -144,17 +150,21 @@ class ConversationControlsTest {
     }
 
     @Test
-    fun stopReplacesSendAndPreservesDraftInBothThemes() {
+    fun stopAndSendStayAvailableAndPreserveRejectedDraftInBothThemes() {
         val dark = mutableStateOf(false)
         val state = mutableStateOf(ConversationSendState(running = true))
         val draft = ComposerDraft().apply { text = "Keep this draft" }
         var stops = 0
+        val sent = mutableListOf<String>()
         compose.setContent {
             IntentTheme(darkTheme = dark.value) {
                 Surface(Modifier.fillMaxSize()) {
                     ConversationComposer(
                         state.value,
-                        { false },
+                        {
+                            sent.add(it)
+                            false
+                        },
                         {},
                         { _, _ -> false },
                         draft = draft,
@@ -174,7 +184,8 @@ class ConversationControlsTest {
             val theme = if (darkTheme) "dark" else "light"
             compose.onNodeWithContentDescription("Stop").assertIsDisplayed()
             compose.onNodeWithText("Stop response").assertDoesNotExist()
-            compose.onNodeWithText("Send").assertDoesNotExist()
+            compose.onNodeWithText("Send").assertIsEnabled().performClick()
+            compose.runOnIdle { assertEquals("Keep this draft", sent.last()) }
             screenshot("stop-working-$theme", suffix = "")
             compose.onNodeWithContentDescription("Stop").performClick()
             compose.onNodeWithContentDescription("Stop").assertIsNotEnabled().performClick()
@@ -186,6 +197,62 @@ class ConversationControlsTest {
             compose.onNodeWithContentDescription("Stop").assertDoesNotExist()
             compose.onNodeWithText("Send").assertIsDisplayed()
             screenshot("stop-idle-$theme", suffix = "")
+        }
+    }
+
+    @Test
+    fun followUpWhileRunningUsesNormalSendAndClearsOnlyOnConfirmation() {
+        lateinit var server: SmokeServer
+        val ready = AtomicBoolean()
+        val responses = mapOf(
+            "agent.get" to """{"agent":{"id":"agent","name":"Agent","turnInFlight":true}}""",
+            "agent.getQueue" to """{"success":true,"queue":[]}""",
+            "agent.getConversation" to """{"agentId":"agent","messages":[]}""",
+            "agent.sendMessage" to
+                """{"success":true,"queued":true,"queuedMessage":{"id":"queued","content":"Follow up","queuedAt":"now","position":0}}"""
+        )
+        RpcSession(
+            { listener -> SmokeServer(listener, responses).also { server = it } },
+            JsonObject(emptyMap()),
+            onState = { ready.set(it == SessionState.READY) }
+        ).use { session ->
+            session.connect()
+            compose.waitUntil(TIMEOUT) { ready.get() }
+            ConversationSendStore(RpcConversationCommands(session, "workspace", "agent"), "agent").use { sends ->
+                sends.refresh()
+                compose.waitUntil(TIMEOUT) { sends.state.value.running }
+                val draft = ComposerDraft("Follow up")
+                compose.setContent {
+                    val state by sends.state.collectAsState()
+                    IntentTheme {
+                        ConversationComposer(
+                            state,
+                            { sends.send(it, onConfirmed = draft.confirmation()) },
+                            {},
+                            { _, _ -> false },
+                            draft = draft,
+                            clearOnSend = false,
+                            onStop = sends::stopReply
+                        )
+                    }
+                }
+                compose.onNodeWithContentDescription("Stop").assertIsDisplayed()
+                compose.onNodeWithText("Send").assertIsEnabled().performClick()
+                compose.waitUntil(TIMEOUT) {
+                    sends.state.value.attempts.singleOrNull()?.status == SendStatus.QUEUED
+                }
+                val request = server.requests.single { it.method == "agent.sendMessage" }
+                val params = request.params as JsonObject
+                assertEquals(JsonPrimitive("Follow up"), params["content"])
+                assertEquals(JsonPrimitive("workspace"), params["workspaceId"])
+                assertEquals(JsonPrimitive("agent"), params["agentId"])
+                assertFalse(params.containsKey("priority"))
+                assertFalse(server.requests.any { it.method == "agent.stop" })
+                compose.runOnIdle { assertEquals("", draft.text) }
+                assertTrue(sends.state.value.running)
+                compose.onNodeWithContentDescription("Stop").assertIsDisplayed()
+                screenshot("conversation-running-follow-up", suffix = "-light")
+            }
         }
     }
 

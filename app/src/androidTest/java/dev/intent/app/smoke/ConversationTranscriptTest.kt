@@ -269,11 +269,11 @@ class ConversationTranscriptTest {
         }
         compose.onNodeWithText("Human message").assertIsDisplayed()
         compose.onNodeWithText(machineText).assertDoesNotExist()
-        compose.onNodeWithText("Queued: $queuedText").assertDoesNotExist()
+        compose.onNodeWithText(queuedText).assertDoesNotExist()
         compose.onNodeWithText("▸ Agent message").performClick()
         compose.onNodeWithText(machineText).assertIsDisplayed()
         compose.onNodeWithText("▸ 1 queued background updates").performClick()
-        compose.onNodeWithText("Queued: $queuedText").assertIsDisplayed()
+        compose.onNodeWithText(queuedText).assertIsDisplayed()
     }
 
     @Test
@@ -346,8 +346,8 @@ class ConversationTranscriptTest {
         screenshot("queue-compact")
         compose.onNodeWithText("Monitoring PR", substring = true).assertDoesNotExist()
         compose.onNodeWithText("▸ 2 queued background updates").performClick()
-        compose.onNodeWithText("Queued: Monitoring PR intent-hq/android: #5").assertIsDisplayed()
-        compose.onNodeWithText("Queued: Monitoring PR intent-hq/android: #6").assertIsDisplayed()
+        compose.onNodeWithText("Monitoring PR intent-hq/android: #5").assertIsDisplayed()
+        compose.onNodeWithText("Monitoring PR intent-hq/android: #6").assertIsDisplayed()
         screenshot("queue-expanded")
         compose.onNodeWithText("▾ 2 queued background updates").performClick()
         compose.onNodeWithText("Monitoring PR", substring = true).assertDoesNotExist()
