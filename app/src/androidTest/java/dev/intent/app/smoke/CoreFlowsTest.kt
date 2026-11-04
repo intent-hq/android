@@ -78,7 +78,9 @@ class CoreFlowsTest {
             compose.onNodeWithText("Review connection").assertIsNotEnabled()
             compose.onNodeWithText("Host / Tailcat address").performTextInput("desktop.test")
             compose.onNodeWithText("Port").performTextReplacement("443")
-            compose.onNodeWithText("Pairing token").performScrollTo().performTextInput("smoke-token")
+            compose.onNodeWithText(
+                "Pairing token"
+            ).performScrollTo().performTextInput("smoke-token")
             compose.onNodeWithText("Show token").performClick()
             compose.onNodeWithText("Hide token").assertIsDisplayed().performClick()
             compose.onNodeWithText("Certificate fingerprint (optional)")
@@ -106,7 +108,10 @@ class CoreFlowsTest {
             screenshots("paired-workspaces")
             val admitted = controller.state.value.session
             connectionState(SessionState.DISCONNECTED)
-            compose.waitUntil(TIMEOUT) { controller.state.value.status == "Connection lost. Retrying." }
+            compose.waitUntil(TIMEOUT) {
+                controller.state.value.status ==
+                    "Connection lost. Retrying."
+            }
             compose.onNodeWithText("Reconnecting…").assertIsDisplayed()
             compose.onNodeWithText("Android smoke workspace").assertIsDisplayed()
             screenshots("connection-reconnecting")
@@ -144,7 +149,11 @@ class CoreFlowsTest {
         content {
             NoteReaderScreen(
                 NoteReaderState(
-                    Note("spec", "Smoke plan", content = "Read the project plan."),
+                    Note(
+                        "spec",
+                        "Smoke plan",
+                        content = "Read the project plan.\n\n- [ ] Check the emulator"
+                    ),
                     listOf(row.value),
                     loading = false
                 ),

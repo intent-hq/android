@@ -32,6 +32,7 @@ class WorkspaceDestinationTest {
         )
             .forEach { origin ->
                 assertEquals(origin, WorkspaceDestination.Terminals.parent(origin))
+                assertEquals(origin, WorkspaceDestination.Scripts.parent(origin))
                 assertEquals(origin, WorkspaceDestination.Browser.parent(origin))
                 assertEquals(origin, WorkspaceDestination.Note("linked").parent(origin))
                 assertNull(origin.parent(origin))

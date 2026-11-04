@@ -14,8 +14,8 @@ import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import dev.intent.app.browser.WorkspaceBrowser
 import dev.intent.app.browser.WorkspaceBrowserLinks
+import dev.intent.app.browser.WorkspaceBrowsersRoute
 import dev.intent.app.cache.OfflineCache
 import dev.intent.app.conversation.WorkspaceConversations
 import dev.intent.app.git.WorkspaceGitRoute
@@ -23,6 +23,7 @@ import dev.intent.app.markdown.LocalMarkdownNoteLink
 import dev.intent.app.notes.NoteListRoute
 import dev.intent.app.notes.NoteReaderRoute
 import dev.intent.app.notes.SessionNoteSource
+import dev.intent.app.scripts.WorkspaceScriptsRoute
 import dev.intent.app.terminals.WorkspaceTerminals
 import dev.intent.app.workspaces.LocalOpenRecentWorkspaceAgent
 import dev.intent.app.workspaces.WorkspaceDetailScreen
@@ -38,25 +39,27 @@ fun WorkspaceContent(
     sectionScope: String = ""
 ) {
     val context = LocalContext.current.applicationContext
+    val connectionId = dev.intent.app.history.LocalHistoryNavigation.current?.connectionId
+        ?: sectionScope
+    val openAgent = LocalOpenWorkspaceAgent.current
     val preferences = remember(context, sectionScope) {
         WorkspaceSectionPreferences(context, sectionScope)
     }
     val openRecent =
         LocalOpenRecentWorkspaceAgent.current ||
             dev.intent.app.history.LocalHistoryAgent.current != null
+    val initialSection = remember(session, workspaceId, openRecent) {
+        if (openRecent) WorkspaceDestination.Conversations else preferences.load(workspaceId)
+    }
     var destination by rememberSaveable(
         session,
         workspaceId,
         stateSaver = workspaceDestinationSaver
     ) {
-        mutableStateOf(
-            if (openRecent) WorkspaceDestination.Conversations else preferences.load(workspaceId)
-        )
+        mutableStateOf(initialSection)
     }
     var section by rememberSaveable(session, workspaceId, stateSaver = workspaceDestinationSaver) {
-        mutableStateOf(
-            if (openRecent) WorkspaceDestination.Conversations else preferences.load(workspaceId)
-        )
+        mutableStateOf(initialSection)
     }
     val historyAgent = dev.intent.app.history.LocalHistoryAgent.current
     LaunchedEffect(historyAgent, dev.intent.app.history.LocalHistorySelection.current) {
@@ -94,6 +97,7 @@ fun WorkspaceContent(
             listOf(
                 ChromeAction("Browser preview") { destination = WorkspaceDestination.Browser },
                 ChromeAction("Terminals") { destination = WorkspaceDestination.Terminals },
+                ChromeAction("Scripts") { destination = WorkspaceDestination.Scripts },
                 ChromeAction("New terminal", run = newTerminal)
             ) + LocalChromeActions.current
             ),
@@ -102,9 +106,21 @@ fun WorkspaceContent(
         }
     ) {
         WorkspaceBrowserLinks(session, workspaceId) {
+            val openBrowser = dev.intent.app.browser.LocalWorkspaceBrowserLink.current
             savedState.SaveableStateProvider(destination.routeKey()) {
                 when (val current = destination) {
-                    WorkspaceDestination.Browser -> WorkspaceBrowser(session, workspaceId, back)
+                    WorkspaceDestination.Browser -> WorkspaceBrowsersRoute(
+                        session,
+                        connectionId,
+                        workspaceId,
+                        back
+                    )
+                    WorkspaceDestination.Scripts -> WorkspaceScriptsRoute(
+                        session,
+                        workspaceId,
+                        back,
+                        onOpenBrowser = { openBrowser?.invoke(it) }
+                    )
                     WorkspaceDestination.Git -> WorkspaceGitRoute(session, workspaceId, back)
                     WorkspaceDestination.Terminals -> WorkspaceTerminals(
                         session,
@@ -132,7 +148,9 @@ fun WorkspaceContent(
                                 workspaceId,
                                 current.id,
                                 Modifier.weight(1f),
-                                cache
+                                cache,
+                                onNoteSelected = { destination = WorkspaceDestination.Note(it) },
+                                onAgentSelected = noteAgentSelection(workspaceId, openAgent)
                             )
                             else -> Unit
                         }
@@ -141,4 +159,11 @@ fun WorkspaceContent(
             }
         }
     }
+}
+
+private fun noteAgentSelection(
+    workspaceId: String,
+    open: ((String, String) -> Unit)?
+): ((String) -> Unit)? = open?.let { navigate ->
+    { agentId -> navigate(workspaceId, agentId) }
 }
