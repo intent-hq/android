@@ -32,7 +32,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-/** connectionId must be the stable saved-connection ID, not a network address or session ID. */
+/** A blank connectionId uses session-local memory; otherwise use the stable saved-connection ID. */
 @Composable
 fun WorkspaceBrowsersRoute(
     session: RpcSession,
@@ -41,13 +41,17 @@ fun WorkspaceBrowsersRoute(
     onBack: () -> Unit
 ) {
     val context = LocalContext.current.applicationContext
-    val store = remember(connectionId, workspaceId) {
-        SavedBrowserStore(SavedBrowserPreferences(context, connectionId, workspaceId))
+    val store = remember(session, connectionId, workspaceId) {
+        SavedBrowserStore(
+            browserPersistence(connectionId, workspaceId) {
+                SavedBrowserPreferences(context, connectionId, workspaceId)
+            }
+        )
     }
     val scope = rememberCoroutineScope()
     val state by store.state.collectAsState()
-    var target by rememberSaveable(connectionId, workspaceId) { mutableStateOf<String?>(null) }
-    var selectedId by rememberSaveable(connectionId, workspaceId) { mutableStateOf<String?>(null) }
+    var target by rememberSaveable(session, connectionId, workspaceId) { mutableStateOf<String?>(null) }
+    var selectedId by rememberSaveable(session, connectionId, workspaceId) { mutableStateOf<String?>(null) }
     LaunchedEffect(store) { withContext(Dispatchers.IO) { store.load() } }
     BackHandler(target != null) { target = null }
     if (target != null && !state.loading) {

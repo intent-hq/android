@@ -20,6 +20,31 @@ interface SavedBrowserPersistence {
     fun save(browsers: List<SavedBrowser>)
 }
 
+internal class MemorySavedBrowserPersistence : SavedBrowserPersistence {
+    private var browsers: List<SavedBrowser> = emptyList()
+    override fun load(): List<SavedBrowser> = browsers
+    override fun save(browsers: List<SavedBrowser>) {
+        this.browsers = browsers.toList()
+    }
+}
+
+internal fun browserPersistence(
+    connectionId: String,
+    workspaceId: String,
+    persistent: () -> SavedBrowserPersistence
+): SavedBrowserPersistence = if (connectionId.isBlank() || workspaceId.isBlank()) {
+    MemorySavedBrowserPersistence()
+} else {
+    persistent()
+}
+
+/** Query strings and fragments can contain login tokens; only keep the page location on disk. */
+internal fun SavedBrowser.withoutUrlSecrets(): SavedBrowser {
+    val parsed = PreviewUrl.parse(url)
+    val location = "${parsed.scheme}://${parsed.rawAuthority}${parsed.rawPath.orEmpty()}"
+    return copy(url = location, title = if (location == url) title else location)
+}
+
 /** Persistence is scoped to one saved host identity and workspace, never the current IP address. */
 class SavedBrowserStore(private val persistence: SavedBrowserPersistence) {
     private val mutableState = MutableStateFlow(SavedBrowsersState())
@@ -30,11 +55,16 @@ class SavedBrowserStore(private val persistence: SavedBrowserPersistence) {
     fun load() {
         loaded = false
         mutableState.value = state.value.copy(loading = true, error = null)
-        runCatching { persistence.load() }.onSuccess { browsers ->
+        runCatching {
+            val original = persistence.load()
+            val browsers = original.mapNotNull { runCatching { it.withoutUrlSecrets() }.getOrNull() }
+                .distinctBy { it.id }
+            if (browsers != original) persistence.save(browsers)
+            browsers
+        }.onSuccess { browsers ->
             loaded = true
             mutableState.value = SavedBrowsersState(
-                browsers = browsers.filter { runCatching { PreviewUrl.parse(it.url) }.isSuccess }
-                    .distinctBy { it.id },
+                browsers = browsers,
                 loading = false
             )
         }.onFailure {
@@ -49,14 +79,11 @@ class SavedBrowserStore(private val persistence: SavedBrowserPersistence) {
     fun savePage(id: String?, url: String, title: String?): String? {
         if (!loaded || state.value.loading) return null
         return runCatching {
-            PreviewUrl.parse(url)
+            val page = SavedBrowser("", title?.trim()?.takeIf { it.isNotEmpty() } ?: url, url)
+                .withoutUrlSecrets()
             val existing = state.value.browsers.firstOrNull { it.id == id }
-                ?: state.value.browsers.firstOrNull { it.url == url }
-            val browser = SavedBrowser(
-                existing?.id ?: UUID.randomUUID().toString(),
-                title?.trim()?.takeIf { it.isNotEmpty() } ?: url,
-                url
-            )
+                ?: state.value.browsers.firstOrNull { it.url == page.url }
+            val browser = page.copy(id = existing?.id ?: UUID.randomUUID().toString())
             val browsers = state.value.browsers.filterNot { it.id == browser.id } + browser
             persistence.save(browsers)
             mutableState.value = SavedBrowsersState(browsers, loading = false)

@@ -9,6 +9,39 @@ import org.junit.Test
 
 class SavedBrowserStoreTest {
     @Test
+    fun `blank host scope uses fresh memory without opening persistent storage`() {
+        val first = browserPersistence("", "workspace") { error("Must not open persistent storage") }
+        first.save(listOf(SavedBrowser("one", "Page", "https://example.test")))
+        val second = browserPersistence(" ", "workspace") { error("Must not open persistent storage") }
+        assertTrue(second.load().isEmpty())
+        val persistent = MemoryBrowsers()
+        assertEquals(persistent, browserPersistence("host", "workspace") { persistent })
+    }
+
+    @Test
+    fun `saved URLs and fallback titles omit query and fragment credentials`() {
+        val persistence = MemoryBrowsers()
+        val store = SavedBrowserStore(persistence).apply { load() }
+        store.savePage(null, "https://example.test/a%20b?token=private#access_token=private", "Private token title")
+        assertEquals("https://example.test/a%20b", persistence.rows.single().url)
+        assertEquals("https://example.test/a%20b", persistence.rows.single().title)
+        store.savePage(null, "https://example.test/a%20b?token=replaced", null)
+        assertEquals(1, persistence.rows.size)
+    }
+
+    @Test
+    fun `loading rewrites old raw URLs and removes credential URLs`() {
+        val persistence = MemoryBrowsers().apply {
+            rows = listOf(
+                SavedBrowser("one", "https://example.test?token=private", "https://example.test?token=private"),
+                SavedBrowser("two", "Invalid", "https://user:password@example.test")
+            )
+        }
+        SavedBrowserStore(persistence).load()
+        assertEquals(listOf(SavedBrowser("one", "https://example.test", "https://example.test")), persistence.rows)
+    }
+
+    @Test
     fun `page title and address survive returning to the list and reopening the store`() {
         val persistence = MemoryBrowsers()
         val store = SavedBrowserStore(persistence)
