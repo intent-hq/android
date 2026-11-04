@@ -31,7 +31,7 @@ import androidx.test.runner.lifecycle.Stage
 import dev.intent.app.connection.ConnectionController
 import dev.intent.app.connection.ConnectionRoot
 import dev.intent.app.connection.createConnectionSession
-import dev.intent.app.design.IntentTheme
+import dev.intent.app.testing.IntentTestTheme
 import dev.intent.app.testing.createIntentComposeRule
 import dev.intent.core.protocol.pairing.PairingPayload
 import org.junit.Rule
@@ -310,7 +310,7 @@ class WorkspaceSectionsTest {
         }).use { controller ->
             controller.restore()
             compose.setContent {
-                IntentTheme(dark.value) {
+                IntentTestTheme(dark.value) {
                     ConnectionRoot(
                         controller,
                         {},

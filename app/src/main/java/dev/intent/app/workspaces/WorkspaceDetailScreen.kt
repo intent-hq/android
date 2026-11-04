@@ -18,6 +18,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -49,9 +50,19 @@ internal fun WorkspaceDetailScreen(
         )
     val selectedIndex = sections.indexOfFirst { it.second == selected }.coerceAtLeast(0)
     var showDetails by rememberSaveable(workspace?.id) { mutableStateOf(false) }
+    val configuration = LocalConfiguration.current
+    val compact = configuration.screenWidthDp > configuration.screenHeightDp
+    val chromeActions = if (compact && workspace != null) {
+        listOf(ChromeAction("Workspace details") { showDetails = true }) + actions
+    } else {
+        actions
+    }
     Column {
-        CompactAppBar("", actions = actions)
-        WorkspaceHeading(workspace, onDetails = { showDetails = true })
+        CompactAppBar(
+            if (compact) workspace?.title ?: LocalWorkspaceTitle.current else "",
+            actions = chromeActions
+        )
+        if (!compact) WorkspaceHeading(workspace, onDetails = { showDetails = true })
         IntentTabs(
             titles = sections.map { it.first },
             selectedIndex = selectedIndex,

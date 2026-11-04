@@ -61,13 +61,13 @@ internal fun AssistantHistoryDialog(
                     )
                     TextButton(onClick = onDismiss) { Text("Close history") }
                 }
+                AssistantError(state, onRefresh)
                 RefreshableList(state.loading, onRefresh) {
                     LazyColumn(
                         Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(16.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        item { AssistantError(state, onRefresh) }
                         item {
                             Button(
                                 onClick = onCreate,

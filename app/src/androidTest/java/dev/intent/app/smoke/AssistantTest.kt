@@ -40,6 +40,7 @@ import java.io.File
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicBoolean
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
@@ -96,12 +97,13 @@ class AssistantTest {
         lateinit var dispatcher: OnBackPressedDispatcher
         AssistantStore({ method, _ ->
             when {
-                method == "agent.delete" -> CompletableFuture.failedFuture(
-                    IllegalStateException("Cannot delete conversation")
-                )
-                method == "agent.list" && failRefresh.get() -> CompletableFuture.failedFuture(
-                    IllegalStateException("Cannot refresh conversations")
-                )
+                method == "agent.delete" -> CompletableFuture<JsonElement>().apply {
+                    completeExceptionally(IllegalStateException("Cannot delete conversation"))
+                }
+                method == "agent.list" && failRefresh.get() ->
+                    CompletableFuture<JsonElement>().apply {
+                        completeExceptionally(IllegalStateException("Cannot refresh conversations"))
+                    }
                 method == "principal.me" -> CompletableFuture.completedFuture(
                     obj("""{"id":"owner","isAdministrator":true}""")
                 )

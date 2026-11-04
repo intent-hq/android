@@ -16,9 +16,9 @@ import dev.intent.app.browser.BrowserState
 import dev.intent.app.browser.SavedBrowser
 import dev.intent.app.browser.SavedBrowsersState
 import dev.intent.app.browser.WorkspaceBrowsersScreen
-import dev.intent.app.design.IntentTheme
 import dev.intent.app.scripts.WorkspaceScriptsScreen
 import dev.intent.app.scripts.WorkspaceScriptsState
+import dev.intent.app.testing.IntentTestTheme
 import dev.intent.app.testing.createIntentComposeRule
 import dev.intent.core.protocol.models.WorkspaceScriptResource
 import dev.intent.core.protocol.models.WorkspaceScriptRuntime
@@ -37,7 +37,7 @@ class BrowserPreviewStateTest {
         val dark = mutableStateOf(false)
         var opened: SavedBrowser? = null
         compose.setContent {
-            IntentTheme(darkTheme = dark.value) {
+            IntentTestTheme(darkTheme = dark.value) {
                 WorkspaceBrowsersScreen(
                     state.value,
                     {},
@@ -81,7 +81,7 @@ class BrowserPreviewStateTest {
         var action: Pair<String, Boolean>? = null
         var preview: String? = null
         compose.setContent {
-            IntentTheme(darkTheme = dark.value) {
+            IntentTestTheme(darkTheme = dark.value) {
                 WorkspaceScriptsScreen(
                     WorkspaceScriptsState(scripts, loading = false, connected = true),
                     {},
@@ -106,7 +106,7 @@ class BrowserPreviewStateTest {
     fun previewContentSurvivesActivityRecreation() {
         val state = mutableStateOf(BrowserState(url = "http://localhost:3000"))
         compose.setContent {
-            IntentTheme { BrowserScreen(state.value, {}, {}) { Text("Preview page") } }
+            IntentTestTheme { BrowserScreen(state.value, {}, {}) { Text("Preview page") } }
         }
         compose.onNodeWithText("Preview page").assertIsDisplayed()
         compose.recreateActivity()
@@ -124,7 +124,7 @@ class BrowserPreviewStateTest {
             )
         var retried = false
         compose.setContent {
-            IntentTheme {
+            IntentTestTheme {
                 BrowserScreen(state.value, {
                 }, {}, onReload = { retried = true }) { Text("Preview page") }
             }
@@ -145,7 +145,7 @@ class BrowserPreviewStateTest {
     fun emptyPreviewShowsGuidanceAndAddressEntryOpensTheServer() {
         var opened = ""
         compose.setContent {
-            IntentTheme { BrowserScreen(BrowserState(), {}, { opened = it }) {} }
+            IntentTestTheme { BrowserScreen(BrowserState(), {}, { opened = it }) {} }
         }
         compose.onNodeWithText("Open a workspace preview").assertIsDisplayed()
         compose.onNodeWithContentDescription("Page back").assertIsNotEnabled()

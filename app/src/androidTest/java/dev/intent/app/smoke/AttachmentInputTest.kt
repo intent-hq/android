@@ -27,7 +27,6 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityOptionsCompat
 import androidx.core.content.FileProvider
@@ -284,7 +283,7 @@ class AttachmentInputTest {
                         }, questionPhotos = question)
                     }
                 }
-                compose.onNodeWithText("Send answers").performScrollTo()
+                compose.onNodeWithText("Send answers").assertIsDisplayed()
                 screenshot("attachment-question")
                 compose.onNodeWithText("Send answers").performClick()
                 compose.waitUntil(TIMEOUT) {

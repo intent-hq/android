@@ -2,8 +2,10 @@ package dev.intent.app.smoke
 
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isDialog
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -11,10 +13,10 @@ import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import dev.intent.app.design.IntentTheme
 import dev.intent.app.navigation.WorkspaceDestination
 import dev.intent.app.notes.NoteReaderScreen
 import dev.intent.app.notes.NoteReaderState
+import dev.intent.app.testing.IntentTestTheme
 import dev.intent.app.testing.createIntentComposeRule
 import dev.intent.app.workspaces.WorkspaceDetailScreen
 import dev.intent.app.workspaces.WorkspaceListScreen
@@ -34,7 +36,7 @@ class WorkspaceDetailTest {
     fun summaryStateAndToolsAreReachable() {
         var selected: WorkspaceDestination? = null
         compose.setContent {
-            IntentTheme {
+            IntentTestTheme {
                 WorkspaceDetailScreen(
                     Workspace(
                         "work",
@@ -68,7 +70,7 @@ class WorkspaceDetailTest {
                 "Review the archived-workspace filter, the repository owner labels, " +
                 "and the waiting indicator before approving this change."
         compose.setContent {
-            IntentTheme {
+            IntentTestTheme {
                 WorkspaceDetailScreen(
                     Workspace(
                         "work",
@@ -84,10 +86,9 @@ class WorkspaceDetailTest {
             }
         }
         compose.onNodeWithText("Workspace details").performClick()
-        compose.onNodeWithText(summary).assertIsDisplayed()
-        compose.onNodeWithText("PR #42 · Open").assertIsDisplayed()
-        compose.onNodeWithText("Unread updates").assertIsDisplayed()
-        compose.onNodeWithText("Waiting").assertIsDisplayed()
+        listOf(summary, "PR #42 · Open", "Unread updates", "Waiting").forEach {
+            compose.onNode(hasText(it) and hasAnyAncestor(isDialog())).assertIsDisplayed()
+        }
         screenshot("workspace-full-summary")
         compose.onNodeWithText("Done").performClick()
         compose.onNodeWithText("Agents").assertIsDisplayed()
@@ -97,7 +98,7 @@ class WorkspaceDetailTest {
     fun groupingAndRepositorySearchKeepWorkspaceSelection() {
         var selected: String? = null
         compose.setContent {
-            IntentTheme {
+            IntentTestTheme {
                 WorkspaceListScreen(
                     WorkspaceListState(
                         listOf(
@@ -136,7 +137,7 @@ class WorkspaceDetailTest {
     @Test
     fun noteHeaderKeepsItsPositionWhileContentScrolls() {
         compose.setContent {
-            IntentTheme {
+            IntentTestTheme {
                 NoteReaderScreen(
                     NoteReaderState(
                         note = Note(
