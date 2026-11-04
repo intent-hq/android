@@ -5,6 +5,7 @@ import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.DropdownMenu
@@ -45,7 +46,9 @@ internal fun WorkspaceSwipeRow(
     onAction: (WorkspaceAction) -> Unit,
     content: @Composable () -> Unit
 ) {
-    val width = with(LocalDensity.current) { ACTION_WIDTH.dp.toPx() }
+    val density = LocalDensity.current
+    val actionWidth = (ACTION_WIDTH * density.fontScale.coerceIn(1f, MAX_ACTION_FONT_SCALE)).dp
+    val width = with(density) { actionWidth.toPx() }
     var drag by remember(workspace.id, revealed) { mutableFloatStateOf(0f) }
     var menu by remember(workspace.id) { mutableStateOf(false) }
     val select: (WorkspaceAction) -> Unit = {
@@ -53,16 +56,17 @@ internal fun WorkspaceSwipeRow(
         onReveal(false)
         onAction(it)
     }
-    Box(Modifier.clipToBounds()) {
+    Box(Modifier.heightIn(min = 96.dp).clipToBounds()) {
         if (revealed || drag < 0) {
-            Column(Modifier.align(Alignment.CenterEnd).width(ACTION_WIDTH.dp)) {
+            Column(Modifier.align(Alignment.CenterEnd).width(actionWidth)) {
                 listOf(WorkspaceAction.Archive, WorkspaceAction.Delete).forEach { action ->
                     TextButton(onClick = {
                         select(action)
                     }, enabled = enabled, modifier = Modifier.fillMaxWidth()) {
                         Text(
                             action.label,
-                            color = if (action ==
+                            color =
+                            if (action ==
                                 WorkspaceAction.Delete
                             ) {
                                 IntentScreen.error
@@ -76,13 +80,16 @@ internal fun WorkspaceSwipeRow(
         }
         if (drag > 0) Text("Open recent agent", Modifier.align(Alignment.CenterStart))
         Box(
-            Modifier.offset {
-                IntOffset(
-                    ((if (revealed) -width else 0f) + drag).coerceIn(-width, width).roundToInt(),
-                    0
-                )
-            }
-                .testTag("workspace.row.${workspace.id}")
+            Modifier
+                .offset {
+                    IntOffset(
+                        ((if (revealed) -width else 0f) + drag).coerceIn(
+                            -width,
+                            width
+                        ).roundToInt(),
+                        0
+                    )
+                }.testTag("workspace.row.${workspace.id}")
                 .pointerInput(workspace.id, enabled, revealed) {
                     detectHorizontalDragGestures(
                         onDragEnd = {
@@ -104,29 +111,28 @@ internal fun WorkspaceSwipeRow(
                             if (enabled) drag = (drag + amount).coerceIn(-width, width)
                         }
                     )
-                }
-                .combinedClickable(
+                }.combinedClickable(
                     enabled = enabled,
                     onClick = { if (revealed) onReveal(false) else onClick() },
                     onLongClickLabel = "Workspace actions",
                     onLongClick = { menu = true }
-                )
-                .semantics {
+                ).semantics(mergeDescendants = true) {
                     if (enabled) {
-                        customActions = listOf(
-                            CustomAccessibilityAction("Open most recent agent") {
-                                onOpenRecent()
-                                true
-                            },
-                            CustomAccessibilityAction("Archive workspace") {
-                                select(WorkspaceAction.Archive)
-                                true
-                            },
-                            CustomAccessibilityAction("Delete workspace") {
-                                select(WorkspaceAction.Delete)
-                                true
-                            }
-                        )
+                        customActions =
+                            listOf(
+                                CustomAccessibilityAction("Open most recent agent") {
+                                    onOpenRecent()
+                                    true
+                                },
+                                CustomAccessibilityAction("Archive workspace") {
+                                    select(WorkspaceAction.Archive)
+                                    true
+                                },
+                                CustomAccessibilityAction("Delete workspace") {
+                                    select(WorkspaceAction.Delete)
+                                    true
+                                }
+                            )
                     }
                 }
         ) { content() }
@@ -145,7 +151,8 @@ internal fun WorkspaceSwipeRow(
                     text = {
                         Text(
                             "${action.label} workspace",
-                            color = if (action ==
+                            color =
+                            if (action ==
                                 WorkspaceAction.Delete
                             ) {
                                 IntentScreen.error
@@ -163,5 +170,7 @@ internal fun WorkspaceSwipeRow(
 }
 
 private const val ACTION_WIDTH = 88
+
+private const val MAX_ACTION_FONT_SCALE = 1.5f
 
 private const val REVEAL_THRESHOLD = 0.333f

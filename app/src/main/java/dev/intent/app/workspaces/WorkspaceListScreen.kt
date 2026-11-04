@@ -27,8 +27,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -36,6 +36,7 @@ import dev.intent.app.design.IntentColors
 import dev.intent.app.design.IntentLightDarkPreview
 import dev.intent.app.design.IntentScreen
 import dev.intent.app.design.IntentSpacing
+import dev.intent.app.design.IntentTabs
 import dev.intent.app.design.IntentTheme
 import dev.intent.app.lists.RefreshableList
 import dev.intent.app.navigation.ChromeAction
@@ -82,34 +83,47 @@ fun WorkspaceListScreen(
     var query by rememberSaveable { mutableStateOf("") }
     var showArchived by rememberSaveable { mutableStateOf(false) }
     var revealedId by rememberSaveable { mutableStateOf<String?>(null) }
-    val rows = state.workspaces.filter {
-        (showArchived || !it.status.equals("Archived", true)) &&
-            (
-                it.title.contains(query.trim(), true) ||
-                    it.statusMessage.orEmpty().contains(query.trim(), true)
-                )
-    }
+    var grouping by rememberSaveable { mutableStateOf(WorkspaceGrouping.Recent) }
+    val groups = workspaceGroups(state.workspaces, query, showArchived, grouping)
     val drawerButtons = dev.intent.app.drawers.LocalDrawerButtons.current
     Column(modifier) {
         CompactAppBar(
-            "Workspaces",
-            leading = drawerButtons?.let {
+            "",
+            leading =
+            drawerButtons?.let {
                 { DrawerHeaderButton("Connections", "☰", it.connections) }
             },
-            trailing = drawerButtons?.let {
+            trailing =
+            drawerButtons?.let {
                 { DrawerHeaderButton("Agent history", "◷", it.history) }
             },
-            actions = listOf(
+            actions =
+            listOf(
                 ChromeAction(if (showArchived) "Hide archived" else "Show archived") {
                     showArchived = !showArchived
                     revealedId = null
                 }
             )
         )
+        Text(
+            "Workspaces",
+            style = MaterialTheme.typography.headlineLarge,
+            modifier = Modifier.padding(horizontal = IntentSpacing.page).semantics { heading() }
+        )
+        IntentTabs(
+            titles = WorkspaceGrouping.entries.map { it.label },
+            selectedIndex = grouping.ordinal,
+            onSelect = {
+                grouping = WorkspaceGrouping.entries[it]
+                revealedId = null
+            },
+            modifier = Modifier.padding(IntentSpacing.page)
+        )
         dev.intent.app.lists.SearchableList(
             query,
             {
                 query = it
+                revealedId = null
             },
             "Search workspaces",
             state.workspaces.isNotEmpty(),
@@ -122,7 +136,7 @@ fun WorkspaceListScreen(
                     verticalArrangement = Arrangement.spacedBy(0.dp)
                 ) {
                     state.error?.let { item { Text(it, color = MaterialTheme.colorScheme.error) } }
-                    if (!state.isLoading && state.error == null && rows.isEmpty()) {
+                    if (!state.isLoading && state.error == null && groups.isEmpty()) {
                         item {
                             Text(
                                 if (query.isBlank()) {
@@ -133,16 +147,31 @@ fun WorkspaceListScreen(
                             )
                         }
                     }
-                    items(rows, key = { it.id }) { workspace ->
-                        WorkspaceSwipeRow(
-                            workspace = workspace,
-                            enabled = updatingId != workspace.id,
-                            revealed = revealedId == workspace.id,
-                            onReveal = { revealedId = if (it) workspace.id else null },
-                            onClick = { onWorkspaceSelected(workspace.id) },
-                            onOpenRecent = { onOpenRecent(workspace.id) },
-                            onAction = { onAction(workspace, it) }
-                        ) { WorkspaceRow(workspace) }
+                    groups.forEach { group ->
+                        group.title?.let { title ->
+                            item(key = "group:$title") {
+                                Text(
+                                    title,
+                                    style = MaterialTheme.typography.titleSmall,
+                                    color = IntentScreen.secondaryText,
+                                    modifier =
+                                    Modifier
+                                        .padding(vertical = IntentSpacing.medium)
+                                        .semantics { heading() }
+                                )
+                            }
+                        }
+                        items(group.workspaces, key = { "workspace:${it.id}" }) { workspace ->
+                            WorkspaceSwipeRow(
+                                workspace = workspace,
+                                enabled = updatingId != workspace.id,
+                                revealed = revealedId == workspace.id,
+                                onReveal = { revealedId = if (it) workspace.id else null },
+                                onClick = { onWorkspaceSelected(workspace.id) },
+                                onOpenRecent = { onOpenRecent(workspace.id) },
+                                onAction = { onAction(workspace, it) }
+                            ) { WorkspaceRow(workspace) }
+                        }
                     }
                 }
             }
@@ -154,7 +183,6 @@ fun WorkspaceListScreen(
 private fun WorkspaceRow(workspace: Workspace) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RectangleShape,
         color = IntentScreen.canvas
     ) {
         Column {
@@ -163,8 +191,13 @@ private fun WorkspaceRow(workspace: Workspace) {
                 horizontalArrangement = Arrangement.spacedBy(IntentSpacing.page)
             ) {
                 Box(
-                    Modifier.padding(top = IntentSpacing.small).size(12.dp)
-                        .background(workspaceStatusColor(workspace.displayStatus), CircleShape)
+                    Modifier
+                        .padding(top = IntentSpacing.small)
+                        .size(12.dp)
+                        .background(
+                            workspaceStatusColor(workspaceDisplayStatus(workspace)),
+                            CircleShape
+                        )
                 )
                 Column(
                     Modifier.weight(1f),
@@ -176,6 +209,13 @@ private fun WorkspaceRow(workspace: Workspace) {
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )
+                    workspaceRepository(workspace)?.let {
+                        Text(
+                            it,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = IntentScreen.secondaryText
+                        )
+                    }
                     workspace.statusMessage?.takeIf { it.isNotBlank() }?.let {
                         Text(
                             it,
@@ -185,20 +225,13 @@ private fun WorkspaceRow(workspace: Workspace) {
                             overflow = TextOverflow.Ellipsis
                         )
                     }
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(IntentSpacing.medium),
-                        verticalArrangement = Arrangement.spacedBy(IntentSpacing.small)
-                    ) {
-                        val showLifecycle = !workspace.status.equals("Active", true)
-                        if (showLifecycle) {
-                            WorkspaceBadge(workspace.status)
-                        }
-                        workspace.displayStatus?.takeIf { it.isNotBlank() }?.let { status ->
-                            WorkspaceBadge(
-                                status.replace('_', ' ').replaceFirstChar { it.titlecase() }
-                                    .replace("Pr ", "PR ")
-                            )
-                        }
+                    WorkspaceRowBadges(workspace)
+                    workspaceActivityLabel(workspace)?.let {
+                        Text(
+                            it,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = IntentScreen.secondaryText
+                        )
                     }
                 }
             }
@@ -208,11 +241,28 @@ private fun WorkspaceRow(workspace: Workspace) {
 }
 
 @Composable
-private fun workspaceStatusColor(status: String?): Color = when (status?.lowercase()) {
-    "working", "active", "running", "implementing" -> IntentColors.statusWorking
-    "complete", "completed", "pr_ready", "pr_merged" -> IntentColors.statusComplete
-    "blocked", "blocker", "question", "needs_attention" -> IntentColors.statusAttention
-    "failed", "error" -> MaterialTheme.colorScheme.error
+private fun WorkspaceRowBadges(workspace: Workspace) {
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(IntentSpacing.medium),
+        verticalArrangement = Arrangement.spacedBy(IntentSpacing.small)
+    ) {
+        if (!workspace.status.equals("Active", true)) WorkspaceBadge(workspace.status)
+        WorkspaceBadge(workspaceDisplayStatus(workspace).label)
+        workspacePrLabel(workspace)?.let { WorkspaceBadge(it) }
+        workspaceSignals(workspace).forEach { WorkspaceBadge(it) }
+    }
+}
+
+@Composable
+private fun workspaceStatusColor(status: WorkspaceDisplayStatus): Color = when (status) {
+    WorkspaceDisplayStatus.InProgress -> IntentColors.statusWorking
+    WorkspaceDisplayStatus.Complete -> IntentColors.statusComplete
+    WorkspaceDisplayStatus.Blocked, WorkspaceDisplayStatus.NeedsAttention ->
+        IntentColors.statusAttention
+    WorkspaceDisplayStatus.Failed -> MaterialTheme.colorScheme.error
+    WorkspaceDisplayStatus.PrOpen, WorkspaceDisplayStatus.PrReady,
+    WorkspaceDisplayStatus.PrQueued, WorkspaceDisplayStatus.PrMerged
+    -> MaterialTheme.colorScheme.tertiary
     else -> MaterialTheme.colorScheme.onSurfaceVariant
 }
 
@@ -226,7 +276,8 @@ private fun WorkspaceBadge(label: String) {
     ) {
         Text(
             label,
-            modifier = Modifier.padding(
+            modifier =
+            Modifier.padding(
                 horizontal = IntentSpacing.medium,
                 vertical = IntentSpacing.small
             ),
