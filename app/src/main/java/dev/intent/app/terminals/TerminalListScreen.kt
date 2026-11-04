@@ -28,12 +28,6 @@ import dev.intent.app.design.IntentTextButton as TextButton
 import dev.intent.app.lists.RefreshableList
 import dev.intent.core.protocol.models.TerminalInfo
 
-internal data class TerminalListActions(
-    val create: () -> Unit = {},
-    val delete: (String) -> Unit = {},
-    val rename: (String, String) -> Unit = { _, _ -> }
-)
-
 private class TerminalDialogState {
     var renaming by mutableStateOf<String?>(null)
     var name by mutableStateOf("")
@@ -113,14 +107,20 @@ private fun TerminalListRow(
             enabled = state.deleting != terminal.id,
             modifier = Modifier.testTag("terminal-rename-${terminal.id}")
         ) {
-            Icon(Icons.Outlined.Edit, contentDescription = "Rename terminal ${state.title(terminal)}")
+            Icon(
+                Icons.Outlined.Edit,
+                contentDescription = "Rename terminal ${state.title(terminal)}"
+            )
         }
         IconButton(
             onClick = { dialogs.deleting = terminal.id },
             enabled = state.mutationsEnabled,
             modifier = Modifier.testTag("terminal-delete-${terminal.id}")
         ) {
-            Icon(Icons.Outlined.Delete, contentDescription = "Delete terminal ${state.title(terminal)}")
+            Icon(
+                Icons.Outlined.Delete,
+                contentDescription = "Delete terminal ${state.title(terminal)}"
+            )
         }
         if (state.deleting == terminal.id) Text("Deleting…")
     }

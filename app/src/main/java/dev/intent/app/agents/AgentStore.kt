@@ -54,7 +54,7 @@ class AgentStore(private val session: AgentSession, private val workspaceId: Str
             synchronized(this) {
                 // A newer read, live push, reconnect, or close supersedes this response.
                 if (!closed && revision == readRevision) {
-                    if (error != null) fail(error) else publish(rows + state.value.retiredAgents)
+                    if (error != null) fail(error) else mutableState.publish(rows + state.value.retiredAgents, workspaceId)
                 }
             }
         }
@@ -67,7 +67,7 @@ class AgentStore(private val session: AgentSession, private val workspaceId: Str
         val snapshot = push.snapshot
         val delta = push.delta
         when {
-            snapshot != null -> publish(snapshot + state.value.retiredAgents)
+            snapshot != null -> mutableState.publish(snapshot + state.value.retiredAgents, workspaceId)
             delta != null -> {
                 val reloadRetired = state.value.retiredLoading
                 retiredRevision++
@@ -75,7 +75,7 @@ class AgentStore(private val session: AgentSession, private val workspaceId: Str
                     .associateBy { it.id }.toMutableMap()
                 (delta.added + delta.updated).forEach { rows[it.id] = it }
                 delta.removedIds.forEach(rows::remove)
-                publish(rows.values.toList())
+                mutableState.publish(rows.values.toList(), workspaceId)
                 if (reloadRetired) refreshRetired()
             }
             else -> fail(IllegalArgumentException("Agent update has no data"))
@@ -102,17 +102,6 @@ class AgentStore(private val session: AgentSession, private val workspaceId: Str
         }
     }
 
-
-    private fun publish(rows: List<Agent>) {
-        val scoped = scopedAgents(rows, workspaceId)
-        mutableState.value = state.value.copy(
-            agents = scoped.filterNot { it.isRetired() },
-            retiredAgents = scoped.filter { it.isRetired() },
-            isLoading = false,
-            error = null
-        )
-    }
-
     @Synchronized
     private fun fail(error: Throwable) {
         if (!closed) {
@@ -132,10 +121,11 @@ class AgentStore(private val session: AgentSession, private val workspaceId: Str
         revision++
         retiredRevision++
         mutableState.value = state.value.copy(retiredLoading = false)
-        publish(
+        mutableState.publish(
             (state.value.agents + state.value.retiredAgents).map {
                 if (it.id == agent.id) agent else it
-            }
+            },
+            workspaceId
         )
     }
 
@@ -145,7 +135,10 @@ class AgentStore(private val session: AgentSession, private val workspaceId: Str
         revision++
         retiredRevision++
         mutableState.value = state.value.copy(retiredLoading = false)
-        publish((state.value.agents + state.value.retiredAgents).filterNot { it.id == agentId })
+        mutableState.publish(
+            (state.value.agents + state.value.retiredAgents).filterNot { it.id == agentId },
+            workspaceId
+        )
     }
 
     @Synchronized
@@ -164,7 +157,18 @@ class AgentStore(private val session: AgentSession, private val workspaceId: Str
     }
 }
 
-private fun scopedAgents(rows: List<Agent>, workspaceId: String) = rows.distinctBy { it.id }.filter {
+private fun scopedAgents(rows: List<Agent>, workspaceId: String) = rows.distinctBy {
+    it.id
+}.filter {
     (it.workspaceId == null || it.workspaceId == workspaceId) && it.status != "deleted"
 }.sortedWith(compareByDescending<Agent> { it.lastActivity ?: it.updatedAt }.thenBy { it.id })
 
+private fun MutableStateFlow<AgentListState>.publish(rows: List<Agent>, workspaceId: String) {
+    val scoped = scopedAgents(rows, workspaceId)
+    value = value.copy(
+        agents = scoped.filterNot { it.isRetired() },
+        retiredAgents = scoped.filter { it.isRetired() },
+        isLoading = false,
+        error = null
+    )
+}

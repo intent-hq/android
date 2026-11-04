@@ -142,22 +142,7 @@ internal fun TerminalSurface(store: TerminalStore, state: TerminalState, modifie
         }
         if (expanded) {
             Row(Modifier.horizontalScroll(rememberScrollState()).testTag("terminal-extra-keys")) {
-                listOf("←" to 'D', "↑" to 'A', "↓" to 'B', "→" to 'C').forEach { (label, code) ->
-                    TerminalKey(label, state.ready) { canvas.arrow(code) }
-                }
-                listOf("~", "|", "/", "-", "_", "$", "Enter").forEach { key ->
-                    TerminalKey(key, state.ready) {
-                        canvas.input(
-                            if (key ==
-                                "Enter"
-                            ) {
-                                "\r"
-                            } else {
-                                key
-                            }
-                        )
-                    }
-                }
+                TerminalSymbolKeys(canvas, state.ready)
                 TerminalKey("Copy output", true, canvas::copyOutput)
                 TerminalKey("Paste", state.ready, canvas::paste)
                 TerminalKey("A−", fontSize > MIN_FONT_SIZE) {
@@ -169,6 +154,26 @@ internal fun TerminalSurface(store: TerminalStore, state: TerminalState, modifie
                     canvas.fontSize(fontSize)
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun TerminalSymbolKeys(canvas: TerminalCanvas, enabled: Boolean) {
+    listOf("←" to 'D', "↑" to 'A', "↓" to 'B', "→" to 'C').forEach { (label, code) ->
+        TerminalKey(label, enabled) { canvas.arrow(code) }
+    }
+    listOf("~", "|", "/", "-", "_", "$", "Enter").forEach { key ->
+        TerminalKey(key, enabled) {
+            canvas.input(
+                if (key ==
+                    "Enter"
+                ) {
+                    "\r"
+                } else {
+                    key
+                }
+            )
         }
     }
 }
