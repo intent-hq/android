@@ -76,6 +76,7 @@ fun ConnectionRoot(
         onSettings = { utilities = utilities.openUtility("Settings") }
     )
     CompositionLocalProvider(
+        dev.intent.app.navigation.LocalConnectionReady provides (state.status == "Connected"),
         dev.intent.app.navigation.LocalLauncherActions provides launcher,
         LocalHistoryNavigation provides
             HistoryNavigation(history, state.activeId, historyTarget) { historyTarget = null },
