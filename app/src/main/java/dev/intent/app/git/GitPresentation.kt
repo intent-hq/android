@@ -62,5 +62,11 @@ internal fun commitPushLabel(isPushed: Boolean?): String? = when (isPushed) {
 
 internal fun filterCommitFiles(files: List<GitCommitFile>, query: String): List<GitCommitFile> {
     val search = query.trim()
-    return if (search.isEmpty()) files else files.filter { it.path.contains(search, ignoreCase = true) }
+    return if (search.isEmpty()) {
+        files
+    } else {
+        files.filter {
+            it.path.contains(search, ignoreCase = true)
+        }
+    }
 }

@@ -36,7 +36,13 @@ class BrowserStore(
         if (closed) return
         val ticket = ++generation
         mutableState.value =
-            state.value.copy(loading = true, error = null, revision = ticket, requestedUrl = value, title = null)
+            state.value.copy(
+                loading = true,
+                error = null,
+                revision = ticket,
+                requestedUrl = value,
+                title = null
+            )
         try {
             PreviewUrl.parse(value)
             val pending = tunnel?.let { CompletableFuture.completedFuture(it) } ?: openTunnel()
@@ -74,7 +80,13 @@ class BrowserStore(
     }
 
     @Synchronized
-    fun navigated(ticket: Long, address: String, canGoBack: Boolean, canGoForward: Boolean, title: String? = null) {
+    fun navigated(
+        ticket: Long,
+        address: String,
+        canGoBack: Boolean,
+        canGoForward: Boolean,
+        title: String? = null
+    ) {
         if (!closed && ticket == generation) {
             mutableState.value = state.value.copy(
                 requestedUrl = address,

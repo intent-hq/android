@@ -54,7 +54,13 @@ class AgentStore(private val session: AgentSession, private val workspaceId: Str
             synchronized(this) {
                 // A newer read, live push, reconnect, or close supersedes this response.
                 if (!closed && revision == readRevision) {
-                    if (error != null) fail(error) else mutableState.publish(rows + state.value.retiredAgents, workspaceId)
+                    if (error !=
+                        null
+                    ) {
+                        fail(error)
+                    } else {
+                        mutableState.publish(rows + state.value.retiredAgents, workspaceId)
+                    }
                 }
             }
         }
@@ -67,7 +73,10 @@ class AgentStore(private val session: AgentSession, private val workspaceId: Str
         val snapshot = push.snapshot
         val delta = push.delta
         when {
-            snapshot != null -> mutableState.publish(snapshot + state.value.retiredAgents, workspaceId)
+            snapshot != null -> mutableState.publish(
+                snapshot + state.value.retiredAgents,
+                workspaceId
+            )
             delta != null -> {
                 val reloadRetired = state.value.retiredLoading
                 retiredRevision++

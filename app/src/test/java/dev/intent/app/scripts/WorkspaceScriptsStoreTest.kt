@@ -13,6 +13,47 @@ import org.junit.Test
 
 class WorkspaceScriptsStoreTest {
     @Test
+    fun `transport loss without subscription error disables actions and fences pending work`() {
+        val session = FakeScripts()
+        val store = readyStore(session)
+        store.setRunning("script", true)
+        store.refresh()
+        val staleRead = session.reads.last()
+        store.connectionChanged(false)
+        assertFalse(store.state.value.connected)
+        assertTrue(store.state.value.pending.isEmpty())
+        staleRead.complete(listOf(script("script", "running")))
+        assertEquals("idle", store.state.value.scripts.single().runtime?.status)
+        store.setRunning("script", true)
+        assertEquals(1, session.actions.size)
+        store.connectionChanged(true)
+        assertFalse(store.state.value.connected)
+        session.ready()
+        session.reads.last().complete(listOf(script("script", "running")))
+        session.action.completeExceptionally(IllegalStateException("Old transport lost"))
+        assertTrue(store.state.value.connected)
+        assertEquals("running", store.state.value.scripts.single().runtime?.status)
+        assertEquals(null, store.state.value.error)
+        assertEquals(1, session.actions.size)
+    }
+
+    @Test
+    fun `subscription admission before route readiness waits then reads fresh state`() {
+        val session = FakeScripts()
+        val store = WorkspaceScriptsStore(session, "workspace")
+        store.start(ready = false)
+        session.ready()
+        assertFalse(store.state.value.connected)
+        assertTrue(session.reads.isEmpty())
+        store.connectionChanged(true)
+        assertEquals(1, session.reads.size)
+        session.reads.single().complete(listOf(script("script")))
+        assertTrue(store.state.value.connected)
+        store.connectionChanged(true)
+        assertEquals(1, session.reads.size)
+    }
+
+    @Test
     fun `list rejects another workspace and event invalidation discards in-flight response`() {
         val session = FakeScripts()
         val store = WorkspaceScriptsStore(session, "workspace")
@@ -22,7 +63,9 @@ class WorkspaceScriptsStoreTest {
         session.reads[0].complete(listOf(script("old")))
         assertTrue(store.state.value.scripts.isEmpty())
         assertEquals(2, session.reads.size)
-        session.reads[1].complete(listOf(script("fresh"), script("foreign").copy(workspaceId = "another")))
+        session.reads[1].complete(
+            listOf(script("fresh"), script("foreign").copy(workspaceId = "another"))
+        )
         assertEquals(listOf("fresh"), store.state.value.scripts.map { it.id })
         assertFalse(store.state.value.loading)
     }
@@ -94,7 +137,12 @@ class WorkspaceScriptsStoreTest {
     }
 
     private fun script(id: String, status: String = "idle") = WorkspaceScriptResource(
-        id, "workspace", "Build", "./build", "command", WorkspaceScriptRuntime(status)
+        id,
+        "workspace",
+        "Build",
+        "./build",
+        "command",
+        WorkspaceScriptRuntime(status)
     )
 
     private class FakeScripts : WorkspaceScriptSession {
@@ -107,16 +155,25 @@ class WorkspaceScriptsStoreTest {
         lateinit var changed: () -> Unit
         lateinit var ready: () -> Unit
         lateinit var failed: (Throwable) -> Unit
-        override fun list() = CompletableFuture<List<WorkspaceScriptResource>>().also { reads.add(it) }
+        override fun list() = CompletableFuture<List<WorkspaceScriptResource>>().also {
+            reads.add(it)
+        }
         override fun status(id: String): CompletableFuture<WorkspaceScriptRuntime> {
             statusReads.add(id)
             return status
         }
-        override fun setRunning(id: String, running: Boolean): CompletableFuture<WorkspaceScriptActionResult> {
+        override fun setRunning(
+            id: String,
+            running: Boolean
+        ): CompletableFuture<WorkspaceScriptActionResult> {
             actions.add(id to running)
             return action
         }
-        override fun subscribe(changed: () -> Unit, ready: () -> Unit, failed: (Throwable) -> Unit): Closeable {
+        override fun subscribe(
+            changed: () -> Unit,
+            ready: () -> Unit,
+            failed: (Throwable) -> Unit
+        ): Closeable {
             this.changed = changed
             this.ready = ready
             this.failed = failed

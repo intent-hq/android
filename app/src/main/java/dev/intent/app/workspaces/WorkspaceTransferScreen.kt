@@ -113,10 +113,14 @@ fun WorkspaceTransferScreen(
         }
         try {
             owner = withContext(Dispatchers.IO) {
-                transferPrincipalIsOwner(operations.request("principal.me"), source.serverCapabilities)
+                transferPrincipalIsOwner(
+                    operations.request("principal.me"),
+                    source.serverCapabilities
+                )
             }
             if (!owner) {
-                status = "Only a host owner can transfer a workspace. Check your access on the host."
+                status =
+                    "Only a host owner can transfer a workspace. Check your access on the host."
                 return@LaunchedEffect
             }
             plan = withContext(Dispatchers.IO) {
@@ -149,7 +153,9 @@ fun WorkspaceTransferScreen(
         if (busy || finished) {
             Text(workspaceTitle, style = MaterialTheme.typography.titleMedium)
             Text("From $sourceName", color = IntentScreen.secondaryText)
-            selectedDestination?.let { Text("To ${it.displayName}", color = IntentScreen.secondaryText) }
+            selectedDestination?.let {
+                Text("To ${it.displayName}", color = IntentScreen.secondaryText)
+            }
             TransferStatus(progress, control::cancel, onDone) {
                 finished = false
                 attempt++
@@ -203,35 +209,44 @@ fun WorkspaceTransferScreen(
                 color = IntentScreen.secondaryText
             )
         }
-        Button(onClick = {
-            val destination = selectedDestination
-            if (busy || destination == null || !owner || sourceState != SessionState.READY) {
-                return@Button
-            }
-            busy = true
-            onBusy(true)
-            scope.launch {
-                val result = withContext(Dispatchers.IO + NonCancellable) {
-                    runCatching {
-                        check(
-                            transferPrincipalIsOwner(
-                                operations.request("principal.me"),
-                                source.serverCapabilities
-                            )
-                        ) {
-                            "Owner access is required on the source host."
-                        }
-                        transferTo(operations, workspaceId, destination, archive, control, createTarget)
-                    }
+        val sourceEligible = owner && sourceState == SessionState.READY
+        val previewReady = !previewLoading && plan != null
+        Button(
+            onClick = {
+                val destination = selectedDestination
+                if (busy || destination == null || !sourceEligible) {
+                    return@Button
                 }
-                result.onFailure { connectionFailed(control) }
-                finished = true
-                busy = false
-                onBusy(false)
-            }
-        }, enabled =
-        !previewLoading && plan != null && selectedDestination != null && owner &&
-            sourceState == SessionState.READY
+                busy = true
+                onBusy(true)
+                scope.launch {
+                    val result = withContext(Dispatchers.IO + NonCancellable) {
+                        runCatching {
+                            check(
+                                transferPrincipalIsOwner(
+                                    operations.request("principal.me"),
+                                    source.serverCapabilities
+                                )
+                            ) {
+                                "Owner access is required on the source host."
+                            }
+                            transferTo(
+                                operations,
+                                workspaceId,
+                                destination,
+                                archive,
+                                control,
+                                createTarget
+                            )
+                        }
+                    }
+                    result.onFailure { connectionFailed(control) }
+                    finished = true
+                    busy = false
+                    onBusy(false)
+                }
+            },
+            enabled = previewReady && selectedDestination != null && sourceEligible
         ) {
             Text("Transfer workspace")
         }

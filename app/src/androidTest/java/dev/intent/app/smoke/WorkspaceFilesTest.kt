@@ -97,7 +97,10 @@ class WorkspaceFilesTest {
         compose.onNodeWithTag("files.file.document.pdf").performClick()
         waitForTag("file.pdf")
         compose.onNodeWithText("Open PDF in another app").assertIsDisplayed()
-        compose.onNodeWithText("This preview shows page images.", substring = true).assertIsDisplayed()
+        compose.onNodeWithText(
+            "This preview shows page images.",
+            substring = true
+        ).assertIsDisplayed()
         compose.waitUntil(TIMEOUT) {
             compose.onAllNodes(
                 androidx.compose.ui.test.hasContentDescription("PDF page 1, image preview")
@@ -247,13 +250,16 @@ private class FilesTestServer(private val listener: WssTransport.Listener) : Ses
     }
 
     private fun pdfBytes(): ByteArray = ByteArrayOutputStream().use { output ->
-        android.graphics.pdf.PdfDocument().use { document ->
+        val document = android.graphics.pdf.PdfDocument()
+        try {
             val page = document.startPage(
                 android.graphics.pdf.PdfDocument.PageInfo.Builder(400, 600, 1).create()
             )
             page.canvas.drawText("Accessible reader example", 20f, 40f, android.graphics.Paint())
             document.finishPage(page)
             document.writeTo(output)
+        } finally {
+            document.close()
         }
         output.toByteArray()
     }

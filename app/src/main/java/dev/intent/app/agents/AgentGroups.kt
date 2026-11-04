@@ -16,11 +16,10 @@ internal data class AgentGroupSection(val group: AgentGroup, val agents: List<Ag
     val running: Int get() = agents.count { it.avatarState() == AgentAvatarState.Running }
 }
 
-internal fun Agent.delegationParent(): String? =
-    parentAgentId?.takeIf(String::isNotBlank)
-        ?: createdByAgentId?.takeIf(String::isNotBlank)
-        ?: (metadata?.get("createdByAgentId") as? JsonPrimitive)?.contentOrNull
-            ?.takeIf(String::isNotBlank)
+internal fun Agent.delegationParent(): String? = parentAgentId?.takeIf(String::isNotBlank)
+    ?: createdByAgentId?.takeIf(String::isNotBlank)
+    ?: (metadata?.get("createdByAgentId") as? JsonPrimitive)?.contentOrNull
+        ?.takeIf(String::isNotBlank)
 
 internal fun Agent.isRetired(): Boolean = retiredAt != null || status == "retired"
 
@@ -41,5 +40,7 @@ internal fun agentGroups(agents: List<Agent>): List<AgentGroupSection> {
         groups.getValue(group).add(row.agent)
     }
     groups.getValue(AgentGroup.RETIRED).addAll(agents.filter { it.isRetired() })
-    return groups.map { (key, rows) -> AgentGroupSection(key, rows) }.filter { it.agents.isNotEmpty() }
+    return groups.map { (key, rows) ->
+        AgentGroupSection(key, rows)
+    }.filter { it.agents.isNotEmpty() }
 }

@@ -26,16 +26,38 @@ class WorkspaceScriptsStore(
     private var revision = 0L
     private var reading = false
     private var dirty = false
+    private var connectionReady = true
+    private var admitted = false
 
     @Synchronized
-    fun start() {
+    fun start(ready: Boolean = true) {
         if (closed || subscription != null) return
+        connectionReady = ready
+        if (!ready) invalidateConnection()
         subscription = session.subscribe(::refresh, ::connected, ::disconnected)
+    }
+
+    /** Ordinary transport loss does not invoke an admitted subscription's error callback. */
+    @Synchronized
+    fun connectionChanged(ready: Boolean) {
+        if (closed || ready == connectionReady) return
+        connectionReady = ready
+        if (!ready) {
+            admitted = false
+            invalidateConnection()
+        } else if (admitted) {
+            activate()
+        }
     }
 
     @Synchronized
     private fun connected() {
         if (closed) return
+        admitted = true
+        if (connectionReady) activate()
+    }
+
+    private fun activate() {
         generation++
         reading = false
         mutableState.value = state.value.copy(connected = true, pending = emptySet())
@@ -65,7 +87,10 @@ class WorkspaceScriptsStore(
                         mutableState.value = state.value.copy(loading = false, error = LOAD_ERROR)
                     } else {
                         mutableState.value = state.value.copy(
-                            scripts = rows.filter { it.workspaceId == workspaceId && it.id.isNotBlank() }
+                            scripts = rows.filter {
+                                it.workspaceId == workspaceId &&
+                                    it.id.isNotBlank()
+                            }
                                 .distinctBy { it.id },
                             loading = false,
                             error = null
@@ -79,13 +104,7 @@ class WorkspaceScriptsStore(
     @Synchronized
     fun setRunning(id: String, running: Boolean) {
         val current = state.value
-        val script = current.scripts.firstOrNull { it.id == id } ?: return
-        val runtime = script.runtime ?: return
-        if (closed || !current.connected || current.loading ||
-            id in current.pending || running == runtime.isLive
-        ) {
-            return
-        }
+        if (!canSetRunning(current, id, running)) return
         val token = generation
         mutableState.value = current.copy(pending = current.pending + id, error = null)
         // Confirm with a status read; do not claim success from an optimistic local state.
@@ -98,7 +117,8 @@ class WorkspaceScriptsStore(
                     mutableState.value = state.value.copy(pending = state.value.pending - id)
                     if (error != null) {
                         mutableState.value = state.value.copy(
-                            error = "Script action was not confirmed. Refresh its status before trying again."
+                            error = "Script action was not confirmed. " +
+                                "Refresh its status before trying again."
                         )
                     } else {
                         refresh()
@@ -108,9 +128,25 @@ class WorkspaceScriptsStore(
         }
     }
 
+    private fun canSetRunning(
+        current: WorkspaceScriptsState,
+        id: String,
+        running: Boolean
+    ): Boolean {
+        val runtime = current.scripts.firstOrNull { it.id == id }?.runtime ?: return false
+        val available = !closed && current.connected && !current.loading
+        val actionable = id !in current.pending && running != runtime.isLive
+        return available && actionable
+    }
+
     @Synchronized
     private fun disconnected(@Suppress("UNUSED_PARAMETER") error: Throwable) {
         if (closed) return
+        admitted = false
+        invalidateConnection()
+    }
+
+    private fun invalidateConnection() {
         generation++
         reading = false
         dirty = false

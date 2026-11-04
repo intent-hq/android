@@ -72,7 +72,10 @@ fun AssistantScreen(
                     conversation(state.selectedId!!)
                 }
                 state.loading -> CircularProgressIndicator(Modifier.padding(24.dp))
-                else -> AssistantEmptyState(state.loaded && state.owner && !state.busy, store::create)
+                else -> AssistantEmptyState(
+                    state.loaded && state.owner && !state.busy,
+                    store::create
+                )
             }
         }
     }

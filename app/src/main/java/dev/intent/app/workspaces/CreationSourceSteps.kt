@@ -88,7 +88,8 @@ internal fun CreationRepositories(workflow: CreationWorkflow, enabled: Boolean) 
     ) { Text("Choose branch") }
 }
 
-@Suppress("LongMethod", "CyclomaticComplexMethod") // Branch search, default badge, and selection share one load.
+// Branch search, default badge, and selection share one load.
+@Suppress("LongMethod", "CyclomaticComplexMethod")
 @Composable
 internal fun CreationBranches(workflow: CreationWorkflow, enabled: Boolean) {
     val draft by workflow.draft.collectAsState()

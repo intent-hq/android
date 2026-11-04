@@ -113,7 +113,10 @@ class WorkspaceCreateTest {
         tap("Configure agent")
         waitText("Provider A")
         assertEquals("", workflow.draft.value.specialist)
-        assertEquals(0, compose.onAllNodesWithText("Retry agent choices").fetchSemanticsNodes().size)
+        assertEquals(
+            0,
+            compose.onAllNodesWithText("Retry agent choices").fetchSemanticsNodes().size
+        )
         screenshot("creation-no-specialist")
         tap("Create workspace")
         compose.waitUntil { fake.created != null }

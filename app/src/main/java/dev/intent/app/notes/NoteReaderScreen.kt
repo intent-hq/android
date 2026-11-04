@@ -76,7 +76,12 @@ fun NoteReaderScreen(
                 if (note.metadata?.task != null) {
                     item {
                         NoteTaskMetadata(
-                            note, notes, enabled, onNoteStatus, onNote, onAgentSelected
+                            note,
+                            notes,
+                            enabled,
+                            onNoteStatus,
+                            onNote,
+                            onAgentSelected
                         )
                     }
                 }
@@ -112,8 +117,13 @@ fun NoteReaderScreen(
                             false
                         } else {
                             InlineNoteTask(
-                                item, task, notes, enabled, onNote,
-                                { onTaskStatus(task, it) }, onLinkedTaskStatus
+                                item,
+                                task,
+                                notes,
+                                enabled,
+                                onNote,
+                                { onTaskStatus(task, it) },
+                                onLinkedTaskStatus
                             )
                             true
                         }

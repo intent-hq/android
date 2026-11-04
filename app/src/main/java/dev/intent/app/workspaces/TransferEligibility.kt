@@ -16,7 +16,8 @@ internal fun transferPrincipalIsOwner(principal: JsonObject, capabilities: JsonO
     if (role != null && role != JsonPrimitive("owner")) return false
     if (!membership) return true
     val revision = principal["hostMembershipRevision"] as? JsonPrimitive
-    return role == JsonPrimitive("owner") && revision?.isString == false &&
+    return role == JsonPrimitive("owner") &&
+        revision?.isString == false &&
         revision.longOrNull?.let { it in 0..MAX_MEMBERSHIP_REVISION } == true
 }
 

@@ -38,8 +38,8 @@ import java.io.File
 import java.time.Instant
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.put
 import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.put
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -54,11 +54,20 @@ class ConversationStatusTest {
         compose.setContent {
             IntentTheme {
                 ConversationStatusStrip(
-                    WatchState(), agent.copy(workspaceId = "current"), {}, {}, {},
+                    WatchState(),
+                    agent.copy(workspaceId = "current"),
+                    {},
+                    {},
+                    {},
                     agentWatches = dev.intent.app.status.AgentWatches(
                         rows = listOf(
-                            dev.intent.app.status.WatchedAgent(Agent("remote", "Other workspace", "other")),
-                            dev.intent.app.status.WatchedAgent(Agent("gone", "Deleted", "other"), deleted = true)
+                            dev.intent.app.status.WatchedAgent(
+                                Agent("remote", "Other workspace", "other")
+                            ),
+                            dev.intent.app.status.WatchedAgent(
+                                Agent("gone", "Deleted", "other"),
+                                deleted = true
+                            )
                         )
                     ),
                     onWatchedAgent = { workspace, id -> target = workspace to id }
@@ -75,7 +84,13 @@ class ConversationStatusTest {
         val rows = listOf(
             Agent("root", "Primary agent"),
             Agent("child", "Delegated task", parentAgentId = "root", isActive = true),
-            Agent("background", "Background task", metadata = buildJsonObject { put("isBackground", true) }),
+            Agent(
+                "background",
+                "Background task",
+                metadata = buildJsonObject {
+                    put("isBackground", true)
+                }
+            ),
             Agent("orphan", "Unlinked task", parentAgentId = "missing")
         )
         compose.setContent {
@@ -85,7 +100,9 @@ class ConversationStatusTest {
                         agents = rows,
                         isLoading = false,
                         retiredAgents = listOf(Agent("old", "Previous task", retiredAt = "now"))
-                    ), {}, {}
+                    ),
+                    {},
+                    {}
                 )
             }
         }

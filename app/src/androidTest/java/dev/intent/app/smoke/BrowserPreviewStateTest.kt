@@ -39,8 +39,12 @@ class BrowserPreviewStateTest {
         compose.setContent {
             IntentTheme(darkTheme = dark.value) {
                 WorkspaceBrowsersScreen(
-                    state.value, {}, {}, { opened = it },
-                    { state.value = SavedBrowsersState(loading = false) }, {}
+                    state.value,
+                    {},
+                    {},
+                    { opened = it },
+                    { state.value = SavedBrowsersState(loading = false) },
+                    {}
                 )
             }
         }
@@ -57,10 +61,19 @@ class BrowserPreviewStateTest {
     fun scriptResourcesOfferStartStopAndPreviewUsingRuntimeState() {
         val scripts = listOf(
             WorkspaceScriptResource(
-                "build", "workspace", "Build", "./gradlew build", "command", WorkspaceScriptRuntime("idle")
+                "build",
+                "workspace",
+                "Build",
+                "./gradlew build",
+                "command",
+                WorkspaceScriptRuntime("idle")
             ),
             WorkspaceScriptResource(
-                "dev", "workspace", "Dev server", "npm run dev", "service",
+                "dev",
+                "workspace",
+                "Dev server",
+                "npm run dev",
+                "service",
                 WorkspaceScriptRuntime("running", detectedUrl = "http://localhost:5173")
             )
         )
@@ -70,8 +83,11 @@ class BrowserPreviewStateTest {
         compose.setContent {
             IntentTheme(darkTheme = dark.value) {
                 WorkspaceScriptsScreen(
-                    WorkspaceScriptsState(scripts, loading = false, connected = true), {}, {},
-                    { id, running -> action = id to running }, { preview = it }
+                    WorkspaceScriptsState(scripts, loading = false, connected = true),
+                    {},
+                    {},
+                    { id, running -> action = id to running },
+                    { preview = it }
                 )
             }
         }

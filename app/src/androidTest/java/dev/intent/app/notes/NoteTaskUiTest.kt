@@ -7,9 +7,7 @@ import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.isToggleable
-import androidx.compose.ui.test.onAllNodes
 import androidx.compose.ui.test.onAllNodesWithText
-import androidx.compose.ui.test.onNode
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
@@ -41,7 +39,8 @@ class NoteTaskUiTest {
                 NoteReaderScreen(
                     NoteReaderState(
                         note = Note(
-                            "spec", "Plan",
+                            "spec",
+                            "Plan",
                             content = "Before\n\n- [ ] Check the emulator\n\nAfter"
                         ),
                         tasks = listOf(task.value),
@@ -76,11 +75,15 @@ class NoteTaskUiTest {
                     NoteReaderScreen(
                         NoteReaderState(
                             note = Note(
-                                "spec", "Task plan",
-                                content = "Before\n\n- [ ] [Old title](intent://local/task/task)\n\nAfter",
+                                "spec",
+                                "Task plan",
+                                content = "Before\n\n" +
+                                    "- [ ] [Old title](intent://local/task/task)\n\nAfter",
                                 tags = listOf("planning")
                             ),
-                            tasks = listOf(NoteTaskRow(3, "Old title", "todo", taskNoteId = "task")),
+                            tasks = listOf(
+                                NoteTaskRow(3, "Old title", "todo", taskNoteId = "task")
+                            ),
                             loading = false,
                             relatedNotes = listOf(linked.value)
                         ),
@@ -113,15 +116,22 @@ class NoteTaskUiTest {
         var selectedNote: String? = null
         var selectedAgent: String? = null
         val task = TaskMetadata(
-            "blocked", assignedAgentIds = listOf("agent-one"),
-            dependsOn = listOf("dependency"), conflictsWith = listOf("conflict"),
+            "blocked",
+            assignedAgentIds = listOf("agent-one"),
+            dependsOn = listOf("dependency"),
+            conflictsWith = listOf("conflict"),
             unmetDependsOn = listOf("dependency")
         )
         val related = listOf(
             Note("dependency", "Dependency", metadata = NoteMetadata(TaskMetadata("waiting"))),
-            Note("conflict", "Conflicting work", metadata = NoteMetadata(TaskMetadata("in_progress"))),
             Note(
-                "dependent", "Follow-up",
+                "conflict",
+                "Conflicting work",
+                metadata = NoteMetadata(TaskMetadata("in_progress"))
+            ),
+            Note(
+                "dependent",
+                "Follow-up",
                 metadata = NoteMetadata(TaskMetadata("not_started", dependsOn = listOf("task")))
             )
         )
@@ -130,7 +140,8 @@ class NoteTaskUiTest {
                 NoteReaderScreen(
                     NoteReaderState(
                         note = Note("task", "Assigned task", metadata = NoteMetadata(task)),
-                        loading = false, relatedNotes = related
+                        loading = false,
+                        relatedNotes = related
                     ),
                     {},
                     onNoteSelected = { selectedNote = it },
@@ -160,7 +171,10 @@ class NoteTaskUiTest {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val directory = InstrumentationRegistry.getArguments().getString("additionalTestOutputDir")
             ?.let(::File)
-            ?: File(instrumentation.targetContext.externalMediaDirs.first(), "additional_test_output")
+            ?: File(
+                instrumentation.targetContext.externalMediaDirs.first(),
+                "additional_test_output"
+            )
         check(directory.mkdirs() || directory.isDirectory)
         val bitmap = checkNotNull(instrumentation.uiAutomation.takeScreenshot())
         File(directory, "$name.png").outputStream().use {

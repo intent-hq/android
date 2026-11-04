@@ -64,7 +64,10 @@ internal fun QuestionComposer(
     val question = set.questions[index]
     val answer = answers[question.attachmentId] ?: QuestionAnswer()
     val enabled = !dismissing && !submitted
-    Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainer) {
+    Surface(
+        shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.surfaceContainer
+    ) {
         Column(Modifier.fillMaxWidth().heightIn(max = 280.dp).padding(horizontal = 8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 TextButton(onClick = { expanded = !expanded }, modifier = Modifier.weight(1f)) {
@@ -82,7 +85,9 @@ internal fun QuestionComposer(
             }
             if (expanded) {
                 key(question.attachmentId) {
-                    Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
+                    Column(
+                        Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())
+                    ) {
                         QuestionInput(question, answer, enabled) {
                             answers = answers + (question.attachmentId to it)
                         }
@@ -92,20 +97,32 @@ internal fun QuestionComposer(
                         }
                     }
                 }
-                FlowRow(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
+                FlowRow(
+                    horizontalArrangement = Arrangement.End,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
                     if (index > 0) {
-                        TextButton(onClick = { page = index - 1 }, enabled = enabled) { Text("Back") }
+                        TextButton(onClick = {
+                            page = index - 1
+                        }, enabled = enabled) { Text("Back") }
                     }
                     TextButton(onClick = {
-                        answers = answers + (question.attachmentId to QuestionAnswer(skipped = true))
+                        answers =
+                            answers + (question.attachmentId to QuestionAnswer(skipped = true))
                         if (index < set.questions.lastIndex) page = index + 1
-                    }, enabled = enabled) { Text(if (answer.skipped) "Skipped" else "Skip question") }
+                    }, enabled = enabled) {
+                        Text(if (answer.skipped) "Skipped" else "Skip question")
+                    }
                     if (index < set.questions.lastIndex) {
-                        TextButton(onClick = { page = index + 1 }, enabled = enabled) { Text("Next") }
+                        TextButton(onClick = {
+                            page = index + 1
+                        }, enabled = enabled) { Text("Next") }
                     } else {
                         TextButton(onClick = {
                             submitted = onAnswer(set.messageId, answers)
-                        }, enabled = enabled && attachments?.ready != false) { Text("Send answers") }
+                        }, enabled = enabled && attachments?.ready != false) {
+                            Text("Send answers")
+                        }
                     }
                 }
             }
@@ -129,7 +146,9 @@ private fun DismissQuestionsDialog(enabled: Boolean, onCancel: () -> Unit, onDis
         onDismissRequest = onCancel,
         title = { Text("Dismiss questions?") },
         text = {
-            Text("The questions will be dismissed without answers. They will not return after a reload.")
+            Text(
+                "The questions will be dismissed without answers. They will not return after a reload."
+            )
         },
         confirmButton = {
             TextButton(onClick = onDismiss, enabled = enabled) { Text("Dismiss") }

@@ -207,7 +207,8 @@ internal fun CreationAgent(
     val ready =
         !loading &&
             !modelsLoading &&
-            error == null && modelError == null &&
+            error == null &&
+            modelError == null &&
             options?.providers.orEmpty().any { it.id == draft.provider && it.selectable }
     androidx.compose.runtime.SideEffect { onReady(enabled && ready && additions?.ready != false) }
 }

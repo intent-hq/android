@@ -18,7 +18,10 @@ class ManualPairingErrorsTest {
         assertNull(unsupported.port)
         assertNull(unsupported.token)
         assertTrue(
-            manualPairingErrors(tunnel.copy(host = "desktop.local"), tunnelAvailable = false).isValid
+            manualPairingErrors(
+                tunnel.copy(host = "desktop.local"),
+                tunnelAvailable = false
+            ).isValid
         )
     }
 

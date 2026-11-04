@@ -91,7 +91,11 @@ private fun ManualPairingForm(
             enabled = !busy,
             isError = host.isNotEmpty() && errors.host != null,
             supportingText = {
-                Text(errors.host.takeIf { host.isNotEmpty() } ?: "Host name, IP, or Tailcat address")
+                Text(
+                    errors.host.takeIf {
+                        host.isNotEmpty()
+                    } ?: "Host name, IP, or Tailcat address"
+                )
             }
         )
         if (!tunnelAvailable) {
@@ -103,7 +107,10 @@ private fun ManualPairingForm(
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             isError = port.isNotEmpty() && errors.port != null,
             supportingText = {
-                Text(errors.port.takeIf { port.isNotEmpty() } ?: "Default 5181; use the port on your desktop")
+                Text(
+                    errors.port.takeIf { port.isNotEmpty() }
+                        ?: "Default 5181; use the port on your desktop"
+                )
             }
         )
         PairingTokenField(token, { token = it }, busy, errors.token)
@@ -117,7 +124,12 @@ private fun ManualPairingForm(
 }
 
 @Composable
-private fun PairingTokenField(value: String, onChange: (String) -> Unit, busy: Boolean, error: String?) {
+private fun PairingTokenField(
+    value: String,
+    onChange: (String) -> Unit,
+    busy: Boolean,
+    error: String?
+) {
     var visible by remember { mutableStateOf(false) }
     OutlinedTextField(
         value,
@@ -126,7 +138,11 @@ private fun PairingTokenField(value: String, onChange: (String) -> Unit, busy: B
         singleLine = true,
         modifier = Modifier.fillMaxWidth(),
         enabled = !busy,
-        visualTransformation = if (visible) VisualTransformation.None else PasswordVisualTransformation(),
+        visualTransformation = if (visible) {
+            VisualTransformation.None
+        } else {
+            PasswordVisualTransformation()
+        },
         trailingIcon = {
             TextButton(onClick = { visible = !visible }, enabled = !busy) {
                 Text(if (visible) "Hide token" else "Show token")
@@ -160,6 +176,7 @@ private fun FingerprintField(
     )
 }
 
+@Suppress("LongParameterList") // Trust review keeps each action and build availability explicit.
 @Composable
 fun PairingConfirmation(
     payload: PairingPayload,
@@ -181,7 +198,9 @@ fun PairingConfirmation(
                     Text("Tailcat: $address")
                     Text("Port: ${payload.port}")
                     if (!tunnelAvailable) {
-                        Text("Tailcat is unavailable in this build. Only direct routes will be used.")
+                        Text(
+                            "Tailcat is unavailable in this build. Only direct routes will be used."
+                        )
                     }
                 }
                 Text("Compare this certificate fingerprint with the fingerprint on your desktop.")

@@ -80,7 +80,9 @@ class ConversationControlsTest {
                 compose.onNodeWithContentDescription("Stop").performClick()
                 compose.waitUntil(TIMEOUT) { server.requests.any { it.method == "agent.stop" } }
                 compose.onNodeWithContentDescription("Stop").assertIsNotEnabled()
-                compose.onNodeWithContentDescription("Queued message actions").performScrollTo().performClick()
+                compose.onNodeWithContentDescription(
+                    "Queued message actions"
+                ).performScrollTo().performClick()
                 compose.onNodeWithText("Edit").performClick()
                 compose.onNodeWithText(
                     "Edit queued message"
@@ -101,7 +103,9 @@ class ConversationControlsTest {
                         }.params as JsonObject
                         )["content"]
                 )
-                compose.onNodeWithContentDescription("Queued message actions").performScrollTo().performClick()
+                compose.onNodeWithContentDescription(
+                    "Queued message actions"
+                ).performScrollTo().performClick()
                 compose.onNodeWithText("Send now").performClick()
                 compose.waitUntil(TIMEOUT) {
                     server.requests.any {
@@ -218,7 +222,10 @@ class ConversationControlsTest {
         ).use { session ->
             session.connect()
             compose.waitUntil(TIMEOUT) { ready.get() }
-            ConversationSendStore(RpcConversationCommands(session, "workspace", "agent"), "agent").use { sends ->
+            ConversationSendStore(
+                RpcConversationCommands(session, "workspace", "agent"),
+                "agent"
+            ).use { sends ->
                 sends.refresh()
                 compose.waitUntil(TIMEOUT) { sends.state.value.running }
                 val draft = ComposerDraft("Follow up")

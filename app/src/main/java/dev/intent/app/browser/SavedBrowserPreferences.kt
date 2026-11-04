@@ -4,9 +4,15 @@ import android.content.Context
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 
-internal class SavedBrowserPreferences(context: Context, connectionId: String, workspaceId: String) :
-    SavedBrowserPersistence {
-    private val preferences = context.getSharedPreferences("workspace-browsers", Context.MODE_PRIVATE)
+internal class SavedBrowserPreferences(
+    context: Context,
+    connectionId: String,
+    workspaceId: String
+) : SavedBrowserPersistence {
+    private val preferences = context.getSharedPreferences(
+        "workspace-browsers",
+        Context.MODE_PRIVATE
+    )
     private val key = browserStorageKey(connectionId, workspaceId)
     private val json = Json { ignoreUnknownKeys = true }
     private val serializer = ListSerializer(SavedBrowser.serializer())

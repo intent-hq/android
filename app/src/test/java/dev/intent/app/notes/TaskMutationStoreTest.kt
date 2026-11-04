@@ -102,7 +102,9 @@ class TaskMutationStoreTest {
             linkedId = "linked"
             related = listOf(
                 Note(
-                    "linked", "Linked work", rev = 42,
+                    "linked",
+                    "Linked work",
+                    rev = 42,
                     metadata = NoteMetadata(TaskMetadata("blocked"))
                 )
             )
@@ -136,7 +138,9 @@ class TaskMutationStoreTest {
         assertEquals(0, source.statusCalls)
         source.related = listOf(
             Note(
-                "linked", "Archived", isArchived = true,
+                "linked",
+                "Archived",
+                isArchived = true,
                 metadata = NoteMetadata(TaskMetadata("waiting"))
             )
         )

@@ -35,7 +35,8 @@ class ManualConnectionTargetTest {
 
     @Test
     fun classifierRequiresUnpaddedBase64UrlAndPublicKeyHeader() {
-        val wrongHeader = "tc" + Base64.getUrlEncoder().withoutPadding().encodeToString(ByteArray(37))
+        val wrongHeader =
+            "tc" + Base64.getUrlEncoder().withoutPadding().encodeToString(ByteArray(37))
         listOf("tc", "tcoA", "$blob=", blob.uppercase(), "$blob/", wrongHeader).forEach {
             assertFalse(it, isTailcatAddress(it))
         }

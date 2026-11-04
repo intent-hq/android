@@ -17,19 +17,31 @@ class AgentStoreTest {
         val store = AgentStore(session, "workspace")
         store.start()
         session.admit()
-        session.push(SubscriptionPush("lease", "agent", 0, snapshot = listOf(Agent("live", "Live"))))
+        session.push(
+            SubscriptionPush("lease", "agent", 0, snapshot = listOf(Agent("live", "Live")))
+        )
         session.retiredReads[0].complete(listOf(Agent("old", "Old", retiredAt = "then")))
         assertEquals("old", store.state.value.retiredAgents.single().id)
         assertFalse(store.state.value.retiredLoading)
         store.refresh()
-        session.push(SubscriptionPush("lease", "agent", 1, delta = EntityDelta(
-            updated = listOf(Agent("live", "Live", retiredAt = "now"))
-        )))
+        session.push(
+            SubscriptionPush(
+                "lease",
+                "agent",
+                1,
+                delta = EntityDelta(
+                    updated = listOf(Agent("live", "Live", retiredAt = "now"))
+                )
+            )
+        )
         session.retiredReads[1].complete(emptyList())
         assertEquals(setOf("old", "live"), store.state.value.retiredAgents.map { it.id }.toSet())
-        session.retiredReads[2].complete(listOf(
-            Agent("old", "Old", retiredAt = "then"), Agent("live", "Live", retiredAt = "now")
-        ))
+        session.retiredReads[2].complete(
+            listOf(
+                Agent("old", "Old", retiredAt = "then"),
+                Agent("live", "Live", retiredAt = "now")
+            )
+        )
         assertFalse(store.state.value.retiredLoading)
         assertTrue(store.state.value.agents.isEmpty())
     }
@@ -102,13 +114,23 @@ class AgentStoreTest {
             )
         )
         assertTrue(store.state.value.agents.isEmpty())
-        assertEquals(setOf("local", "retired"), store.state.value.retiredAgents.map { it.id }.toSet())
+        assertEquals(
+            setOf("local", "retired"),
+            store.state.value.retiredAgents.map {
+                it.id
+            }.toSet()
+        )
         session.push(SubscriptionPush("lease", "agent", 2, snapshot = emptyList()))
         assertEquals(2, store.state.value.retiredAgents.size)
         session.push(
-            SubscriptionPush("lease", "agent", 3, delta = EntityDelta(
-                updated = listOf(Agent("local", "Restored"))
-            ))
+            SubscriptionPush(
+                "lease",
+                "agent",
+                3,
+                delta = EntityDelta(
+                    updated = listOf(Agent("local", "Restored"))
+                )
+            )
         )
         assertEquals("local", store.state.value.agents.single().id)
         assertEquals("retired", store.state.value.retiredAgents.single().id)

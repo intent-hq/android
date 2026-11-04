@@ -47,7 +47,10 @@ class RpcWorkspaceScriptSession(private val session: RpcSession, private val wor
                 "events.subscribe",
                 buildJsonObject {
                     put("workspaceId", workspaceId)
-                    put("eventTypes", JsonArray(listOf("script:state", "script:changed").map(::JsonPrimitive)))
+                    put(
+                        "eventTypes",
+                        JsonArray(listOf("script:state", "script:changed").map(::JsonPrimitive))
+                    )
                 },
                 notificationMethod = "events.event"
             ),

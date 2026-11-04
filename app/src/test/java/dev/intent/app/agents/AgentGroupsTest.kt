@@ -12,13 +12,24 @@ class AgentGroupsTest {
             listOf(
                 Agent("root", "Coordinator"),
                 Agent("worker", "Worker", createdByAgentId = "root", status = "active"),
-                Agent("background", "Background", metadata = buildJsonObject { put("isBackground", true) }),
+                Agent(
+                    "background",
+                    "Background",
+                    metadata = buildJsonObject {
+                        put("isBackground", true)
+                    }
+                ),
                 Agent("background-child", "Child", parentAgentId = "background"),
                 Agent("orphan", "Orphan", parentAgentId = "missing"),
                 Agent("old", "Retired", retiredAt = "now")
             )
         ).associateBy { it.group }
-        assertEquals(listOf("root", "worker"), groups.getValue(AgentGroup.FOREGROUND).agents.map { it.id })
+        assertEquals(
+            listOf("root", "worker"),
+            groups.getValue(AgentGroup.FOREGROUND).agents.map {
+                it.id
+            }
+        )
         assertEquals(1, groups.getValue(AgentGroup.FOREGROUND).running)
         assertEquals(
             listOf("background", "background-child"),
@@ -39,6 +50,11 @@ class AgentGroupsTest {
             Agent("a", "A", parentAgentId = "b"),
             Agent("b", "B", parentAgentId = "a")
         )
-        assertEquals(setOf("a", "b"), agentGroups(cycle).flatMap { it.agents }.map { it.id }.toSet())
+        assertEquals(
+            setOf("a", "b"),
+            agentGroups(cycle).flatMap {
+                it.agents
+            }.map { it.id }.toSet()
+        )
     }
 }

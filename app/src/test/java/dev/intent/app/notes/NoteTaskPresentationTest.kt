@@ -32,7 +32,12 @@ class NoteTaskPresentationTest {
         val rows = listOf(NoteTaskRow(3, "Work", "in-progress"), NoteTaskRow(5, "Nested", "todo"))
         val document = parseNoteMarkdown(source, rows)
         val items = listItems(document)
-        assertEquals(listOf(3, 5), items.map { noteTaskForItem(it, source.lines(), rows)?.lineNumber })
+        assertEquals(
+            listOf(3, 5),
+            items.map {
+                noteTaskForItem(it, source.lines(), rows)?.lineNumber
+            }
+        )
         val runs = markdownRuns(document)
         assertTrue(runs.any { it.text == "Work" && it.bold })
         assertTrue(runs.any { it.url == "https://example.com" })
@@ -103,7 +108,9 @@ class NoteTaskPresentationTest {
     @Test
     fun `reverse dependencies are one hop deduplicated and omit self and archived notes`() {
         fun note(id: String, archived: Boolean = false) = Note(
-            id, id, isArchived = archived,
+            id,
+            id,
+            isArchived = archived,
             metadata = NoteMetadata(TaskMetadata("waiting", dependsOn = listOf("current")))
         )
         val notes = listOf(note("current"), note("b"), note("a"), note("b"), note("hidden", true))
@@ -113,7 +120,10 @@ class NoteTaskPresentationTest {
     @Test
     fun `truncation uses utf8 bytes and does not mistake character counts for bytes`() {
         val note = Note("id", "Title", content = "é", contentLength = 100, contentBytes = 20)
-        assertEquals("This note is partly loaded. Showing 2 bytes of 20 bytes.", noteTruncationMessage(note))
+        assertEquals(
+            "This note is partly loaded. Showing 2 bytes of 20 bytes.",
+            noteTruncationMessage(note)
+        )
         assertEquals(
             "This note is partly loaded. Showing 2 bytes.",
             noteTruncationMessage(note.copy(contentBytes = null))

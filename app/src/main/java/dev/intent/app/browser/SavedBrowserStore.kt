@@ -57,7 +57,9 @@ class SavedBrowserStore(private val persistence: SavedBrowserPersistence) {
         mutableState.value = state.value.copy(loading = true, error = null)
         runCatching {
             val original = persistence.load()
-            val browsers = original.mapNotNull { runCatching { it.withoutUrlSecrets() }.getOrNull() }
+            val browsers = original.mapNotNull {
+                runCatching { it.withoutUrlSecrets() }.getOrNull()
+            }
                 .distinctBy { it.id }
             if (browsers != original) persistence.save(browsers)
             browsers
@@ -89,7 +91,8 @@ class SavedBrowserStore(private val persistence: SavedBrowserPersistence) {
             mutableState.value = SavedBrowsersState(browsers, loading = false)
             browser.id
         }.getOrElse {
-            mutableState.value = state.value.copy(error = "Cannot save this browser. Return to the list and retry.")
+            mutableState.value =
+                state.value.copy(error = "Cannot save this browser. Return to the list and retry.")
             null
         }
     }
@@ -101,7 +104,8 @@ class SavedBrowserStore(private val persistence: SavedBrowserPersistence) {
         runCatching { persistence.save(browsers) }.onSuccess {
             mutableState.value = SavedBrowsersState(browsers, loading = false)
         }.onFailure {
-            mutableState.value = state.value.copy(error = "Cannot remove this browser. Retry to try again.")
+            mutableState.value =
+                state.value.copy(error = "Cannot remove this browser. Retry to try again.")
         }
     }
 }

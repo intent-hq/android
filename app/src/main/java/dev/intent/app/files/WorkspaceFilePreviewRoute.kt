@@ -96,7 +96,10 @@ private fun FilePreviewBody(source: WorkspaceFileSource, path: String, modifier:
     }
     Column(modifier.fillMaxSize()) {
         state.file?.let { file ->
-            OpenPreviewButton(file, path, state.content is FilePreviewContent.PdfFile) { openError = it }
+            OpenPreviewButton(file, path, state.content is FilePreviewContent.PdfFile) {
+                openError =
+                    it
+            }
         }
         openError?.let { Text(it, color = IntentScreen.error) }
         if (state.content is FilePreviewContent.ImageFile) {
@@ -112,7 +115,12 @@ private fun FilePreviewBody(source: WorkspaceFileSource, path: String, modifier:
 }
 
 @Composable
-private fun OpenPreviewButton(file: File, path: String, isPdf: Boolean, onError: (String?) -> Unit) {
+private fun OpenPreviewButton(
+    file: File,
+    path: String,
+    isPdf: Boolean,
+    onError: (String?) -> Unit
+) {
     val context = LocalContext.current
     TextButton(onClick = {
         onError(null)

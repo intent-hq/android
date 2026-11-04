@@ -248,18 +248,16 @@ class ConnectionController(
         executor.execute {
             try {
                 action()
-            } catch (error: Exception) {
-                mutableState.value = state.value.copy(
-                    busy = false,
-                    pending = null,
-                    error = if (error is TunnelUnavailableException) {
-                        TUNNEL_UNAVAILABLE_MESSAGE
-                    } else {
-                        "Cannot complete this action. Check the connection details."
-                    }
-                )
+            } catch (_: TunnelUnavailableException) {
+                actionFailed(TUNNEL_UNAVAILABLE_MESSAGE)
+            } catch (_: Exception) {
+                actionFailed("Cannot complete this action. Check the connection details.")
             }
         }
+    }
+
+    private fun actionFailed(message: String) {
+        mutableState.value = state.value.copy(busy = false, pending = null, error = message)
     }
 
     @Synchronized

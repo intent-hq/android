@@ -113,5 +113,4 @@ class SettingsActionsTest {
         }
         bitmap.recycle()
     }
-
 }

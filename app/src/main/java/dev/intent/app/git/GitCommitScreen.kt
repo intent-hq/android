@@ -122,7 +122,9 @@ private fun CommitFileDialog(
     Dialog(onDismissRequest = onDismiss) {
         Surface(color = IntentScreen.surface) {
             Column(
-                Modifier.fillMaxWidth().heightIn(max = FILE_PICKER_MAX_HEIGHT.dp).padding(IntentScreen.pageInsets),
+                Modifier.fillMaxWidth().heightIn(
+                    max = FILE_PICKER_MAX_HEIGHT.dp
+                ).padding(IntentScreen.pageInsets),
                 verticalArrangement = Arrangement.spacedBy(IntentScreen.itemSpacing)
             ) {
                 Text("Changed files")

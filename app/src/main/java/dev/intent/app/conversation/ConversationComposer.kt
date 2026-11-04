@@ -115,7 +115,11 @@ fun ConversationComposer(
                         onClick = {
                             if (onSend(draft.text) && clearOnSend) draft.text = ""
                         },
-                        enabled = state.canSendDraft(clearOnSend, hasContent, photoState?.ready != false)
+                        enabled = state.canSendDraft(
+                            clearOnSend,
+                            hasContent,
+                            photoState?.ready != false
+                        )
                     ) {
                         Text("Send")
                     }
@@ -129,8 +133,12 @@ private fun ConversationSendState.canSendDraft(
     clearOnSend: Boolean,
     hasContent: Boolean,
     attachmentsReady: Boolean
-): Boolean = hasContent && attachmentsReady &&
-    (clearOnSend || attempts.all { it.status == SendStatus.ACCEPTED || it.status == SendStatus.QUEUED })
+): Boolean = hasContent &&
+    attachmentsReady &&
+    (
+        clearOnSend ||
+            attempts.all { it.status == SendStatus.ACCEPTED || it.status == SendStatus.QUEUED }
+        )
 
 @Composable
 private fun SendAttempts(

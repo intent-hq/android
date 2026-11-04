@@ -197,7 +197,10 @@ class ConnectionControllerTest {
 
     @Test
     fun `tunnel only links explain unavailable builds and redact tokens`() {
-        ConnectionController(repository(), tunnels = UnavailableTunnelClientFactory).use { controller ->
+        ConnectionController(
+            repository(),
+            tunnels = UnavailableTunnelClientFactory
+        ).use { controller ->
             controller.prepareLink("intent://pair?port=443&token=SECRET&tc=tunnel")
             await { controller.state.value.error != null }
             assertNull(controller.state.value.pending)
@@ -220,7 +223,9 @@ class ConnectionControllerTest {
                 FakeTransport(listener).also(transports::add)
             }
         }, tunnels = tunnels).use { controller ->
-            controller.prepareLink("intent://pair?port=5181&token=secret&tc=tunnel&fp=${"AB".repeat(32)}")
+            controller.prepareLink(
+                "intent://pair?port=5181&token=secret&tc=tunnel&fp=${"AB".repeat(32)}"
+            )
             await { controller.state.value.pending != null }
             assertTrue(repository.list().isEmpty())
             assertTrue(transports.isEmpty())

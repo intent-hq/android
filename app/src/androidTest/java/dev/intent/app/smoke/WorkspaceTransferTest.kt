@@ -134,7 +134,10 @@ class WorkspaceTransferTest {
                 "The destination did not confirm import. Check it before retrying. The source was not archived."
             )
             screenshot("transfer-uncertain")
-            assertEquals(0, compose.onAllNodesWithText("Review and retry").fetchSemanticsNodes().size)
+            assertEquals(
+                0,
+                compose.onAllNodesWithText("Review and retry").fetchSemanticsNodes().size
+            )
             assertFalse(source.calls.contains("workspace.export.finalize"))
             assertFalse(target.calls.contains("workspace.import.abort"))
             assertEquals(1, target.calls.count { it == "workspace.import.commit" })

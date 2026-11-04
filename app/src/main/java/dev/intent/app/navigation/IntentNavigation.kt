@@ -119,14 +119,17 @@ fun IntentNavigation(
     val creationPhotos =
         remember(session) { PhotoAttachmentStore(CreationMediaSource(context, session)) }
     var assistant by rememberSaveable(session) { mutableStateOf(false) }
-    var assistantOwner by remember(session) { mutableStateOf(false) }
-    LaunchedEffect(session) {
-        session.request("principal.me").whenComplete { principal, error ->
-            assistantOwner =
-                error == null &&
+    val connectionReady = LocalConnectionReady.current
+    val authority = remember(session) {
+        HostAuthorityStore {
+            session.request("principal.me").thenApply { principal ->
                 dev.intent.app.assistant.assistantOwner(principal, session.serverCapabilities)
+            }
         }
     }
+    val assistantOwner by authority.owner.collectAsState()
+    LaunchedEffect(authority, connectionReady) { authority.setConnected(connectionReady) }
+    DisposableEffect(authority) { onDispose { authority.close() } }
     val selected = selectedWorkspace
     val back = {
         if (!operationBusy) {
@@ -139,7 +142,7 @@ fun IntentNavigation(
         }
     }
     BackHandler(selected != null || creating || assistant || transferring, onBack = back)
-    val canTransfer = LocalConnectionReady.current && assistantOwner
+    val canTransfer = connectionReady && assistantOwner
     val workspaceAction = ChromeAction("Transfer workspace", !operationBusy && canTransfer) {
         transferring = true
     }

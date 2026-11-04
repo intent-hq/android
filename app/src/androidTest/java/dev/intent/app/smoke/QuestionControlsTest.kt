@@ -1,7 +1,6 @@
 package dev.intent.app.smoke
 
 import android.graphics.Bitmap
-
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.semantics.Role
@@ -118,7 +117,10 @@ class QuestionControlsTest {
         compose.onNodeWithText("Next").performClick()
         compose.onNodeWithText("Send answers").performClick()
         compose.runOnIdle {
-            assertEquals(QuestionAnswer(selected = listOf("Android")), submitted.getValue("platform"))
+            assertEquals(
+                QuestionAnswer(selected = listOf("Android")),
+                submitted.getValue("platform")
+            )
         }
     }
 
@@ -127,7 +129,10 @@ class QuestionControlsTest {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val directory = InstrumentationRegistry.getArguments().getString("additionalTestOutputDir")
             ?.let(::File)
-            ?: File(instrumentation.targetContext.externalMediaDirs.first(), "additional_test_output")
+            ?: File(
+                instrumentation.targetContext.externalMediaDirs.first(),
+                "additional_test_output"
+            )
         check(directory.mkdirs() || directory.isDirectory)
         val bitmap = checkNotNull(instrumentation.uiAutomation.takeScreenshot())
         File(directory, "$name.png").outputStream().use {

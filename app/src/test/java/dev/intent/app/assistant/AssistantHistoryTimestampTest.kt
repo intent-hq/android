@@ -23,7 +23,9 @@ class AssistantHistoryTimestampTest {
         )
         assertEquals(
             Instant.parse(timestamp).toEpochMilli(),
-            assistantHistoryTimestamp(Agent(id = "thread", name = "Assistant", createdAt = timestamp))
+            assistantHistoryTimestamp(
+                Agent(id = "thread", name = "Assistant", createdAt = timestamp)
+            )
         )
     }
 
@@ -31,7 +33,9 @@ class AssistantHistoryTimestampTest {
     fun missingOrInvalidMetadataDoesNotInventATime() {
         assertNull(assistantHistoryTimestamp(Agent(id = "thread", name = "Assistant")))
         assertNull(
-            assistantHistoryTimestamp(Agent(id = "thread", name = "Assistant", lastActivity = "invalid"))
+            assistantHistoryTimestamp(
+                Agent(id = "thread", name = "Assistant", lastActivity = "invalid")
+            )
         )
     }
 }

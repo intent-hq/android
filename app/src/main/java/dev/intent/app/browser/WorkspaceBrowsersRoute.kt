@@ -50,8 +50,12 @@ fun WorkspaceBrowsersRoute(
     }
     val scope = rememberCoroutineScope()
     val state by store.state.collectAsState()
-    var target by rememberSaveable(session, connectionId, workspaceId) { mutableStateOf<String?>(null) }
-    var selectedId by rememberSaveable(session, connectionId, workspaceId) { mutableStateOf<String?>(null) }
+    var target by rememberSaveable(session, connectionId, workspaceId) {
+        mutableStateOf<String?>(null)
+    }
+    var selectedId by rememberSaveable(session, connectionId, workspaceId) {
+        mutableStateOf<String?>(null)
+    }
     LaunchedEffect(store) { withContext(Dispatchers.IO) { store.load() } }
     BackHandler(target != null) { target = null }
     if (target != null && !state.loading) {
@@ -109,7 +113,11 @@ fun WorkspaceBrowsersScreen(
                 Text("Under development", color = IntentScreen.secondaryText)
                 FlowRow {
                     IntentTextButton(onClick = onBack) { Text("Back") }
-                    IntentTextButton(onClick = onNew, enabled = !state.loading && state.error == null) {
+                    IntentTextButton(
+                        onClick = onNew,
+                        enabled =
+                        !state.loading && state.error == null
+                    ) {
                         Text("New browser")
                     }
                 }
@@ -131,7 +139,12 @@ fun WorkspaceBrowsersScreen(
         }
         items(state.browsers, key = { it.id }) { browser ->
             IntentSection(browser.title, onClick = { onOpen(browser) }) {
-                Text(browser.url, maxLines = 2, overflow = TextOverflow.Ellipsis, color = IntentScreen.secondaryText)
+                Text(
+                    browser.url,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    color = IntentScreen.secondaryText
+                )
                 IntentTextButton(onClick = { onRemove(browser.id) }, enabled = !state.loading) {
                     Text("Remove saved browser")
                 }

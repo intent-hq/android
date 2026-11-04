@@ -99,7 +99,9 @@ class TerminalStore(
                         mutableState.value = state.value.copy(
                             terminals = result.terminals,
                             names = result.terminals.mapNotNull { terminal ->
-                                names.get(result.daemonBootId, terminal.id)?.let { terminal.id to it }
+                                names.get(result.daemonBootId, terminal.id)?.let {
+                                    terminal.id to it
+                                }
                             }.toMap(),
                             selected = selected,
                             loading = false,
@@ -190,12 +192,20 @@ class TerminalStore(
     @Synchronized
     fun rename(id: String, name: String) {
         val bootId = boot ?: return
-        if (closed || state.value.terminals.none { it.id == id } || state.value.deleting == id) return
+        if (closed ||
+            state.value.terminals.none { it.id == id } ||
+            state.value.deleting == id
+        ) {
+            return
+        }
         val customName = name.trim().takeIf(String::isNotEmpty)
         names.set(bootId, id, customName)
         mutableState.value = state.value.copy(
-            names = if (customName == null) state.value.names - id else
+            names = if (customName == null) {
+                state.value.names - id
+            } else {
                 state.value.names + (id to customName)
+            }
         )
     }
 

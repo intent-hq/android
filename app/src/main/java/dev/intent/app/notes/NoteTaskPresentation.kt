@@ -21,7 +21,8 @@ internal fun parseNoteMarkdown(content: String, tasks: List<NoteTaskRow> = empty
     fun visit(node: Node) {
         if (node is ListItem) {
             val line = node.sourceSpans.firstOrNull()?.lineIndex?.let(lines::getOrNull)
-            if (line != null && noteTaskForItem(node, lines, tasks) != null &&
+            if (line != null &&
+                noteTaskForItem(node, lines, tasks) != null &&
                 line.trimStart().startsWith("- [/]")
             ) {
                 val text = node.children().filterIsInstance<Paragraph>().firstOrNull()?.firstChild
@@ -62,13 +63,16 @@ internal fun noteTaskBody(item: ListItem): List<Node> =
 internal fun linkedTaskId(task: NoteTaskRow): String? =
     (task.taskNoteId ?: task.linkedTaskNoteId)?.takeIf(::validNoteReference)
 
-internal fun validNoteReference(id: String): Boolean =
-    id.isNotBlank() && id != "." && id != ".." &&
-        id.none { it == '/' || it == '\\' || it == '?' || it == '#' || it.isISOControl() }
+internal fun validNoteReference(id: String): Boolean = id.isNotBlank() &&
+    id != "." &&
+    id != ".." &&
+    id.none { it == '/' || it == '\\' || it == '?' || it == '#' || it.isISOControl() }
 
 /** Relations are one-hop links, never recursively rendered, so cycles are harmless. */
 internal fun dependedOnBy(noteId: String, notes: List<Note>): List<String> = notes
-    .filter { !it.isArchived && it.id != noteId && noteId in it.metadata?.task?.dependsOn.orEmpty() }
+    .filter {
+        !it.isArchived && it.id != noteId && noteId in it.metadata?.task?.dependsOn.orEmpty()
+    }
     .map { it.id }.distinct().sorted()
 
 internal fun noteTruncationMessage(note: Note): String {

@@ -19,6 +19,8 @@ class PairingScannerActivity : CaptureActivity() {
     override fun onResume() {
         super.onResume()
         findViewById<DecoratedBarcodeView>(R.id.zxing_barcode_scanner)
-            .setStatusText("On your desktop, open Settings → Mobile. Point the camera at the QR code.")
+            .setStatusText(
+                "On your desktop, open Settings → Mobile. Point the camera at the QR code."
+            )
     }
 }

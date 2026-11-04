@@ -39,8 +39,7 @@ fun WorkspaceContent(
     sectionScope: String = ""
 ) {
     val context = LocalContext.current.applicationContext
-    val connectionId = dev.intent.app.history.LocalHistoryNavigation.current?.connectionId
-        ?: sectionScope
+    val connectionId = savedBrowserConnectionId(sectionScope)
     val openAgent = LocalOpenWorkspaceAgent.current
     val preferences = remember(context, sectionScope) {
         WorkspaceSectionPreferences(context, sectionScope)
@@ -167,3 +166,7 @@ private fun noteAgentSelection(
 ): ((String) -> Unit)? = open?.let { navigate ->
     { agentId -> navigate(workspaceId, agentId) }
 }
+
+@Composable
+private fun savedBrowserConnectionId(fallback: String): String =
+    dev.intent.app.history.LocalHistoryNavigation.current?.connectionId ?: fallback

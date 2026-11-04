@@ -81,12 +81,13 @@ class GitPresentationTest {
     @Test
     fun detailedDateIncludesLocalTimeAndRetainsUnrecognizedSourceValues() {
         val result = commitDateTime(
-            "2026-10-25T01:30:00Z", ZoneId.of("America/Los_Angeles"), Locale.US
+            "2026-10-25T01:30:00Z",
+            ZoneId.of("America/Los_Angeles"),
+            Locale.US
         )
         assertTrue(result.contains("Oct 24, 2026"))
         assertTrue(result.contains("6:30"))
         assertEquals("unknown format", commitDateTime("unknown format"))
         assertEquals("Date unavailable", commitDateTime(""))
     }
-
 }

@@ -109,7 +109,8 @@ private fun SavedConnectionSection(
             TextButton(onClick = { onSelect(connection.id) }, enabled = !state.busy) {
                 Text(
                     when {
-                        state.activeId == connection.id && state.session != null -> "Return to workspace"
+                        state.activeId == connection.id && state.session != null ->
+                            "Return to workspace"
                         state.activeId == connection.id -> "Reconnect"
                         else -> "Connect"
                     }
