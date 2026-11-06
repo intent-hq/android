@@ -246,15 +246,6 @@ private fun WorkspaceRow(workspace: Workspace) {
                             color = IntentScreen.secondaryText
                         )
                     }
-                    workspace.statusMessage?.takeIf { it.isNotBlank() }?.let {
-                        Text(
-                            it,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
                     WorkspaceRowBadges(workspace)
                     workspaceActivityLabel(workspace)?.let {
                         Text(
