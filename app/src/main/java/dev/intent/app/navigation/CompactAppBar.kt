@@ -45,8 +45,6 @@ fun CompactAppBar(
     leading: (@Composable () -> Unit)? = null,
     trailing: (@Composable () -> Unit)? = null
 ) {
-    var expanded by remember(title) { mutableStateOf(false) }
-    val menu = actions
     Row(
         Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(horizontal = 8.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -73,26 +71,32 @@ fun CompactAppBar(
             overflow = TextOverflow.Ellipsis
         )
         trailing?.invoke()
-        if (menu.isNotEmpty()) {
-            Box {
-                IconButton(
-                    onClick = { expanded = true },
-                    modifier = Modifier.size(48.dp).semantics {
-                        contentDescription = "More actions"
-                    }
-                        .background(MaterialTheme.colorScheme.surface, CircleShape)
-                ) { Icon(Icons.Default.MoreVert, contentDescription = null) }
-                DropdownMenu(expanded, onDismissRequest = { expanded = false }) {
-                    menu.forEach { action ->
-                        DropdownMenuItem(
-                            text = { ActionLabel(action) },
-                            enabled = action.enabled,
-                            onClick = {
-                                expanded = false
-                                action.run()
-                            }
-                        )
-                    }
+        ChromeActionsMenu(actions)
+    }
+}
+
+@Composable
+internal fun ChromeActionsMenu(actions: List<ChromeAction>) {
+    var expanded by remember { mutableStateOf(false) }
+    if (actions.isNotEmpty()) {
+        Box {
+            IconButton(
+                onClick = { expanded = true },
+                modifier = Modifier.size(48.dp).semantics {
+                    contentDescription = "More actions"
+                }
+                    .background(MaterialTheme.colorScheme.surface, CircleShape)
+            ) { Icon(Icons.Default.MoreVert, contentDescription = null) }
+            DropdownMenu(expanded, onDismissRequest = { expanded = false }) {
+                actions.forEach { action ->
+                    DropdownMenuItem(
+                        text = { ActionLabel(action) },
+                        enabled = action.enabled,
+                        onClick = {
+                            expanded = false
+                            action.run()
+                        }
+                    )
                 }
             }
         }

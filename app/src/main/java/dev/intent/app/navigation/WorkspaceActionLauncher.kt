@@ -9,14 +9,15 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBox
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Card
@@ -32,6 +33,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
@@ -42,8 +44,19 @@ import androidx.compose.ui.window.DialogProperties
 internal fun WorkspaceActionLauncher(actions: LauncherActions, modifier: Modifier = Modifier) {
     var open by rememberSaveable { mutableStateOf(false) }
     BackHandler(open) { open = false }
-    FloatingActionButton(onClick = { open = true }, modifier = modifier) {
-        Icon(Icons.Default.Menu, "Open app launcher")
+    FloatingActionButton(
+        onClick = { open = true },
+        modifier = modifier.size(80.dp),
+        shape = CircleShape,
+        containerColor = MaterialTheme.colorScheme.primary,
+        contentColor = MaterialTheme.colorScheme.onPrimary
+    ) {
+        Icon(
+            painterResource(dev.intent.app.R.drawable.intent_dandelion),
+            "Open app launcher",
+            Modifier.size(22.dp),
+            tint = MaterialTheme.colorScheme.onPrimary
+        )
     }
     if (open) {
         Dialog(

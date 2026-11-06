@@ -14,7 +14,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -25,9 +30,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
@@ -40,7 +47,7 @@ import dev.intent.app.design.IntentTabs
 import dev.intent.app.design.IntentTheme
 import dev.intent.app.lists.RefreshableList
 import dev.intent.app.navigation.ChromeAction
-import dev.intent.app.navigation.CompactAppBar
+import dev.intent.app.navigation.ChromeActionsMenu
 import dev.intent.core.protocol.models.Workspace
 
 @Suppress("LongParameterList", "LongMethod")
@@ -87,38 +94,38 @@ fun WorkspaceListScreen(
     val groups = workspaceGroups(state.workspaces, query, showArchived, grouping)
     val drawerButtons = dev.intent.app.drawers.LocalDrawerButtons.current
     Column(modifier) {
-        CompactAppBar(
-            "",
-            leading =
-            drawerButtons?.let {
-                { DrawerHeaderButton("Connections", "☰", it.connections) }
-            },
-            trailing =
-            drawerButtons?.let {
-                { DrawerHeaderButton("Agent history", "◷", it.history) }
-            },
-            actions =
-            listOf(
-                ChromeAction(if (showArchived) "Hide archived" else "Show archived") {
-                    showArchived = !showArchived
-                    revealedId = null
+        Row(
+            Modifier.fillMaxWidth().padding(IntentScreen.pageInsets),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                "Workspaces",
+                style = MaterialTheme.typography.headlineLarge,
+                modifier = Modifier.weight(1f).semantics {
+                    heading()
+                    drawerButtons?.let {
+                        customActions = listOf(
+                            CustomAccessibilityAction("Connections") {
+                                it.connections()
+                                true
+                            },
+                            CustomAccessibilityAction("Agent history") {
+                                it.history()
+                                true
+                            }
+                        )
+                    }
                 }
             )
-        )
-        Text(
-            "Workspaces",
-            style = MaterialTheme.typography.headlineLarge,
-            modifier = Modifier.padding(horizontal = IntentSpacing.page).semantics { heading() }
-        )
-        IntentTabs(
-            titles = WorkspaceGrouping.entries.map { it.label },
-            selectedIndex = grouping.ordinal,
-            onSelect = {
-                grouping = WorkspaceGrouping.entries[it]
-                revealedId = null
-            },
-            modifier = Modifier.padding(IntentSpacing.page)
-        )
+            ChromeActionsMenu(
+                listOf(
+                    ChromeAction(if (showArchived) "Hide archived" else "Show archived") {
+                        showArchived = !showArchived
+                        revealedId = null
+                    }
+                )
+            )
+        }
         dev.intent.app.lists.SearchableList(
             query,
             {
@@ -127,7 +134,30 @@ fun WorkspaceListScreen(
             },
             "Search workspaces",
             state.workspaces.isNotEmpty(),
-            launcher = dev.intent.app.navigation.LocalLauncherActions.current
+            launcher = dev.intent.app.navigation.LocalLauncherActions.current,
+            controls = { searching, toggleSearch ->
+                Row(
+                    Modifier.fillMaxWidth().padding(IntentScreen.pageInsets),
+                    horizontalArrangement = Arrangement.spacedBy(IntentSpacing.row),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IntentTabs(
+                        WorkspaceGrouping.entries.map { it.label },
+                        grouping.ordinal,
+                        {
+                            grouping = WorkspaceGrouping.entries[it]
+                            revealedId = null
+                        },
+                        Modifier.weight(1f)
+                    )
+                    IconButton(onClick = toggleSearch) {
+                        Icon(
+                            if (searching) Icons.Default.Close else Icons.Default.Search,
+                            if (searching) "Close workspace search" else "Search workspaces"
+                        )
+                    }
+                }
+            }
         ) { contentPadding ->
             RefreshableList(state.isLoading, onRefresh) {
                 LazyColumn(
@@ -318,12 +348,4 @@ private fun WorkspaceListPreview() {
             onWorkspaceSelected = {}
         )
     }
-}
-
-@Composable
-private fun DrawerHeaderButton(label: String, symbol: String, onClick: () -> Unit) {
-    androidx.compose.material3.IconButton(
-        onClick = onClick,
-        modifier = Modifier.semantics { contentDescription = label }
-    ) { Text(symbol) }
 }

@@ -4,7 +4,10 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.hasScrollAction
+import androidx.compose.ui.test.hasSetTextAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToIndex
@@ -40,7 +43,7 @@ class ListSpaceTest {
     @get:Rule val compose = createIntentComposeRule()
 
     @Test
-    fun workspaceLastRowClearsBothFloatingButtons() {
+    fun workspaceLastRowClearsLauncherAndSearchPreservesGrouping() {
         compose.setContent {
             IntentTheme {
                 CompositionLocalProvider(
@@ -59,10 +62,24 @@ class ListSpaceTest {
                 }
             }
         }
+        compose.onNodeWithText("Repo").performClick()
+        compose.onNodeWithContentDescription("Search workspaces").performClick()
+        compose.onNodeWithText("Search workspaces").performTextInput("Workspace 20")
+        compose.onNode(hasText("Workspace 20") and !hasSetTextAction()).assertIsDisplayed()
+        screenshot("workspace-grouping-search")
+        compose.onNodeWithContentDescription("Close search").performClick()
+        compose.onNodeWithText("Repo").assertIsSelected()
+        compose.onNodeWithText("Recent").performClick()
         scrollToEnd()
-        assertAboveButton("Workspace 20", "Search workspaces")
         assertAboveButton("Workspace 20", "Open app launcher")
         screenshot("workspace-button-clearance")
+        compose.onNodeWithContentDescription("Open app launcher").performClick()
+        compose.onNodeWithText("Connections: 1").assertIsDisplayed()
+        screenshot("workspace-intent-launcher")
+        compose.onNodeWithTag("launcher.tiles").performScrollToIndex(2)
+        compose.onNodeWithText("Settings").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Close app launcher").performClick()
+        compose.onNodeWithText("Workspace 20").assertIsDisplayed()
     }
 
     @Test
