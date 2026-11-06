@@ -53,6 +53,21 @@ class WssTransportTest {
     }
 
     @Test
+    fun `upgrade rejection exposes status without server content`() {
+        server().use { server ->
+            server.enqueue(MockResponse().setResponseCode(401).setStatus("HTTP/1.1 401 secret"))
+            val events = Events()
+            transport(server, fingerprint, events).use { transport ->
+                transport.connect()
+                val error = events.next() as WebSocketUpgradeException
+                assertEquals(401, error.statusCode)
+                assertFalse(error.toString().contains("secret"))
+                assertNull(error.cause)
+            }
+        }
+    }
+
+    @Test
     fun `mismatched certificate fails before HTTP auth`() {
         server().use { server ->
             val events = Events()

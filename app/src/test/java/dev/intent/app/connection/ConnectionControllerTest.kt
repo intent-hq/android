@@ -6,6 +6,7 @@ import dev.intent.app.conversation.SendStatus
 import dev.intent.app.workspaces.RpcWorkspaceSession
 import dev.intent.app.workspaces.WorkspaceStore
 import dev.intent.core.protocol.JsonRpcMessage
+import dev.intent.core.protocol.WebSocketUpgradeException
 import dev.intent.core.protocol.WssTransport
 import dev.intent.core.protocol.pairing.CredentialBytes
 import dev.intent.core.protocol.pairing.CredentialStore
@@ -28,6 +29,22 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ConnectionControllerTest {
+    @Test
+    fun `rejected pairing stops retrying and keeps saved connection for repair`() {
+        val repository = repository()
+        val saved = repository.add(payload())
+        val transports = LinkedBlockingQueue<FakeTransport>()
+        controller(repository, transports).use { controller ->
+            controller.select(saved.id)
+            val transport = transports.next()
+            transport.listener.onFailure(WebSocketUpgradeException(401))
+            await { controller.state.value.error?.startsWith("Pairing token rejected.") == true }
+            assertNull(controller.state.value.activeId)
+            assertNull(controller.state.value.session)
+            assertEquals(saved.payload, repository.list().single().payload)
+        }
+    }
+
     @Test
     fun `admission saves reported name and last connection time without changing credentials`() {
         val repository = repository()

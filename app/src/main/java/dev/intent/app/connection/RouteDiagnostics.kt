@@ -1,6 +1,7 @@
 package dev.intent.app.connection
 
 import android.util.Log
+import dev.intent.core.protocol.WebSocketUpgradeException
 import dev.intent.tailcat.NativeTunnelException
 
 /** Only sanitized native errors may include text. Other errors expose classes only. */
@@ -17,6 +18,11 @@ internal object RouteDiagnostics {
                 error?.let {
                     " exception=${it.javaClass.simpleName}" +
                         " cause=${it.cause?.javaClass?.simpleName}" +
+                        (
+                            (it as? WebSocketUpgradeException)?.let { upgrade ->
+                                " httpStatus=${upgrade.statusCode}"
+                            } ?: ""
+                            ) +
                         (
                             (it as? NativeTunnelException)?.let { native ->
                                 " detail=${native.diagnosticDetail}"

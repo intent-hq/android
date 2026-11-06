@@ -2,6 +2,7 @@ package dev.intent.app.connection
 
 import dev.intent.core.protocol.CertificateFingerprint
 import dev.intent.core.protocol.JsonRpcMessage
+import dev.intent.core.protocol.WebSocketUpgradeException
 import dev.intent.core.protocol.WssTransport
 import dev.intent.core.protocol.pairing.PairingPayload
 import dev.intent.core.protocol.session.SessionTransport
@@ -9,6 +10,7 @@ import dev.intent.core.protocol.session.pinnedSessionTransport
 import dev.intent.tailcat.Tailcat
 import dev.intent.tailcat.TunnelClientFactory
 import java.io.IOException
+import java.net.HttpURLConnection
 import java.util.concurrent.Executors
 import java.util.concurrent.RejectedExecutionException
 import java.util.concurrent.TimeUnit
@@ -35,6 +37,7 @@ internal class HostRacingTransport(
     private val closed = AtomicBoolean()
     private val started = AtomicBoolean()
     private val candidates = mutableListOf<Candidate>()
+    private var rejection: WebSocketUpgradeException? = null
 
     @Volatile private var winner: Candidate? = null
     val endpoint: String? get() = if (closed.get()) null else winner?.endpoint
@@ -144,10 +147,18 @@ internal class HostRacingTransport(
     private fun failed(candidate: Candidate, error: Throwable) {
         if (candidate.failed) return
         candidate.failed = true
+        if (error is WebSocketUpgradeException &&
+            error.statusCode in listOf(
+                HttpURLConnection.HTTP_UNAUTHORIZED,
+                HttpURLConnection.HTTP_FORBIDDEN
+            )
+        ) {
+            rejection = error
+        }
         RouteDiagnostics.record(candidate.route, "attempt", "failure", error)
         candidate.transport?.close()
         if (winner === candidate || (winner == null && candidates.all { it.failed })) {
-            listener.onFailure(error)
+            listener.onFailure(if (winner == null) rejection ?: error else error)
         }
     }
 

@@ -9,6 +9,7 @@ import dev.intent.tailcat.Tailcat
 import dev.intent.tailcat.TunnelClientFactory
 import dev.intent.tailcat.TunnelUnavailableException
 import java.io.Closeable
+import java.net.HttpURLConnection
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -146,10 +147,15 @@ class ConnectionController(
         }
         diagnostics.record(ConnectionEvent.valueOf(status.name))
         if (status == SessionState.CLOSED) {
+            val message = when (current?.rejectedStatusCode) {
+                HttpURLConnection.HTTP_UNAUTHORIZED ->
+                    "Pairing token rejected. Pair again with the desktop's current details."
+                HttpURLConnection.HTTP_FORBIDDEN ->
+                    "Connection refused. Enable Mobile access in desktop Settings."
+                else -> "Cannot verify identity. Reconnect to try again."
+            }
             stopSession()
-            mutableState.value = state.value.copy(
-                error = "Cannot verify identity. Reconnect to try again."
-            )
+            mutableState.value = state.value.copy(error = message)
             return
         }
         // Preserve the admitted session and Compose ownership during a transport retry.

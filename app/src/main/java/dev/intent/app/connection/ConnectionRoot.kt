@@ -2,6 +2,8 @@ package dev.intent.app.connection
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -19,6 +21,7 @@ import androidx.compose.ui.platform.LocalContext
 import dev.intent.app.attachments.AttachmentMedia
 import dev.intent.app.attachments.LocalAttachmentMedia
 import dev.intent.app.cache.RoomOfflineCache
+import dev.intent.app.design.IntentScreen
 import dev.intent.app.drawers.AgentHistoryDrawer
 import dev.intent.app.drawers.ConnectionsDrawer
 import dev.intent.app.drawers.DrawerPanels
@@ -106,7 +109,6 @@ fun ConnectionRoot(
         )
     ) {
         Column(modifier) {
-            state.error?.let { Text(it) }
             val utilityTitle = when {
                 utility == "Settings" -> "Settings"
                 utility == "Pair connection" || state.connections.isEmpty() -> "Pair connection"
@@ -117,6 +119,14 @@ fun ConnectionRoot(
                 CompactAppBar(
                     utilityTitle,
                     onBack = if (utilities.isNotEmpty()) back else null
+                )
+            }
+            state.error?.let {
+                Text(
+                    it,
+                    modifier = Modifier.padding(IntentScreen.pageInsets),
+                    color = IntentScreen.error,
+                    style = MaterialTheme.typography.bodyMedium
                 )
             }
             when {

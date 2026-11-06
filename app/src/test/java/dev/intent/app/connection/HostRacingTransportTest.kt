@@ -1,6 +1,7 @@
 package dev.intent.app.connection
 
 import dev.intent.core.protocol.JsonRpcMessage
+import dev.intent.core.protocol.WebSocketUpgradeException
 import dev.intent.core.protocol.WssTransport
 import dev.intent.core.protocol.pairing.PairingPayload
 import dev.intent.core.protocol.session.SessionTransport
@@ -19,6 +20,21 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class HostRacingTransportTest {
+    @Test
+    fun `authentication rejection survives an unreachable alternative host`() {
+        val sockets = LinkedBlockingQueue<FakeSocket>()
+        val events = Events()
+        race(events, sockets).use { race ->
+            race.connect()
+            val first = sockets.next()
+            val second = sockets.next()
+            first.listener.onFailure(WebSocketUpgradeException(401))
+            assertTrue(first.closed.await(2, TimeUnit.SECONDS))
+            second.listener.onFailure(IOException("unreachable"))
+            assertEquals(401, (events.queue.next() as WebSocketUpgradeException).statusCode)
+        }
+    }
+
     @Test
     fun `first successful direct host wins and late losers cannot deliver events`() {
         val sockets = LinkedBlockingQueue<FakeSocket>()

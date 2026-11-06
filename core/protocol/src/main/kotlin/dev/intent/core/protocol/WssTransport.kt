@@ -136,7 +136,7 @@ class WssTransport(
 
         override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) =
             active(current) {
-                fail(t)
+                fail(response?.let { WebSocketUpgradeException(it.code) } ?: t)
             }
     }
 
