@@ -14,6 +14,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -29,8 +30,16 @@ internal fun IntentLauncherButton(progress: Float, open: Boolean, onClick: () ->
             contentDescription = if (open) "Close app launcher" else "Open app launcher"
         },
         shape = RoundedCornerShape((40 - 20 * fraction).dp),
-        color = MaterialTheme.colorScheme.primary,
-        contentColor = MaterialTheme.colorScheme.onPrimary,
+        color = lerp(
+            MaterialTheme.colorScheme.primary,
+            MaterialTheme.colorScheme.surfaceContainerHighest,
+            fraction
+        ),
+        contentColor = lerp(
+            MaterialTheme.colorScheme.onPrimary,
+            MaterialTheme.colorScheme.onSurface,
+            fraction
+        ),
         shadowElevation = (10 * (1 - fraction)).dp
     ) {
         Box(contentAlignment = Alignment.Center) {
