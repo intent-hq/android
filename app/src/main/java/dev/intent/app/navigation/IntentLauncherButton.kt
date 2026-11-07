@@ -5,8 +5,6 @@ package dev.intent.app.navigation
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -55,7 +53,7 @@ internal fun IntentLauncherButton(progress: Float, open: Boolean, onClick: () ->
                 }
             )
             Icon(
-                Icons.Default.Close,
+                painterResource(R.drawable.intent_close),
                 null,
                 glyph.graphicsLayer {
                     rotationZ = -90 * (1 - fraction)
