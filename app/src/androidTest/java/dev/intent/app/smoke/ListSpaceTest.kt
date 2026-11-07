@@ -13,6 +13,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipe
 import androidx.compose.ui.test.swipeUp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -26,6 +27,7 @@ import dev.intent.app.navigation.WorkspaceDestination
 import dev.intent.app.notes.NoteListScreen
 import dev.intent.app.notes.NoteListState
 import dev.intent.app.settings.Appearance
+import dev.intent.app.testing.IntentTestTheme
 import dev.intent.app.testing.createIntentComposeRule
 import dev.intent.app.workspaces.WorkspaceDetailScreen
 import dev.intent.app.workspaces.WorkspaceListScreen
@@ -45,7 +47,7 @@ class ListSpaceTest {
     @Test
     fun workspaceLastRowClearsLauncherAndSearchPreservesGrouping() {
         compose.setContent {
-            IntentTheme {
+            IntentTestTheme {
                 CompositionLocalProvider(
                     LocalLauncherActions provides LauncherActions(1, Appearance.Dark, {}, {}, {})
                 ) {
@@ -62,6 +64,16 @@ class ListSpaceTest {
                 }
             }
         }
+        screenshot("workspace-grouping-top")
+        compose.onNode(hasScrollAction()).performScrollToIndex(4)
+        compose.onNode(hasScrollAction()).performTouchInput {
+            swipe(
+                androidx.compose.ui.geometry.Offset(centerX, height * 0.6f),
+                androidx.compose.ui.geometry.Offset(centerX, height * 0.6f - 144f),
+                durationMillis = 1_000
+            )
+        }
+        screenshot("workspace-grouping-fade")
         compose.onNodeWithText("Repo").performClick()
         compose.onNodeWithContentDescription("Search workspaces").performClick()
         compose.onNodeWithText("Search workspaces").performTextInput("Workspace 20")

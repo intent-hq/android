@@ -12,7 +12,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
@@ -32,6 +34,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.customActions
@@ -92,6 +97,8 @@ fun WorkspaceListScreen(
     var revealedId by rememberSaveable { mutableStateOf<String?>(null) }
     var grouping by rememberSaveable { mutableStateOf(WorkspaceGrouping.Recent) }
     val groups = workspaceGroups(state.workspaces, query, showArchived, grouping)
+    val listState = rememberLazyListState()
+    val canvas = IntentScreen.canvas
     val drawerButtons = dev.intent.app.drawers.LocalDrawerButtons.current
     Column(modifier) {
         Row(
@@ -161,7 +168,8 @@ fun WorkspaceListScreen(
         ) { contentPadding ->
             RefreshableList(state.isLoading, onRefresh) {
                 LazyColumn(
-                    Modifier.fillMaxSize(),
+                    Modifier.fillMaxSize().workspaceTopFade(listState, canvas),
+                    state = listState,
                     contentPadding = contentPadding,
                     verticalArrangement = Arrangement.spacedBy(0.dp)
                 ) {
@@ -206,6 +214,20 @@ fun WorkspaceListScreen(
                 }
             }
         }
+    }
+}
+
+private fun Modifier.workspaceTopFade(state: LazyListState, canvas: Color) = drawWithCache {
+    val height = IntentSpacing.page.toPx()
+    val brush = Brush.verticalGradient(listOf(canvas, canvas.copy(alpha = 0f)), endY = height)
+    onDrawWithContent {
+        drawContent()
+        val opacity = if (state.firstVisibleItemIndex > 0) {
+            1f
+        } else {
+            (state.firstVisibleItemScrollOffset / height).coerceIn(0f, 1f)
+        }
+        if (opacity > 0f) drawRect(brush, size = Size(size.width, height), alpha = opacity)
     }
 }
 
