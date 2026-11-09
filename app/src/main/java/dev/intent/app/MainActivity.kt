@@ -11,6 +11,7 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -22,6 +23,7 @@ import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
 import dev.intent.app.connection.ConnectionRoot
 import dev.intent.app.connection.ConnectionViewModel
+import dev.intent.app.connection.LocalNetworkPermissionGate
 import dev.intent.app.connection.PairingScannerActivity
 import dev.intent.app.design.IntentTheme
 import dev.intent.app.settings.AppPreferences
@@ -31,6 +33,7 @@ class MainActivity : ComponentActivity() {
     private val model by lazy { ViewModelProvider(this)[ConnectionViewModel::class.java] }
     private var notificationWorkspace by mutableStateOf<Pair<String, String>?>(null)
     private val preferences by lazy { AppPreferences(applicationContext) }
+    private var pendingIntent by mutableStateOf<Intent?>(null)
     private val scanner = registerForActivityResult(ScanContract()) { result ->
         result.contents?.let(model.controller::prepareLink)
     }
@@ -38,7 +41,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        if (savedInstanceState == null) acceptLink(intent)
+        if (savedInstanceState == null) pendingIntent = intent
         setContent {
             val appearance by preferences.appearance.collectAsState()
             val darkTheme = when (appearance) {
@@ -52,21 +55,27 @@ class MainActivity : ComponentActivity() {
             }
             IntentTheme(darkTheme = darkTheme) {
                 Scaffold { padding ->
-                    ConnectionRoot(
-                        model.controller,
-                        preferences = preferences,
-                        notificationWorkspace = notificationWorkspace,
-                        onScan = {
-                            scanner.launch(
-                                ScanOptions().setDesiredBarcodeFormats(ScanOptions.QR_CODE)
-                                    .setCaptureActivity(PairingScannerActivity::class.java)
-                                    .setOrientationLocked(false)
-                                    .setPrompt("Scan the Intent pairing code")
-                                    .setBeepEnabled(false).setBarcodeImageEnabled(false)
-                            )
-                        },
-                        modifier = Modifier.fillMaxSize().padding(padding)
-                    )
+                    LocalNetworkPermissionGate(Modifier.fillMaxSize().padding(padding)) {
+                        LaunchedEffect(pendingIntent) {
+                            pendingIntent?.let(::acceptLink)
+                            pendingIntent = null
+                        }
+                        ConnectionRoot(
+                            model.controller,
+                            preferences = preferences,
+                            notificationWorkspace = notificationWorkspace,
+                            onScan = {
+                                scanner.launch(
+                                    ScanOptions().setDesiredBarcodeFormats(ScanOptions.QR_CODE)
+                                        .setCaptureActivity(PairingScannerActivity::class.java)
+                                        .setOrientationLocked(false)
+                                        .setPrompt("Scan the Intent pairing code")
+                                        .setBeepEnabled(false).setBarcodeImageEnabled(false)
+                                )
+                            },
+                            modifier = Modifier.fillMaxSize().padding(padding)
+                        )
+                    }
                 }
             }
         }
@@ -74,7 +83,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        acceptLink(intent)
+        pendingIntent = intent
     }
 
     private fun acceptLink(intent: Intent) {
