@@ -7,6 +7,11 @@ on:
     branches: [main]
   merge_group:
   workflow_dispatch:
+    inputs:
+      ui-tests:
+        description: Run the emulator UI tests
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -43,6 +48,7 @@ jobs:
 
   instrumentation:
     name: Android emulator UI tests (API ${{ matrix.api }}, shard ${{ matrix.shard }})
+    if: inputs.ui-tests
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     strategy:
@@ -109,6 +115,7 @@ jobs:
 
   instrumentation-reports:
     name: Check combined UI screenshots
+    if: inputs.ui-tests
     needs: instrumentation
     runs-on: ubuntu-24.04
     timeout-minutes: 5

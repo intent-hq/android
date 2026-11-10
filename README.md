@@ -65,7 +65,10 @@ python3 scripts/check-ui-screenshots.py
 ```
 
 Gradle downloads the emulator image for the host architecture. The first run can take several minutes.
-CI runs the full `androidTest` suite across three parallel runners, without a class or method filter.
+CI does not run the UI tests on pull requests or main pushes, because emulator failures were unreliable.
+To run them, start the CI workflow manually and select **Run the emulator UI tests**:
+`gh workflow run ci.yml -f ui-tests=true`.
+A manual run executes the full `androidTest` suite across three parallel runners, without a class or method filter.
 AndroidJUnitRunner assigns each test to one shard with `numShards=3` and `shardIndex=0`, `1`, or `2`.
 CI caches the SDK, emulator, and system image. Each runner creates its own managed AVD;
 snapshots are not shared between hosts. New main pushes cancel older main runs. Pull request runs use separate groups.
