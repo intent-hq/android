@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.longClick
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -105,7 +107,7 @@ class WorkspaceActionsTest {
         compose.onNodeWithContentDescription("Back").performClick()
         compose.onNodeWithTag("workspace.row.workspace").performTouchInput { swipeRight() }
         waitFor("Message")
-        compose.onNodeWithText("Recent delegate").assertIsDisplayed()
+        compose.onAllNodesWithText("Recent delegate").onFirst().assertIsDisplayed()
         assertTrue(
             server.requests.any {
                 it.method == "agent.getConversation" && it.params.toString().contains("recent")

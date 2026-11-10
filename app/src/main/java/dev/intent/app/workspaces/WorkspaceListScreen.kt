@@ -157,12 +157,7 @@ fun WorkspaceListScreen(
                         },
                         Modifier.weight(1f)
                     )
-                    IconButton(onClick = toggleSearch) {
-                        Icon(
-                            if (searching) Icons.Default.Close else Icons.Default.Search,
-                            if (searching) "Close workspace search" else "Search workspaces"
-                        )
-                    }
+                    WorkspaceSearchButton(searching, state.workspaces.isNotEmpty(), toggleSearch)
                 }
             }
         ) { contentPadding ->
@@ -359,6 +354,21 @@ private fun WorkspaceListPreview() {
             ),
             onRefresh = {},
             onWorkspaceSelected = {}
+        )
+    }
+}
+
+@Composable
+private fun WorkspaceSearchButton(
+    searching: Boolean,
+    hasWorkspaces: Boolean,
+    onToggle: () -> Unit
+) {
+    if (!searching && !hasWorkspaces) return
+    IconButton(onClick = onToggle) {
+        Icon(
+            if (searching) Icons.Default.Close else Icons.Default.Search,
+            if (searching) "Close workspace search" else "Search workspaces"
         )
     }
 }
