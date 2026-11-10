@@ -6,11 +6,15 @@ import dev.intent.app.conversation.SendStatus
 import dev.intent.app.workspaces.RpcWorkspaceSession
 import dev.intent.app.workspaces.WorkspaceStore
 import dev.intent.core.protocol.JsonRpcMessage
+import dev.intent.core.protocol.WebSocketUpgradeException
 import dev.intent.core.protocol.WssTransport
 import dev.intent.core.protocol.pairing.CredentialBytes
 import dev.intent.core.protocol.pairing.CredentialStore
 import dev.intent.core.protocol.pairing.PairingPayload
 import dev.intent.core.protocol.session.SessionTransport
+import dev.intent.tailcat.TunnelClient
+import dev.intent.tailcat.TunnelClientFactory
+import dev.intent.tailcat.UnavailableTunnelClientFactory
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
 import javax.crypto.KeyGenerator
@@ -25,6 +29,22 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ConnectionControllerTest {
+    @Test
+    fun `rejected pairing stops retrying and keeps saved connection for repair`() {
+        val repository = repository()
+        val saved = repository.add(payload())
+        val transports = LinkedBlockingQueue<FakeTransport>()
+        controller(repository, transports).use { controller ->
+            controller.select(saved.id)
+            val transport = transports.next()
+            transport.listener.onFailure(WebSocketUpgradeException(401))
+            await { controller.state.value.error?.startsWith("Pairing token rejected.") == true }
+            assertNull(controller.state.value.activeId)
+            assertNull(controller.state.value.session)
+            assertEquals(saved.payload, repository.list().single().payload)
+        }
+    }
+
     @Test
     fun `admission saves reported name and last connection time without changing credentials`() {
         val repository = repository()
@@ -193,14 +213,44 @@ class ConnectionControllerTest {
     }
 
     @Test
-    fun `invalid and tunnel only links never connect and errors redact tokens`() {
-        val transports = LinkedBlockingQueue<FakeTransport>()
-        controller(repository(), transports).use { controller ->
+    fun `tunnel only links explain unavailable builds and redact tokens`() {
+        ConnectionController(
+            repository(),
+            tunnels = UnavailableTunnelClientFactory
+        ).use { controller ->
             controller.prepareLink("intent://pair?port=443&token=SECRET&tc=tunnel")
             await { controller.state.value.error != null }
             assertNull(controller.state.value.pending)
             assertFalse(controller.state.value.error!!.contains("SECRET"))
+            assertEquals(TUNNEL_UNAVAILABLE_MESSAGE, controller.state.value.error)
+            assertNull(controller.state.value.session)
+        }
+    }
+
+    @Test
+    fun `pinned tunnel only pairing requires confirmation before admission`() {
+        val repository = repository()
+        val transports = LinkedBlockingQueue<FakeTransport>()
+        val tunnels = object : TunnelClientFactory {
+            override val available = true
+            override fun createClient(token: String): TunnelClient = error("No probe with a pin")
+        }
+        ConnectionController(repository, { saved, callback ->
+            createConnectionSession(saved, callback) { listener ->
+                FakeTransport(listener).also(transports::add)
+            }
+        }, tunnels = tunnels).use { controller ->
+            controller.prepareLink(
+                "intent://pair?port=5181&token=secret&tc=tunnel&fp=${"AB".repeat(32)}"
+            )
+            await { controller.state.value.pending != null }
+            assertTrue(repository.list().isEmpty())
             assertTrue(transports.isEmpty())
+            controller.confirmPairing()
+            admit(transports.next(), "person-a")
+            await { controller.state.value.session != null }
+            assertTrue(repository.list().single().payload.hosts.isEmpty())
+            assertEquals("tunnel", repository.list().single().payload.tcAddress)
         }
     }
 
@@ -269,6 +319,7 @@ class ConnectionControllerTest {
             admit(first, "person-a")
             await { controller.state.value.session != null }
             val admitted = controller.state.value
+            assertFalse(admitted.isRecovering)
             val session = requireNotNull(admitted.session)
             ConversationSendStore(RpcConversationCommands(session, "workspace", "agent"), "agent")
                 .use { sends ->
@@ -280,6 +331,7 @@ class ConnectionControllerTest {
                     assertEquals("agent.sendMessage", send.method)
                     val id = (send.params as JsonObject)["messageId"] as JsonPrimitive
                     first.listener.onClosed(1006, "lost")
+                    await { controller.state.value.isRecovering }
                     await { sends.state.value.attempts.single().status == SendStatus.UNCONFIRMED }
                     // These are the exact keys used by ConnectedContent and remember(session).
                     assertSame(session, controller.state.value.session)
@@ -289,6 +341,7 @@ class ConnectionControllerTest {
                     admit(next, "person-a")
                     serveConversation(next, id.content)
                     await { sends.state.value.attempts.isEmpty() }
+                    await { !controller.state.value.isRecovering }
                     assertSame(session, controller.state.value.session)
                     assertEquals(admitted.cacheScope, controller.state.value.cacheScope)
                     assertEquals(1, first.methods.count { it == "agent.sendMessage" })

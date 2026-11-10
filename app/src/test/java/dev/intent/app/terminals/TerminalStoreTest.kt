@@ -15,6 +15,26 @@ import org.junit.Test
 
 class TerminalStoreTest {
     @Test
+    fun localNamesSurviveRefreshAndResetToDefaultWithoutWritingToTheShell() {
+        val source = FakeTerminals()
+        val store = ready(source)
+        store.rename("term", "  Build logs  ")
+        assertEquals("Build logs", store.state.value.title(store.state.value.terminals.single()))
+        store.rename("missing", "Ignored")
+        assertEquals(setOf("term"), store.state.value.names.keys)
+        source.subscribed()
+        source.lists.last().complete(list())
+        assertEquals("Build logs", store.state.value.names["term"])
+        store.rename("term", "  ")
+        assertEquals("Terminal", store.state.value.title(store.state.value.terminals.single()))
+        store.rename("term", "Old boot")
+        source.subscribed()
+        source.lists.last().complete(list().copy(daemonBootId = "next-boot"))
+        assertTrue(store.state.value.names.isEmpty())
+        assertTrue(source.writes.isEmpty())
+    }
+
+    @Test
     fun snapshotAndDelayedEventsAppendOnlyUnseenBytes() {
         val source = FakeTerminals()
         val store = selected(source)

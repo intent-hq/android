@@ -2,12 +2,14 @@ package dev.intent.core.protocol.session
 
 import dev.intent.core.protocol.JsonRpcMessage
 import dev.intent.core.protocol.RpcError
+import dev.intent.core.protocol.WebSocketUpgradeException
 import dev.intent.core.protocol.WssTransport
 import dev.intent.core.protocol.browser.BrowserTunnel
 import dev.intent.core.protocol.browser.TunnelFrame
 import dev.intent.core.protocol.browser.TunnelTransport
 import java.io.Closeable
 import java.io.IOException
+import java.net.HttpURLConnection
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledExecutorService
@@ -50,6 +52,10 @@ class RpcSession(
 
     @Volatile
     var principalId: String? = null
+        private set
+
+    @Volatile
+    var rejectedStatusCode: Int? = null
         private set
 
     @Volatile
@@ -203,7 +209,17 @@ class RpcSession(
             override fun onOpen() = dispatch(current) { handshake() }
             override fun onMessage(message: JsonRpcMessage) = dispatch(current) { receive(message) }
             override fun onClosed(code: Int, reason: String) = dispatch(current) { disconnected() }
-            override fun onFailure(error: Throwable) = dispatch(current) { disconnected() }
+            override fun onFailure(error: Throwable) = dispatch(current) {
+                val code = (error as? WebSocketUpgradeException)?.statusCode
+                if (code == HttpURLConnection.HTTP_UNAUTHORIZED ||
+                    code == HttpURLConnection.HTTP_FORBIDDEN
+                ) {
+                    rejectedStatusCode = code
+                    close()
+                } else {
+                    disconnected()
+                }
+            }
         }
         try {
             transport = transportFactory(listener)

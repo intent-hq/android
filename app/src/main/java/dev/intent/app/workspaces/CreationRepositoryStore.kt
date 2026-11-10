@@ -6,6 +6,8 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.put
 
+data class CreationBranchChoices(val branches: List<String>, val defaultBranch: String)
+
 class CreationRepositoryStore(private val operations: WorkspaceOperations) {
     fun repositories(query: String): List<CreationRepository> {
         val recent = if (query.isBlank()) {
@@ -35,7 +37,10 @@ class CreationRepositoryStore(private val operations: WorkspaceOperations) {
         }.distinctBy { it.fullName }
     }
 
-    fun branches(repository: CreationRepository, query: String): List<String> {
+    fun branches(repository: CreationRepository, query: String): List<String> =
+        branchChoices(repository, query).branches
+
+    fun branchChoices(repository: CreationRepository, query: String): CreationBranchChoices {
         val params = buildJsonObject {
             put("owner", repository.owner)
             put("repo", repository.name)
@@ -51,13 +56,14 @@ class CreationRepositoryStore(private val operations: WorkspaceOperations) {
                 operations.request("github.repos.get", params).obj("repo").string("defaultBranch")
             }.getOrDefault("")
         }
-        return (
+        val choices = (
             listOf(default).filter {
                 it.isNotBlank() &&
                     (query.isBlank() || it.startsWith(query))
             } +
                 branches
             ).distinct()
+        return CreationBranchChoices(choices, default)
     }
 
     fun checkDestination(path: String) {

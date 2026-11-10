@@ -6,19 +6,30 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import dev.intent.app.BuildConfig
+import dev.intent.app.R
 import dev.intent.app.design.IntentScreen
 import dev.intent.app.design.IntentSection
 import dev.intent.app.design.IntentTextButton as TextButton
@@ -35,6 +46,7 @@ fun ConnectionSettings(
     preferences: AppPreferences,
     state: ConnectionState = ConnectionState(),
     onDisconnect: (() -> Unit)? = null,
+    onPair: (() -> Unit)? = null,
     onConnections: () -> Unit
 ) {
     val context = LocalContext.current
@@ -47,6 +59,7 @@ fun ConnectionSettings(
         rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
             permissionFlow.onPermissionResult(it)
         }
+    var acknowledgements by rememberSaveable { mutableStateOf(false) }
     var report by remember { mutableStateOf<String?>(null) }
     Column(
         modifier.verticalScroll(rememberScrollState()).intentPageInsets(),
@@ -72,6 +85,14 @@ fun ConnectionSettings(
             }) { Text("Android notification settings") }
         }
         ConnectionsSection(state, onConnections)
+        onPair?.let { pair ->
+            IntentSection("Pair new computer") {
+                SettingsDescription(
+                    "Scan a QR code or enter connection details from Intent on your computer."
+                )
+                TextButton(onClick = pair) { Text("Pair computer") }
+            }
+        }
         IntentSection("Diagnostics") {
             SettingsDescription("Connection diagnostics — under development")
             TextButton(onClick = { report = diagnostics.report() }) { Text("View diagnostics") }
@@ -91,10 +112,13 @@ fun ConnectionSettings(
             }
         }
         AboutSection()
+        TextButton(onClick = { acknowledgements = true }) { Text("Acknowledgements") }
         if (state.activeId != null && onDisconnect != null) {
+            SettingsDescription("Disconnect keeps this computer saved so you can reconnect later.")
             TextButton(onClick = onDisconnect) { Text("Disconnect") }
         }
     }
+    if (acknowledgements) AcknowledgementsDialog { acknowledgements = false }
 }
 
 @Composable
@@ -131,5 +155,48 @@ private fun ConnectionsSection(state: ConnectionState, onConnections: () -> Unit
         }
         SettingsDescription("Connect to a saved computer or add a connection.")
         TextButton(onClick = onConnections) { Text("Manage connections") }
+    }
+}
+
+@Composable
+private fun AcknowledgementsDialog(onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    val licenses = remember(context) {
+        listOf(
+            "Inter" to context.resources.openRawResource(R.raw.inter_license)
+                .bufferedReader().use { it.readText() },
+            "Mermaid renderer" to context.assets.open("mermaid/NOTICE.txt")
+                .bufferedReader().use { it.readText() }
+        )
+    }
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(shape = MaterialTheme.shapes.large) {
+            Column(Modifier.padding(16.dp)) {
+                Text(
+                    "Acknowledgements",
+                    Modifier.semantics { heading() },
+                    style = MaterialTheme.typography.titleMedium
+                )
+                TextButton(onClick = onDismiss) { Text("Close acknowledgements") }
+                LazyColumn(
+                    Modifier.fillMaxSize().testTag("settings.acknowledgements"),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    item {
+                        SettingsDescription("License notices bundled with this app.")
+                    }
+                    licenses.forEach { (name, license) ->
+                        item {
+                            Text(
+                                name,
+                                Modifier.semantics { heading() },
+                                style = MaterialTheme.typography.titleSmall
+                            )
+                            Text(license, style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                }
+            }
+        }
     }
 }

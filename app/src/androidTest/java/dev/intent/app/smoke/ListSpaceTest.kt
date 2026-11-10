@@ -4,12 +4,16 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.hasScrollAction
+import androidx.compose.ui.test.hasSetTextAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipe
 import androidx.compose.ui.test.swipeUp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -23,6 +27,7 @@ import dev.intent.app.navigation.WorkspaceDestination
 import dev.intent.app.notes.NoteListScreen
 import dev.intent.app.notes.NoteListState
 import dev.intent.app.settings.Appearance
+import dev.intent.app.testing.IntentTestTheme
 import dev.intent.app.testing.createIntentComposeRule
 import dev.intent.app.workspaces.WorkspaceDetailScreen
 import dev.intent.app.workspaces.WorkspaceListScreen
@@ -40,9 +45,9 @@ class ListSpaceTest {
     @get:Rule val compose = createIntentComposeRule()
 
     @Test
-    fun workspaceLastRowClearsBothFloatingButtons() {
+    fun workspaceLastRowClearsLauncherAndSearchPreservesGrouping() {
         compose.setContent {
-            IntentTheme {
+            IntentTestTheme {
                 CompositionLocalProvider(
                     LocalLauncherActions provides LauncherActions(1, Appearance.Dark, {}, {}, {})
                 ) {
@@ -59,10 +64,34 @@ class ListSpaceTest {
                 }
             }
         }
+        screenshot("workspace-grouping-top")
+        compose.onNode(hasScrollAction()).performScrollToIndex(4)
+        compose.onNode(hasScrollAction()).performTouchInput {
+            swipe(
+                androidx.compose.ui.geometry.Offset(centerX, height * 0.6f),
+                androidx.compose.ui.geometry.Offset(centerX, height * 0.6f - 144f),
+                durationMillis = 1_000
+            )
+        }
+        screenshot("workspace-grouping-fade")
+        compose.onNodeWithText("Repo").performClick()
+        compose.onNodeWithContentDescription("Search workspaces").performClick()
+        compose.onNodeWithText("Search workspaces").performTextInput("Workspace 20")
+        compose.onNode(hasText("Workspace 20") and !hasSetTextAction()).assertIsDisplayed()
+        screenshot("workspace-grouping-search")
+        compose.onNodeWithContentDescription("Close search").performClick()
+        compose.onNodeWithText("Repo").assertIsSelected()
+        compose.onNodeWithText("Recent").performClick()
         scrollToEnd()
-        assertAboveButton("Workspace 20", "Search workspaces")
         assertAboveButton("Workspace 20", "Open app launcher")
         screenshot("workspace-button-clearance")
+        compose.onNodeWithContentDescription("Open app launcher").performClick()
+        compose.onNodeWithText("Connections: 1").assertIsDisplayed()
+        screenshot("workspace-intent-launcher")
+        compose.onNodeWithTag("launcher.tiles").performScrollToIndex(2)
+        compose.onNodeWithText("Settings").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Close app launcher").performClick()
+        compose.onNodeWithText("Workspace 20").assertIsDisplayed()
     }
 
     @Test

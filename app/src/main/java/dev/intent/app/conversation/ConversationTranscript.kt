@@ -2,6 +2,7 @@ package dev.intent.app.conversation
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -32,6 +33,7 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 
@@ -138,7 +140,7 @@ internal fun ConversationTranscript(
             CircularProgressIndicator(Modifier.align(Alignment.TopCenter).size(24.dp))
         }
         if (state.showsEmptyTranscript()) {
-            Text("No messages yet", Modifier.align(Alignment.Center))
+            EmptyConversation(Modifier.align(Alignment.Center))
         }
         state.error?.let {
             Text(it, Modifier.align(Alignment.TopCenter), color = MaterialTheme.colorScheme.error)
@@ -152,6 +154,36 @@ internal fun ConversationTranscript(
                     }
                 }) { Text("New messages ↓") }
             }
+        }
+    }
+}
+
+@Composable
+private fun EmptyConversation(modifier: Modifier = Modifier) {
+    val agent = dev.intent.app.agents.LocalConversationAgent.current
+    Column(
+        modifier.padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        agent?.name?.takeIf { it.isNotBlank() }?.let {
+            Text(it, style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center)
+        }
+        agent?.metadata.string("specialist")?.takeIf { it.isNotBlank() }?.let {
+            Text(
+                "Specialist · $it",
+                style = MaterialTheme.typography.bodySmall,
+                textAlign = TextAlign.Center
+            )
+        }
+        Text("No messages yet", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        agent?.model?.takeIf { it.isNotBlank() }?.let {
+            Text(
+                "Using $it",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center
+            )
         }
     }
 }

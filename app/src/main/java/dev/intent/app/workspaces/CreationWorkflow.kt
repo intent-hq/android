@@ -28,7 +28,10 @@ class CreationWorkflow(
             require(catalog.providers.any { it.id == current.provider && it.selectable }) {
                 "Choose a signed-in provider. Refresh agent choices."
             }
-            require(catalog.specialists.any { it.id == current.specialist }) {
+            require(
+                current.specialist.isBlank() ||
+                    catalog.specialists.any { it.id == current.specialist }
+            ) {
                 "Choose a specialist. Refresh agent choices."
             }
             val models = options.models(current.provider)

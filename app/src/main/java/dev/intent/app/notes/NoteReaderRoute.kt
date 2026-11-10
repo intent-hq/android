@@ -18,13 +18,16 @@ import dev.intent.app.comments.CommentStore
 import dev.intent.app.navigation.ChromeAction
 
 /** Route entry point; the caller owns the shared session, this route owns its note subscription. */
+@Suppress("LongParameterList") // Session scope and optional navigation callbacks.
 @Composable
 fun NoteReaderRoute(
     source: NoteSource,
     workspaceId: String,
     noteId: String,
     modifier: Modifier = Modifier,
-    cache: OfflineCache? = null
+    cache: OfflineCache? = null,
+    onNoteSelected: ((String) -> Unit)? = null,
+    onAgentSelected: ((String) -> Unit)? = null
 ) {
     val store = remember(source, workspaceId, noteId, cache) { NoteStore(source, cache) }
     var state by remember(store) { mutableStateOf(store.state) }
@@ -64,7 +67,10 @@ fun NoteReaderRoute(
                 modifier = Modifier.weight(1f),
                 onTaskStatus = store::updateLine,
                 onNoteStatus = store::updateStatus,
-                actions = actions
+                actions = actions,
+                onNoteSelected = onNoteSelected,
+                onAgentSelected = onAgentSelected,
+                onLinkedTaskStatus = store::updateLinkedStatus
             )
         }
     }

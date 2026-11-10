@@ -3,7 +3,9 @@
 package dev.intent.app.workspaces
 
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material3.Badge
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -15,12 +17,15 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import dev.intent.app.design.IntentButton
+import dev.intent.app.design.IntentScreen
+import dev.intent.app.design.IntentSection
 import dev.intent.app.design.IntentTextField
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+@Suppress("LongMethod") // Repository search and owner groups share one selection state.
 @Composable
 internal fun CreationRepositories(workflow: CreationWorkflow, enabled: Boolean) {
     val draft by workflow.draft.collectAsState()
@@ -43,7 +48,7 @@ internal fun CreationRepositories(workflow: CreationWorkflow, enabled: Boolean) 
             loading = false
         }
     }
-    Text("Repository")
+    Text("Choose a repository", style = MaterialTheme.typography.titleMedium)
     IntentButton(onClick = {
         workflow.update(draft.copy(step = CreationStep.NEW_REPOSITORY, newRepository = true))
     }, enabled = enabled) { Text("New repository") }
@@ -52,14 +57,29 @@ internal fun CreationRepositories(workflow: CreationWorkflow, enabled: Boolean) 
     }, label = { Text("Search repositories") }, modifier = Modifier.fillMaxWidth())
     if (loading) Text("Loading repositories…")
     error?.let {
-        Text(it)
+        Text(it, color = IntentScreen.error)
         IntentButton(onClick = { retry++ }) { Text("Retry repositories") }
     }
-    if (!loading && error == null && rows.isEmpty()) Text("No repositories found.")
-    rows.forEach { repo ->
-        FilterChip(selected = draft.repository == repo, onClick = {
-            workflow.update(draft.select(repo))
-        }, label = { Text(repo.fullName) }, enabled = enabled)
+    if (!loading && error == null && rows.isEmpty()) {
+        Text(
+            if (query.isBlank()) {
+                "No repositories available. Create one above or check GitHub sign-in on the host."
+            } else {
+                "No repositories match your search. Try another name or owner/repository."
+            },
+            color = IntentScreen.secondaryText
+        )
+    }
+    if (!loading && error == null) {
+        rows.groupBy { it.owner }.forEach { (owner, repositories) ->
+            IntentSection(owner) {
+                repositories.forEach { repo ->
+                    FilterChip(selected = draft.repository?.fullName == repo.fullName, onClick = {
+                        workflow.update(draft.select(repo))
+                    }, label = { Text(repo.name) }, enabled = enabled)
+                }
+            }
+        }
     }
     IntentButton(
         onClick = { workflow.update(draft.copy(step = CreationStep.BRANCH)) },
@@ -68,6 +88,8 @@ internal fun CreationRepositories(workflow: CreationWorkflow, enabled: Boolean) 
     ) { Text("Choose branch") }
 }
 
+// Branch search, default badge, and selection share one load.
+@Suppress("LongMethod", "CyclomaticComplexMethod")
 @Composable
 internal fun CreationBranches(workflow: CreationWorkflow, enabled: Boolean) {
     val draft by workflow.draft.collectAsState()
@@ -75,6 +97,7 @@ internal fun CreationBranches(workflow: CreationWorkflow, enabled: Boolean) {
     var query by remember { mutableStateOf("") }
     var retry by remember { mutableStateOf(0) }
     var rows by remember { mutableStateOf(emptyList<String>()) }
+    var defaultBranch by remember(repository) { mutableStateOf(repository.defaultBranch) }
     var error by remember { mutableStateOf<String?>(null) }
     var loading by remember { mutableStateOf(true) }
     LaunchedEffect(repository, query, retry) {
@@ -82,9 +105,13 @@ internal fun CreationBranches(workflow: CreationWorkflow, enabled: Boolean) {
         error = null
         delay(CREATION_SEARCH_DELAY)
         try {
-            rows = withContext(Dispatchers.IO) { workflow.repositories.branches(repository, query) }
+            val choices = withContext(Dispatchers.IO) {
+                workflow.repositories.branchChoices(repository, query)
+            }
+            rows = choices.branches
+            defaultBranch = choices.defaultBranch
             if (query.isBlank() &&
-                draft.baseRef !in rows
+                workflow.draft.value.baseRef !in rows
             ) {
                 workflow.update(
                     workflow.draft.value.copy(baseRef = rows.firstOrNull().orEmpty())
@@ -99,19 +126,46 @@ internal fun CreationBranches(workflow: CreationWorkflow, enabled: Boolean) {
                 false
         }
     }
-    Text(repository.fullName)
+    CreationSourceSummary(draft)
     IntentTextField(query, {
         query = it
     }, label = { Text("Search branches") }, modifier = Modifier.fillMaxWidth())
     if (loading) Text("Loading branches…")
     error?.let {
-        Text(it)
+        Text(it, color = IntentScreen.error)
         IntentButton(onClick = { retry++ }) { Text("Retry branches") }
     }
-    rows.forEach { branch ->
-        FilterChip(selected = draft.baseRef == branch, onClick = {
-            workflow.update(draft.copy(baseRef = branch))
-        }, label = { Text(branch) }, enabled = enabled)
+    IntentSection("Branches") {
+        if (!loading && error == null && rows.isEmpty()) {
+            Text(
+                if (query.isBlank()) {
+                    "This repository has no branches. Push an initial commit on the host, then reopen this step."
+                } else {
+                    "No branches match your search. Try a different branch name."
+                },
+                color = IntentScreen.secondaryText
+            )
+        }
+        if (!loading && error == null) {
+            rows.forEach { branch ->
+                FilterChip(
+                    selected = draft.baseRef == branch,
+                    onClick = { workflow.update(draft.copy(baseRef = branch)) },
+                    label = { Text(branch) },
+                    trailingIcon = if (branch == defaultBranch) {
+                        {
+                            Badge(
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                contentColor = IntentScreen.secondaryText
+                            ) { Text("Default") }
+                        }
+                    } else {
+                        null
+                    },
+                    enabled = enabled
+                )
+            }
+        }
     }
     IntentButton(
         onClick = { workflow.update(draft.copy(step = CreationStep.AGENT)) },
@@ -176,3 +230,21 @@ internal fun CreationNewRepository(workflow: CreationWorkflow, enabled: Boolean)
 }
 
 private const val CREATION_SEARCH_DELAY = 250L
+
+@Composable
+internal fun CreationSourceSummary(draft: WorkspaceDraft) {
+    IntentSection("Source") {
+        Text(
+            if (draft.newRepository) draft.repositoryPath else draft.repository?.fullName.orEmpty(),
+            style = MaterialTheme.typography.bodyLarge
+        )
+        Text(
+            if (draft.newRepository) {
+                "New repository on this host"
+            } else {
+                "Branch: ${draft.baseRef.ifBlank { "Choose a branch" }}"
+            },
+            color = IntentScreen.secondaryText
+        )
+    }
+}

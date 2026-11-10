@@ -1,5 +1,6 @@
 package dev.intent.app.git
 
+import dev.intent.core.protocol.models.GitCommitFile
 import dev.intent.core.protocol.models.GitFileStatus
 import dev.intent.core.protocol.models.GitStatus
 import dev.intent.core.protocol.models.Workspace
@@ -55,5 +56,38 @@ class GitPresentationTest {
         )
         assertEquals("Date unavailable", commitDate("invalid"))
         assertEquals("Date unavailable", commitDate(""))
+    }
+
+    @Test
+    fun missingPushMetadataIsNotTreatedAsUnpushed() {
+        assertNull(commitPushLabel(null))
+        assertEquals("Pushed", commitPushLabel(true))
+        assertEquals("Not pushed", commitPushLabel(false))
+    }
+
+    @Test
+    fun fileSearchMatchesFullPathsIgnoringCaseAndPreservesOrderAndStats() {
+        val files = listOf(
+            GitCommitFile("src/Main.kt", 10, 2),
+            GitCommitFile("src/test/MainTest.kt", 5, 1),
+            GitCommitFile("README.md")
+        )
+        assertEquals(files, filterCommitFiles(files, "  "))
+        assertEquals(files.take(2), filterCommitFiles(files, " MAIN "))
+        assertEquals(listOf(files[1]), filterCommitFiles(files, "SRC/TEST"))
+        assertTrue(filterCommitFiles(files, "absent").isEmpty())
+    }
+
+    @Test
+    fun detailedDateIncludesLocalTimeAndRetainsUnrecognizedSourceValues() {
+        val result = commitDateTime(
+            "2026-10-25T01:30:00Z",
+            ZoneId.of("America/Los_Angeles"),
+            Locale.US
+        )
+        assertTrue(result.contains("Oct 24, 2026"))
+        assertTrue(result.contains("6:30"))
+        assertEquals("unknown format", commitDateTime("unknown format"))
+        assertEquals("Date unavailable", commitDateTime(""))
     }
 }

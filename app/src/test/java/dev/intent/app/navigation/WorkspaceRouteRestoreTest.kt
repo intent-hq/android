@@ -16,6 +16,7 @@ class WorkspaceRouteRestoreTest {
             WorkspaceDestination.Browser,
             WorkspaceDestination.Git,
             WorkspaceDestination.Terminals,
+            WorkspaceDestination.Scripts,
             WorkspaceDestination.Notes,
             WorkspaceDestination.Note("note:with/separators")
         )

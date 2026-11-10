@@ -1,14 +1,21 @@
 package dev.intent.app.smoke
 
 import android.graphics.Bitmap
+import androidx.activity.OnBackPressedDispatcher
+import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isDialog
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -30,8 +37,10 @@ import dev.intent.core.protocol.session.RpcSession
 import dev.intent.core.protocol.session.SessionState
 import dev.intent.core.protocol.session.SessionTransport
 import java.io.File
+import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicBoolean
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
@@ -62,7 +71,8 @@ class AssistantTest {
                 action("New conversation")
                 waitText("Conversation thread-2")
                 action("Assistant history")
-                waitText("Assistant 2 · Selected")
+                waitText("Assistant 2")
+                compose.onNodeWithTag("assistant.history.thread-2").assertIsSelected()
                 screenshot("assistant-history")
                 compose.onNodeWithText("Assistant 1").performClick()
                 waitText("Conversation thread-1")
@@ -74,10 +84,68 @@ class AssistantTest {
                 assertFalse(server.calls.contains("agent.delete"))
                 compose.onNodeWithContentDescription("Delete Assistant 1").performClick()
                 compose.onNodeWithText("Delete conversation").performClick()
-                waitText("Assistant 2 · Selected")
+                waitText("Assistant 2")
+                compose.onNodeWithTag("assistant.history.thread-2").assertIsSelected()
                 assertEquals(1, server.calls.count { it == "agent.delete" })
                 assertEquals("__chief__", server.lastWorkspace)
             }
+        }
+    }
+
+    @Test fun historyErrorsStayInTheDialogAndRetryPreservesSelection() {
+        val failRefresh = AtomicBoolean(false)
+        lateinit var dispatcher: OnBackPressedDispatcher
+        AssistantStore({ method, _ ->
+            when {
+                method == "agent.delete" -> CompletableFuture<JsonElement>().apply {
+                    completeExceptionally(IllegalStateException("Cannot delete conversation"))
+                }
+                method == "agent.list" && failRefresh.get() ->
+                    CompletableFuture<JsonElement>().apply {
+                        completeExceptionally(IllegalStateException("Cannot refresh conversations"))
+                    }
+                method == "principal.me" -> CompletableFuture.completedFuture(
+                    obj("""{"id":"owner","isAdministrator":true}""")
+                )
+                else -> CompletableFuture.completedFuture(
+                    obj(
+                        """{"agents":[{"id":"thread","name":"Planning","createdAt":"2026-11-04T12:00:00Z"}]}"""
+                    )
+                )
+            }
+        }).use { store ->
+            compose.setContent {
+                dispatcher = LocalOnBackPressedDispatcherOwner.current!!.onBackPressedDispatcher
+                IntentTheme(darkTheme = true) {
+                    Surface(Modifier.fillMaxSize()) {
+                        AssistantScreen(store, {}) { Text("Conversation $it") }
+                    }
+                }
+            }
+            waitText("Conversation thread")
+            action("Assistant history")
+            compose.onNodeWithTag("assistant.history.thread").assertIsSelected()
+            compose.runOnIdle {
+                failRefresh.set(true)
+                store.refresh()
+            }
+            compose.onNode(
+                hasText("Cannot refresh conversations") and hasAnyAncestor(isDialog())
+            ).assertIsDisplayed()
+            screenshot("assistant-history-error")
+            failRefresh.set(false)
+            compose.onNodeWithText("Retry Assistant").performClick()
+            compose.onNodeWithText("Cannot refresh conversations").assertDoesNotExist()
+            compose.onNodeWithTag("assistant.history.thread").assertIsSelected()
+            compose.onNodeWithContentDescription("Delete Planning").performClick()
+            compose.onNodeWithText("Delete conversation").performClick()
+            compose.onNode(
+                hasText("Cannot delete conversation") and hasAnyAncestor(isDialog())
+            ).assertIsDisplayed()
+            compose.onNodeWithTag("assistant.history.thread").assertIsSelected()
+            compose.runOnIdle { dispatcher.onBackPressed() }
+            compose.onNodeWithText("Close history").assertDoesNotExist()
+            waitText("Conversation thread")
         }
     }
 
@@ -219,7 +287,7 @@ private class AssistantServer {
                 "agent.create" -> {
                     count++
                     val agent =
-                        """{"id":"thread-$count","name":"Assistant $count","workspaceId":"__chief__"}"""
+                        """{"id":"thread-$count","name":"Assistant $count","workspaceId":"__chief__","createdAt":"2026-11-04T12:00:00Z"}"""
                     threads.add(0, agent)
                     """{"agent":$agent}"""
                 }

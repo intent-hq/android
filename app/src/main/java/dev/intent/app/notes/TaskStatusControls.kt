@@ -35,12 +35,12 @@ fun TaskStatusMenu(
         AssistChip(
             onClick = { expanded = true },
             enabled = enabled,
-            label = { Text(status.replace('_', ' ').replace('-', ' ')) }
+            label = { Text(contextStatusLabel(status)) }
         )
         DropdownMenu(expanded = expanded && enabled, onDismissRequest = { expanded = false }) {
             choices.forEach { choice ->
                 DropdownMenuItem(
-                    text = { Text(choice.replace('_', ' ').replace('-', ' ')) },
+                    text = { Text(contextStatusLabel(choice)) },
                     onClick = {
                         expanded = false
                         onStatus(choice)

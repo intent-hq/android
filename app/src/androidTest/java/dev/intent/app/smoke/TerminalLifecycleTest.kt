@@ -10,6 +10,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextReplacement
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import dev.intent.app.design.IntentTheme
@@ -41,6 +42,11 @@ class TerminalLifecycleTest {
             compose.onNodeWithText("New terminal").performClick()
             waitText("Keyboard")
             screenshot("terminal-created")
+            compose.onNodeWithText("More keys").performClick()
+            compose.onNodeWithTag("terminal-extra-keys").assertIsDisplayed()
+            screenshot("terminal-expanded-keys")
+            compose.onNodeWithText("Less keys").performClick()
+            compose.onNodeWithTag("terminal-extra-keys").assertDoesNotExist()
             val create = server.actions.single()
             assertEquals("terminal.create", create.method)
             assertEquals(
@@ -48,7 +54,13 @@ class TerminalLifecycleTest {
                 create.params
             )
             compose.onNodeWithContentDescription("Back").performClick()
+            compose.onNodeWithTag("terminal-rename-new").performClick()
+            compose.onNodeWithTag("terminal-name").performTextReplacement("Build logs")
+            screenshot("terminal-rename")
+            compose.onNodeWithText("Rename").performClick()
+            compose.onNodeWithText("Build logs", substring = true).assertIsDisplayed()
             compose.onNodeWithTag("terminal-open-new").performClick()
+            compose.onNodeWithText("Build logs").assertIsDisplayed()
             waitText("Keyboard")
             compose.onNodeWithContentDescription("Back").performClick()
             compose.onNodeWithTag("terminal-delete-new").performClick()

@@ -80,3 +80,12 @@ private fun JsonObject.ids(key: String): List<String> =
     (get(key) as? JsonArray).orEmpty().mapNotNull {
         (it as? JsonPrimitive)?.contentOrNull?.takeIf(String::isNotBlank)
     }
+
+internal data class WatchedAgentTarget(val workspaceId: String, val agentId: String)
+
+internal fun WatchedAgent.navigationTarget(currentWorkspaceId: String?): WatchedAgentTarget? {
+    if (deleted || agent.id.isBlank()) return null
+    val workspaceId = agent.workspaceId?.takeIf(String::isNotBlank)
+        ?: currentWorkspaceId?.takeIf(String::isNotBlank)
+    return workspaceId?.let { WatchedAgentTarget(it, agent.id) }
+}

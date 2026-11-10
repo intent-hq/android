@@ -39,9 +39,9 @@ class WorkspaceCreateTest {
         val workflow = CreationWorkflow(fake)
         var created = ""
         compose.setContent { IntentTheme { WorkspaceCreateScreen(workflow, {}, { created = it }) } }
-        waitText("intent-hq/android")
+        waitText("android")
         screenshot("creation-repositories")
-        compose.onNodeWithText("intent-hq/android").performClick()
+        compose.onNodeWithText("android").performClick()
         tap("Choose branch")
         waitText("main")
         screenshot("creation-branches")
@@ -97,6 +97,30 @@ class WorkspaceCreateTest {
         screenshot("creation-provider-recovery")
         assertEquals("Keep my draft", persistence.load().prompt)
         assertEquals("a", persistence.load().provider)
+    }
+
+    @Test fun noSpecialistSurvivesReloadAndIsOmittedFromCreation() {
+        val fake = CreateChoices()
+        val workflow = CreationWorkflow(fake, WorkspaceDraft(step = CreationStep.AGENT))
+        compose.setContent { IntentTheme { WorkspaceCreateScreen(workflow, {}, {}) } }
+        waitText("Provider A")
+        tap("Specialist B")
+        tap("None")
+        tap("Previous step")
+        tap("Previous step")
+        tap("New repository")
+        compose.onNodeWithText("Repository name").performTextInput("plain-agent")
+        tap("Configure agent")
+        waitText("Provider A")
+        assertEquals("", workflow.draft.value.specialist)
+        assertEquals(
+            0,
+            compose.onAllNodesWithText("Retry agent choices").fetchSemanticsNodes().size
+        )
+        screenshot("creation-no-specialist")
+        tap("Create workspace")
+        compose.waitUntil { fake.created != null }
+        assertEquals(null, (fake.created!!["initialAgent"] as JsonObject)["specialist"])
     }
 
     @Test fun mediaPromptStagesBeforeCreateAndSendsAfterPlacement() {

@@ -12,37 +12,43 @@ internal data class ManualPairingErrors(
     val isValid: Boolean get() = listOf(host, port, token, fingerprint).all { it == null }
 }
 
-internal fun manualPairingErrors(input: ManualPairingInput): ManualPairingErrors =
-    ManualPairingErrors(
-        host = if (runCatching {
-                input.copy(port = "443", token = "validation").toPayload()
-            }.isFailure
-        ) {
-            "Enter a host name or IP address."
-        } else {
-            null
-        },
-        port = if (runCatching {
-                input.copy(host = "desktop", token = "validation").toPayload()
-            }.isFailure
-        ) {
-            "Enter a port from 1 to 65535."
-        } else {
-            null
-        },
-        token = if (runCatching {
-                input.copy(host = "desktop", port = "443").toPayload()
-            }.isFailure
-        ) {
-            "Enter the pairing token from your desktop."
-        } else {
-            null
-        },
-        fingerprint = if (input.certFingerprint.isNotBlank() &&
-            runCatching { CertificateFingerprint.normalize(input.certFingerprint.trim()) }.isFailure
-        ) {
-            "Enter 64 hexadecimal digits, with optional colons."
-        } else {
-            null
-        }
-    )
+internal fun manualPairingErrors(
+    input: ManualPairingInput,
+    tunnelAvailable: Boolean = true
+): ManualPairingErrors = ManualPairingErrors(
+    host = if (runCatching {
+            input.copy(port = "443", token = "validation").toPayload()
+        }.isFailure
+    ) {
+        "Enter a host name, IP address, or Tailcat address."
+    } else if (!tunnelAvailable &&
+        input.copy(port = "443", token = "validation").toPayload().hosts.isEmpty()
+    ) {
+        TUNNEL_UNAVAILABLE_MESSAGE
+    } else {
+        null
+    },
+    port = if (runCatching {
+            input.copy(host = "desktop", token = "validation").toPayload()
+        }.isFailure
+    ) {
+        "Enter a port from 1 to 65535."
+    } else {
+        null
+    },
+    token = if (runCatching {
+            input.copy(host = "desktop", port = "443").toPayload()
+        }.isFailure
+    ) {
+        "Enter the pairing token from your desktop."
+    } else {
+        null
+    },
+    fingerprint = if (input.certFingerprint.isNotBlank() &&
+        runCatching { CertificateFingerprint.normalize(input.certFingerprint.trim()) }.isFailure
+    ) {
+        "Enter 64 hexadecimal digits, with optional colons."
+    } else {
+        null
+    }
+)

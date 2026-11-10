@@ -10,6 +10,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
@@ -23,7 +24,8 @@ fun WorkspaceBrowser(
     session: RpcSession,
     workspaceId: String,
     onBack: () -> Unit,
-    initialUrl: String? = null
+    initialUrl: String? = null,
+    onPageChanged: (String, String?) -> Unit = { _, _ -> }
 ) {
     val store = remember(session, workspaceId) { BrowserStore(session) }
     val context = LocalContext.current
@@ -36,6 +38,12 @@ fun WorkspaceBrowser(
     }
     LaunchedEffect(store, initialUrl) { initialUrl?.let(store::open) }
     val state by store.state.collectAsState()
+    val pageChanged by rememberUpdatedState(onPageChanged)
+    LaunchedEffect(state.requestedUrl, state.title, state.loading, state.error) {
+        if (!state.loading && state.error == null && state.url != null) {
+            state.requestedUrl?.let { pageChanged(it, state.title) }
+        }
+    }
     BrowserScreen(
         state,
         onBack,

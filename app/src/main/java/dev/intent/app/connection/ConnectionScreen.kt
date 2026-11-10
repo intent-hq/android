@@ -107,7 +107,14 @@ private fun SavedConnectionSection(
         ConnectionPathBadge(state, connection.id)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             TextButton(onClick = { onSelect(connection.id) }, enabled = !state.busy) {
-                Text(if (state.activeId == connection.id) "Reconnect" else "Connect")
+                Text(
+                    when {
+                        state.activeId == connection.id && state.session != null ->
+                            "Return to workspace"
+                        state.activeId == connection.id -> "Reconnect"
+                        else -> "Connect"
+                    }
+                )
             }
             Box {
                 TextButton(onClick = { menuOpen = true }) { Text("Manage") }

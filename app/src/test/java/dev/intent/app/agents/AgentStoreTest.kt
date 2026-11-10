@@ -12,6 +12,41 @@ import org.junit.Test
 
 class AgentStoreTest {
     @Test
+    fun retiredReadSurvivesTheActiveSnapshotAndLiveRetirementFencesOlderReads() {
+        val session = FakeAgentSession().apply { deferRetired = true }
+        val store = AgentStore(session, "workspace")
+        store.start()
+        session.admit()
+        session.push(
+            SubscriptionPush("lease", "agent", 0, snapshot = listOf(Agent("live", "Live")))
+        )
+        session.retiredReads[0].complete(listOf(Agent("old", "Old", retiredAt = "then")))
+        assertEquals("old", store.state.value.retiredAgents.single().id)
+        assertFalse(store.state.value.retiredLoading)
+        store.refresh()
+        session.push(
+            SubscriptionPush(
+                "lease",
+                "agent",
+                1,
+                delta = EntityDelta(
+                    updated = listOf(Agent("live", "Live", retiredAt = "now"))
+                )
+            )
+        )
+        session.retiredReads[1].complete(emptyList())
+        assertEquals(setOf("old", "live"), store.state.value.retiredAgents.map { it.id }.toSet())
+        session.retiredReads[2].complete(
+            listOf(
+                Agent("old", "Old", retiredAt = "then"),
+                Agent("live", "Live", retiredAt = "now")
+            )
+        )
+        assertFalse(store.state.value.retiredLoading)
+        assertTrue(store.state.value.agents.isEmpty())
+    }
+
+    @Test
     fun hierarchyKeepsParentsFirstAndUpdatesAfterRemoval() {
         val session = FakeAgentSession()
         val store = AgentStore(session, "workspace")
@@ -79,6 +114,26 @@ class AgentStoreTest {
             )
         )
         assertTrue(store.state.value.agents.isEmpty())
+        assertEquals(
+            setOf("local", "retired"),
+            store.state.value.retiredAgents.map {
+                it.id
+            }.toSet()
+        )
+        session.push(SubscriptionPush("lease", "agent", 2, snapshot = emptyList()))
+        assertEquals(2, store.state.value.retiredAgents.size)
+        session.push(
+            SubscriptionPush(
+                "lease",
+                "agent",
+                3,
+                delta = EntityDelta(
+                    updated = listOf(Agent("local", "Restored"))
+                )
+            )
+        )
+        assertEquals("local", store.state.value.agents.single().id)
+        assertEquals("retired", store.state.value.retiredAgents.single().id)
     }
 
     @Test
@@ -193,6 +248,14 @@ private class FakeAgentSession : AgentSession {
     lateinit var push: (SubscriptionPush<Agent>) -> Unit
     var subscriptions = 0
     var released = false
+    var deferRetired = false
+    val retiredReads = mutableListOf<CompletableFuture<List<Agent>>>()
+
+    override fun retired(): CompletableFuture<List<Agent>> = if (deferRetired) {
+        CompletableFuture<List<Agent>>().also(retiredReads::add)
+    } else {
+        CompletableFuture.completedFuture(emptyList())
+    }
 
     override fun list(): CompletableFuture<List<Agent>> =
         CompletableFuture<List<Agent>>().also(reads::add)

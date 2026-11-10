@@ -25,6 +25,7 @@ internal fun WorkspaceResources(
     FlowRow {
         TextButton(onClick = { open(WorkspaceDestination.Browser) }) { Text("Browser preview") }
         TextButton(onClick = { open(WorkspaceDestination.Terminals) }) { Text("Terminals") }
+        TextButton(onClick = { open(WorkspaceDestination.Scripts) }) { Text("Scripts") }
         TextButton(onClick = onCreateTerminal) { Text("New terminal") }
     }
 }

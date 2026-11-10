@@ -58,6 +58,10 @@ class WorkspaceFilesTest {
             .findAccessibilityNodeInfosByText("Hello from the workspace.")
         org.junit.Assert.assertTrue(textNodes.any { it.isVisibleToUser })
         screenshot("files-text")
+        compose.onNodeWithText("Line wrap: on").performClick()
+        compose.onNodeWithText("Line wrap: off").assertIsDisplayed()
+        screenshot("files-text-nowrap")
+        compose.onNodeWithText("Line wrap: off").performClick()
         compose.onNodeWithContentDescription("More actions").assertDoesNotExist()
         compose.onNodeWithText("Open in another app").assertIsDisplayed()
         compose.onNodeWithContentDescription("Back").performClick()
@@ -85,6 +89,24 @@ class WorkspaceFilesTest {
         compose.onNodeWithText("Reset zoom").performClick()
         InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
         compose.onNodeWithTag("files.file.picture.png").assertIsDisplayed()
+    }
+
+    @Test
+    fun pdfExplainsAccessibleReaderPathAndLabelsPageImages() = connected {
+        scrollTo("files.file.document.pdf")
+        compose.onNodeWithTag("files.file.document.pdf").performClick()
+        waitForTag("file.pdf")
+        compose.onNodeWithText("Open PDF in another app").assertIsDisplayed()
+        compose.onNodeWithText(
+            "This preview shows page images.",
+            substring = true
+        ).assertIsDisplayed()
+        compose.waitUntil(TIMEOUT) {
+            compose.onAllNodes(
+                androidx.compose.ui.test.hasContentDescription("PDF page 1, image preview")
+            ).fetchSemanticsNodes().isNotEmpty()
+        }
+        screenshot("files-pdf-reader")
     }
 
     @Test
@@ -196,7 +218,8 @@ private class FilesTestServer(private val listener: WssTransport.Listener) : Ses
             "file.list" -> when (path) {
                 "." ->
                     """[{"name":"src","type":"directory"},{"name":"empty","type":"directory"},
-                    {"name":"picture.png","type":"file"},{"name":"archive.zip","type":"file"}]"""
+                    {"name":"picture.png","type":"file"},{"name":"document.pdf","type":"file"},
+                    {"name":"archive.zip","type":"file"}]"""
                 "src" -> """[{"name":"readme.txt","type":"file"}]"""
                 else -> "[]"
             }
@@ -205,6 +228,8 @@ private class FilesTestServer(private val listener: WssTransport.Listener) : Ses
                     "picture.png"
                 ) {
                     imageBytes()
+                } else if (path == "document.pdf") {
+                    pdfBytes()
                 } else {
                     "Hello from the workspace.\nText wraps here.".toByteArray()
                 }
@@ -222,6 +247,21 @@ private class FilesTestServer(private val listener: WssTransport.Listener) : Ses
 
     fun paths(method: String) = requests.filter { it.method == method }.map {
         it.params!!.jsonObject.getValue("path").jsonPrimitive.content
+    }
+
+    private fun pdfBytes(): ByteArray = ByteArrayOutputStream().use { output ->
+        val document = android.graphics.pdf.PdfDocument()
+        try {
+            val page = document.startPage(
+                android.graphics.pdf.PdfDocument.PageInfo.Builder(400, 600, 1).create()
+            )
+            page.canvas.drawText("Accessible reader example", 20f, 40f, android.graphics.Paint())
+            document.finishPage(page)
+            document.writeTo(output)
+        } finally {
+            document.close()
+        }
+        output.toByteArray()
     }
 
     private fun imageBytes(): ByteArray = ByteArrayOutputStream().use { output ->

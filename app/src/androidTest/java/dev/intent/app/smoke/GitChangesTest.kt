@@ -9,6 +9,8 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.performTextClearance
+import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import dev.intent.app.design.IntentTheme
@@ -95,8 +97,22 @@ class GitChangesTest {
         waitFor("Commit changes")
         waitFor("+new line")
         compose.onNodeWithText("File (2)").assertIsDisplayed()
+        compose.onNodeWithText("Not pushed").assertIsDisplayed()
+        compose.onNodeWithTag("commit.copy").performClick()
+        compose.onNodeWithText("Copied commit hash").assertIsDisplayed()
+        compose.runOnIdle {
+            val context = InstrumentationRegistry.getInstrumentation().targetContext
+            val clipboard = context.getSystemService(android.content.ClipboardManager::class.java)
+            assertEquals(PRIMARY_HASH, clipboard.primaryClip?.getItemAt(0)?.text.toString())
+        }
         screenshot("changes-commit-diff")
         compose.onNodeWithText("src/primary.kt").performClick()
+        compose.onNodeWithText("Search changed files").performTextInput("missing")
+        compose.onNodeWithText("No matching files").assertIsDisplayed()
+        compose.onNodeWithText("Search changed files").performTextClearance()
+        compose.onNodeWithText("Search changed files").performTextInput("OTHER")
+        compose.onNodeWithText("src/primary.kt (+1 −1)").assertDoesNotExist()
+        screenshot("changes-commit-file-search")
         compose.onNodeWithText("other.kt (+1 −0)").performClick()
         waitFor("+other content")
         compose.onNodeWithContentDescription("Back").performClick()
@@ -180,7 +196,8 @@ private class ChangesServer(private val listener: WssTransport.Listener) : Sessi
                 {"path":"src/staged.kt","status":"M","staged":true}]}"""
             "file-tracking.loadCommits" ->
                 """{"commits":[
-                {"hash":"primary","message":"Primary commit"}]}"""
+                {"hash":"$PRIMARY_HASH","message":"Primary commit",
+                "date":"2026-11-04T12:30:00Z","author":"Alex","isPushed":false}]}"""
             "git.commits" -> """{"items":[{"hash":"secondary","message":"Secondary commit"}]}"""
             "git.diffs" -> "[]"
             "git.commitDetails" ->
@@ -199,3 +216,5 @@ private class ChangesServer(private val listener: WssTransport.Listener) : Sessi
         return true
     }
 }
+
+private const val PRIMARY_HASH = "0123456789abcdef0123456789abcdef01234567"

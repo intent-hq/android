@@ -119,14 +119,17 @@ fun IntentNavigation(
     val creationPhotos =
         remember(session) { PhotoAttachmentStore(CreationMediaSource(context, session)) }
     var assistant by rememberSaveable(session) { mutableStateOf(false) }
-    var assistantOwner by remember(session) { mutableStateOf(false) }
-    LaunchedEffect(session) {
-        session.request("principal.me").whenComplete { principal, error ->
-            assistantOwner =
-                error == null &&
+    val connectionReady = LocalConnectionReady.current
+    val authority = remember(session) {
+        HostAuthorityStore {
+            session.request("principal.me").thenApply { principal ->
                 dev.intent.app.assistant.assistantOwner(principal, session.serverCapabilities)
+            }
         }
     }
+    val assistantOwner by authority.owner.collectAsState()
+    LaunchedEffect(authority, connectionReady) { authority.setConnected(connectionReady) }
+    DisposableEffect(authority) { onDispose { authority.close() } }
     val selected = selectedWorkspace
     val back = {
         if (!operationBusy) {
@@ -138,8 +141,11 @@ fun IntentNavigation(
             }
         }
     }
-    BackHandler(selected != null || creating || assistant, onBack = back)
-    val workspaceAction = ChromeAction("Transfer workspace", !operationBusy) { transferring = true }
+    BackHandler(selected != null || creating || assistant || transferring, onBack = back)
+    val canTransfer = connectionReady && assistantOwner
+    val workspaceAction = ChromeAction("Transfer workspace", !operationBusy && canTransfer) {
+        transferring = true
+    }
     val selectedRow = workspaceState.workspaces.firstOrNull { it.id == selected }
     val lifecycleActions = selectedRow?.let { workspace ->
         WorkspaceAction.entries.map { action ->
@@ -155,6 +161,15 @@ fun IntentNavigation(
     }.orEmpty()
     WorkspaceActionDialog(lifecycleState, lifecycle)
     CompositionLocalProvider(
+        LocalOpenWorkspaceAgent provides { workspaceId, agentId ->
+            historySelection += 1
+            historyAgent = agentId
+            openRecent = false
+            selectedWorkspace = workspaceId
+            assistant = false
+            creating = false
+            transferring = false
+        },
         dev.intent.app.assistant.LocalOpenProposalWorkspace provides { id ->
             selectedWorkspace = id
             assistant = false
@@ -216,10 +231,23 @@ fun IntentNavigation(
                 }
                 transferring -> {
                     CompactAppBar("Transfer workspace", onBack = back)
-                    WorkspaceTransferScreen(session, selected, destinations, onBusy = {
-                        operationBusy =
-                            it
-                    }, onDone = { transferring = false })
+                    WorkspaceTransferScreen(
+                        session,
+                        selected,
+                        destinations,
+                        onBusy = {
+                            operationBusy =
+                                it
+                        },
+                        onDone = { transferring = false },
+                        workspaceTitle = selectedRow?.title ?: "Workspace",
+                        sourceName = LocalConnectionName.current,
+                        sourceState = if (LocalConnectionReady.current) {
+                            dev.intent.core.protocol.session.SessionState.READY
+                        } else {
+                            dev.intent.core.protocol.session.SessionState.DISCONNECTED
+                        }
+                    )
                 }
                 else -> workspaceContent(selected) { selectedWorkspace = null }
             }

@@ -50,6 +50,16 @@ class AgentSessionTest {
             assertEquals(JsonPrimitive("workspace"), request.params!!.jsonObject["workspaceId"])
             server.reply(request, """{"agents":[{"id":"agent","name":"Test"}]}""")
             assertEquals("agent", read.get(2, TimeUnit.SECONDS).single().id)
+            val retired = source.retired()
+            val retiredRequest = server.request()
+            assertEquals("agent.list", retiredRequest.method)
+            assertEquals(JsonPrimitive(true), retiredRequest.params!!.jsonObject["retiredOnly"])
+            assertEquals(
+                JsonPrimitive("workspace"),
+                retiredRequest.params!!.jsonObject["workspaceId"]
+            )
+            server.reply(retiredRequest, """{"agents":[]}""")
+            assertEquals(emptyList<Agent>(), retired.get(2, TimeUnit.SECONDS))
             lease.close()
             val cleanup = server.request()
             assertEquals("events.unsubscribe", cleanup.method)

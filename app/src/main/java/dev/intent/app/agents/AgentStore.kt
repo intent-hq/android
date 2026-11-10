@@ -10,7 +10,10 @@ import kotlinx.coroutines.flow.asStateFlow
 data class AgentListState(
     val agents: List<Agent> = emptyList(),
     val isLoading: Boolean = true,
-    val error: String? = null
+    val error: String? = null,
+    val retiredAgents: List<Agent> = emptyList(),
+    val retiredError: String? = null,
+    val retiredLoading: Boolean = false
 ) {
     val tree: AgentTree = AgentTree(agents)
 }
@@ -23,6 +26,7 @@ class AgentStore(private val session: AgentSession, private val workspaceId: Str
     private var closed = false
     private var revision = 0L
     private var subscriptionGeneration = 0L
+    private var retiredRevision = 0L
 
     @Synchronized
     fun start() {
@@ -43,13 +47,20 @@ class AgentStore(private val session: AgentSession, private val workspaceId: Str
     @Synchronized
     fun refresh() {
         if (closed) return
+        refreshRetired()
         val readRevision = ++revision
         mutableState.value = state.value.copy(isLoading = true, error = null)
         session.list().whenComplete { rows, error ->
             synchronized(this) {
                 // A newer read, live push, reconnect, or close supersedes this response.
                 if (!closed && revision == readRevision) {
-                    if (error != null) fail(error) else publish(rows)
+                    if (error !=
+                        null
+                    ) {
+                        fail(error)
+                    } else {
+                        mutableState.publish(rows + state.value.retiredAgents, workspaceId)
+                    }
                 }
             }
         }
@@ -62,32 +73,42 @@ class AgentStore(private val session: AgentSession, private val workspaceId: Str
         val snapshot = push.snapshot
         val delta = push.delta
         when {
-            snapshot != null -> publish(snapshot)
+            snapshot != null -> mutableState.publish(
+                snapshot + state.value.retiredAgents,
+                workspaceId
+            )
             delta != null -> {
-                val rows = state.value.agents.associateBy { it.id }.toMutableMap()
+                val reloadRetired = state.value.retiredLoading
+                retiredRevision++
+                val rows = (state.value.agents + state.value.retiredAgents)
+                    .associateBy { it.id }.toMutableMap()
                 (delta.added + delta.updated).forEach { rows[it.id] = it }
                 delta.removedIds.forEach(rows::remove)
-                publish(rows.values.toList())
+                mutableState.publish(rows.values.toList(), workspaceId)
+                if (reloadRetired) refreshRetired()
             }
             else -> fail(IllegalArgumentException("Agent update has no data"))
         }
     }
 
-    private fun publish(rows: List<Agent>) {
-        mutableState.value = AgentListState(
-            agents = rows.distinctBy { it.id }.filter {
-                (it.workspaceId == null || it.workspaceId == workspaceId) &&
-                    it.retiredAt == null &&
-                    it.status.lowercase() !in setOf("deleted", "retired")
+    private fun refreshRetired() {
+        val token = ++retiredRevision
+        mutableState.value = state.value.copy(retiredLoading = true, retiredError = null)
+        session.retired().whenComplete { rows, error ->
+            synchronized(this) {
+                if (!closed && token == retiredRevision) {
+                    mutableState.value = state.value.copy(
+                        retiredLoading = false,
+                        retiredError = if (error != null) "Cannot load retired agents" else null,
+                        retiredAgents = if (error != null) {
+                            state.value.retiredAgents
+                        } else {
+                            scopedAgents(rows, workspaceId).filter { it.isRetired() }
+                        }
+                    )
+                }
             }
-                .sortedWith(
-                    compareByDescending<Agent> {
-                        it.lastActivity ?: it.updatedAt
-                    }.thenBy { it.id }
-                ),
-            isLoading = false,
-            error = null
-        )
+        }
     }
 
     @Synchronized
@@ -107,19 +128,32 @@ class AgentStore(private val session: AgentSession, private val workspaceId: Str
     fun changed(agent: Agent) {
         if (closed) return
         revision++
-        publish(state.value.agents.map { if (it.id == agent.id) agent else it })
+        retiredRevision++
+        mutableState.value = state.value.copy(retiredLoading = false)
+        mutableState.publish(
+            (state.value.agents + state.value.retiredAgents).map {
+                if (it.id == agent.id) agent else it
+            },
+            workspaceId
+        )
     }
 
     @Synchronized
     fun removed(agentId: String) {
         if (closed) return
         revision++
-        publish(state.value.agents.filterNot { it.id == agentId })
+        retiredRevision++
+        mutableState.value = state.value.copy(retiredLoading = false)
+        mutableState.publish(
+            (state.value.agents + state.value.retiredAgents).filterNot { it.id == agentId },
+            workspaceId
+        )
     }
 
     @Synchronized
     fun stop() {
         subscriptionGeneration++
+        retiredRevision++
         revision++
         lease?.close()
         lease = null
@@ -130,4 +164,20 @@ class AgentStore(private val session: AgentSession, private val workspaceId: Str
         closed = true
         stop()
     }
+}
+
+private fun scopedAgents(rows: List<Agent>, workspaceId: String) = rows.distinctBy {
+    it.id
+}.filter {
+    (it.workspaceId == null || it.workspaceId == workspaceId) && it.status != "deleted"
+}.sortedWith(compareByDescending<Agent> { it.lastActivity ?: it.updatedAt }.thenBy { it.id })
+
+private fun MutableStateFlow<AgentListState>.publish(rows: List<Agent>, workspaceId: String) {
+    val scoped = scopedAgents(rows, workspaceId)
+    value = value.copy(
+        agents = scoped.filterNot { it.isRetired() },
+        retiredAgents = scoped.filter { it.isRetired() },
+        isLoading = false,
+        error = null
+    )
 }

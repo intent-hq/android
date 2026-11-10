@@ -1,6 +1,7 @@
 package dev.intent.app.git
 
 import androidx.compose.runtime.staticCompositionLocalOf
+import dev.intent.core.protocol.models.GitCommitFile
 import dev.intent.core.protocol.models.Workspace
 import java.time.Instant
 import java.time.ZoneId
@@ -37,4 +38,35 @@ internal fun commitDate(
     )
 } catch (_: DateTimeParseException) {
     "Date unavailable"
+}
+
+internal fun commitDateTime(
+    value: String,
+    zone: ZoneId = ZoneId.systemDefault(),
+    locale: Locale = Locale.getDefault()
+): String = try {
+    Instant.parse(value).atZone(zone).format(
+        DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM, FormatStyle.SHORT)
+            .withLocale(locale)
+    )
+} catch (_: DateTimeParseException) {
+    value.ifBlank { "Date unavailable" }
+}
+
+/** Missing push metadata must never be presented as a local/unpushed commit. */
+internal fun commitPushLabel(isPushed: Boolean?): String? = when (isPushed) {
+    true -> "Pushed"
+    false -> "Not pushed"
+    null -> null
+}
+
+internal fun filterCommitFiles(files: List<GitCommitFile>, query: String): List<GitCommitFile> {
+    val search = query.trim()
+    return if (search.isEmpty()) {
+        files
+    } else {
+        files.filter {
+            it.path.contains(search, ignoreCase = true)
+        }
+    }
 }

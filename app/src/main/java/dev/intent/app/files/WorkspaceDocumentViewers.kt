@@ -39,9 +39,15 @@ internal fun WorkspacePdfPreview(file: File, modifier: Modifier = Modifier) {
         count = result.getOrNull()
         failed = result.isFailure
     }
-    if (failed) Text("Cannot open PDF. Use Open in another app.")
-    LazyColumn(modifier.fillMaxSize().testTag("file.pdf")) {
-        items(count ?: 0) { index -> PdfPage(file, index) }
+    Column(modifier.fillMaxSize()) {
+        Text(
+            "This preview shows page images. For screen-reader text, search, and selection, " +
+                "open this PDF in another app that supports accessible PDF text."
+        )
+        if (failed) Text("Cannot open PDF. Try an external PDF reader.")
+        LazyColumn(Modifier.weight(1f).testTag("file.pdf")) {
+            items(count ?: 0) { index -> PdfPage(file, index) }
+        }
     }
 }
 
@@ -72,7 +78,9 @@ private fun PdfPage(file: File, index: Int) {
     }
     Column(Modifier.height(PDF_PAGE_HEIGHT.dp)) {
         Text("Page ${index + 1}")
-        bitmap?.let { WorkspaceImagePreview(it, Modifier.weight(1f)) }
+        bitmap?.let {
+            WorkspaceImagePreview(it, Modifier.weight(1f), "PDF page ${index + 1}, image preview")
+        }
         if (failed) Text("Cannot render this page.")
     }
 }

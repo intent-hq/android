@@ -1,6 +1,7 @@
 package dev.intent.app.connection
 
 import dev.intent.core.protocol.pairing.ManualPairingInput
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -8,6 +9,22 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ManualPairingErrorsTest {
+    @Test
+    fun tunnelOnlyInputExplainsBuildSupportWithoutRejectingDirectFallback() {
+        val tunnel = ManualPairingInput("", "5181", "secret", tcAddress = "tunnel")
+        assertTrue(manualPairingErrors(tunnel, tunnelAvailable = true).isValid)
+        val unsupported = manualPairingErrors(tunnel, tunnelAvailable = false)
+        assertEquals(TUNNEL_UNAVAILABLE_MESSAGE, unsupported.host)
+        assertNull(unsupported.port)
+        assertNull(unsupported.token)
+        assertTrue(
+            manualPairingErrors(
+                tunnel.copy(host = "desktop.local"),
+                tunnelAvailable = false
+            ).isValid
+        )
+    }
+
     @Test
     fun emptyFieldsCannotSubmit() {
         val errors = manualPairingErrors(ManualPairingInput("", "", ""))

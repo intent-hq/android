@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -40,6 +41,7 @@ import dev.intent.core.protocol.session.RpcSession
 import dev.intent.core.protocol.session.SessionState
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
@@ -49,7 +51,8 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.longOrNull
 
-@Suppress("LongMethod", "LongParameterList") // Keep session injection separate from navigation.
+// Keep session injection separate from navigation; failures retain the review form.
+@Suppress("LongMethod", "LongParameterList", "CyclomaticComplexMethod", "TooGenericExceptionCaught")
 @Composable
 fun WorkspaceTransferScreen(
     source: RpcSession,
@@ -57,6 +60,9 @@ fun WorkspaceTransferScreen(
     destinations: List<SavedConnection>,
     onBusy: (Boolean) -> Unit,
     onDone: () -> Unit = {},
+    workspaceTitle: String = workspaceId,
+    sourceName: String = "Connected host",
+    sourceState: SessionState = SessionState.DISCONNECTED,
     createTarget: (
         SavedConnection,
         (SessionState) -> Unit
@@ -65,13 +71,20 @@ fun WorkspaceTransferScreen(
     }
 ) {
     val operations = remember(source) { RpcWorkspaceOperations(source) }
-    var plan by remember { mutableStateOf<JsonObject?>(null) }
+    var plan by remember(source, workspaceId) { mutableStateOf<JsonObject?>(null) }
     var status by remember { mutableStateOf("Loading transfer preview…") }
     var busy by remember { mutableStateOf(false) }
     var finished by remember { mutableStateOf(false) }
     var archive by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-    val control = remember(source, workspaceId) { TransferControl() }
+    var attempt by remember(source, workspaceId) { mutableStateOf(0) }
+    var retryPreview by remember(source, workspaceId) { mutableStateOf(0) }
+    var previewFailed by remember(source, workspaceId) { mutableStateOf(false) }
+    var previewLoading by remember(source, workspaceId) { mutableStateOf(true) }
+    var owner by remember(source, sourceState) { mutableStateOf(false) }
+    var destinationId by remember(source, workspaceId) { mutableStateOf<String?>(null) }
+    val selectedDestination = destinations.firstOrNull { it.id == destinationId }
+    val control = remember(source, workspaceId, attempt) { TransferControl() }
     val progress by control.state.collectAsState()
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val active by rememberUpdatedState(busy)
@@ -86,9 +99,31 @@ fun WorkspaceTransferScreen(
         }
     }
     BackHandler(busy) { }
-    LaunchedEffect(source, workspaceId) {
-        runCatching {
-            withContext(Dispatchers.IO) {
+    LaunchedEffect(source, workspaceId, sourceState, retryPreview, attempt) {
+        if (busy || finished) return@LaunchedEffect
+        plan = null
+        owner = false
+        previewFailed = false
+        previewLoading = true
+        status = "Loading transfer preview…"
+        if (sourceState != SessionState.READY) {
+            status = "Reconnect to the source host to preview this transfer."
+            previewLoading = false
+            return@LaunchedEffect
+        }
+        try {
+            owner = withContext(Dispatchers.IO) {
+                transferPrincipalIsOwner(
+                    operations.request("principal.me"),
+                    source.serverCapabilities
+                )
+            }
+            if (!owner) {
+                status =
+                    "Only a host owner can transfer a workspace. Check your access on the host."
+                return@LaunchedEffect
+            }
+            plan = withContext(Dispatchers.IO) {
                 operations.request(
                     "workspace.transfer.plan",
                     kotlinx.serialization.json.buildJsonObject {
@@ -96,11 +131,15 @@ fun WorkspaceTransferScreen(
                     }
                 ).obj("plan")
             }
-        }.onSuccess {
-            plan = it
             status = "Review the preview and choose a destination."
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            previewFailed = true
+            status = "Transfer preview unavailable. Check the source connection, then retry."
+        } finally {
+            previewLoading = false
         }
-            .onFailure { status = "Transfer preview unavailable. Reconnect and retry." }
     }
     Column(
         Modifier.verticalScroll(rememberScrollState()).intentPageInsets(),
@@ -112,11 +151,24 @@ fun WorkspaceTransferScreen(
             color = IntentScreen.secondaryText
         )
         if (busy || finished) {
-            TransferStatus(progress, control::cancel, onDone)
+            Text(workspaceTitle, style = MaterialTheme.typography.titleMedium)
+            Text("From $sourceName", color = IntentScreen.secondaryText)
+            selectedDestination?.let {
+                Text("To ${it.displayName}", color = IntentScreen.secondaryText)
+            }
+            TransferStatus(progress, control::cancel, onDone) {
+                finished = false
+                attempt++
+            }
             return@Column
         }
         IntentSection("Transfer preview") {
             Text(status)
+            if (previewFailed) {
+                Button(onClick = { retryPreview++ }, enabled = sourceState == SessionState.READY) {
+                    Text("Retry preview")
+                }
+            }
             plan?.let { preview ->
                 val bytes = (preview["totalSizeBytes"] as? JsonPrimitive)?.longOrNull
                 val size =
@@ -133,6 +185,8 @@ fun WorkspaceTransferScreen(
             }
         }
         IntentSection("Source workspace") {
+            Text(workspaceTitle, style = MaterialTheme.typography.bodyLarge)
+            Text(sourceName, color = IntentScreen.secondaryText)
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Checkbox(archive, { archive = it })
                 Text("Archive the source after confirmed import")
@@ -143,34 +197,58 @@ fun WorkspaceTransferScreen(
                 Text("Pair another host in Settings first.", color = IntentScreen.secondaryText)
             }
             destinations.forEach { destination ->
-                Button(onClick = {
-                    busy = true
-                    onBusy(true)
-                    status = "Transferring workspace…"
-                    scope.launch {
-                        val result = withContext(Dispatchers.IO + NonCancellable) {
-                            runCatching {
-                                transferTo(
-                                    operations,
-                                    workspaceId,
-                                    destination,
-                                    archive,
-                                    control,
-                                    createTarget
-                                )
-                            }
-                        }
-                        result.onFailure {
-                            connectionFailed(control)
-                        }
-                        finished = true
-                        busy = false
-                        onBusy(false)
-                    }
-                }, enabled = plan != null) {
-                    Text("Transfer to ${destination.displayName}")
-                }
+                FilterChip(
+                    selected = destination.id == destinationId,
+                    onClick = { destinationId = destination.id },
+                    label = { Text(destination.displayName) }
+                )
             }
+            Text(
+                selectedDestination?.let { "Selected destination: ${it.displayName}" }
+                    ?: "Choose a destination before starting the transfer.",
+                color = IntentScreen.secondaryText
+            )
+        }
+        val sourceEligible = owner && sourceState == SessionState.READY
+        val previewReady = !previewLoading && plan != null
+        Button(
+            onClick = {
+                val destination = selectedDestination
+                if (busy || destination == null || !sourceEligible) {
+                    return@Button
+                }
+                busy = true
+                onBusy(true)
+                scope.launch {
+                    val result = withContext(Dispatchers.IO + NonCancellable) {
+                        runCatching {
+                            check(
+                                transferPrincipalIsOwner(
+                                    operations.request("principal.me"),
+                                    source.serverCapabilities
+                                )
+                            ) {
+                                "Owner access is required on the source host."
+                            }
+                            transferTo(
+                                operations,
+                                workspaceId,
+                                destination,
+                                archive,
+                                control,
+                                createTarget
+                            )
+                        }
+                    }
+                    result.onFailure { connectionFailed(control) }
+                    finished = true
+                    busy = false
+                    onBusy(false)
+                }
+            },
+            enabled = previewReady && selectedDestination != null && sourceEligible
+        ) {
+            Text("Transfer workspace")
         }
     }
 }
@@ -179,7 +257,7 @@ private fun connectionFailed(control: TransferControl) {
     if (control.state.value.phase.busy) {
         control.finish(
             TransferPhase.FAILED,
-            "Cannot connect to the destination. The source was not changed."
+            "Could not confirm the connection and owner access on both hosts. The source was not changed."
         )
     }
 }
@@ -202,6 +280,14 @@ private fun transferTo(
         try {
             awaitDestination(ready, control)
             control.checkCancellation()
+            check(
+                transferPrincipalIsOwner(
+                    RpcWorkspaceOperations(target).request("principal.me"),
+                    target.serverCapabilities
+                )
+            ) {
+                "Owner access is required on the destination host."
+            }
             WorkspaceTransfer(
                 source,
                 RpcWorkspaceOperations(target),
@@ -234,7 +320,12 @@ private fun awaitDestination(ready: CompletableFuture<Unit>, control: TransferCo
 }
 
 @Composable
-private fun TransferStatus(progress: TransferProgress, cancel: () -> Unit, onDone: () -> Unit) {
+private fun TransferStatus(
+    progress: TransferProgress,
+    cancel: () -> Unit,
+    onDone: () -> Unit,
+    onRetry: () -> Unit
+) {
     IntentSection(
         when (progress.phase) {
             TransferPhase.CANCELLED -> "Transfer cancelled"
@@ -267,6 +358,9 @@ private fun TransferStatus(progress: TransferProgress, cancel: () -> Unit, onDon
                 Text("The transfer can no longer be cancelled. Keep both hosts connected.")
             }
         } else {
+            if (progress.phase == TransferPhase.FAILED) {
+                Button(onClick = onRetry) { Text("Review and retry") }
+            }
             Button(onClick = onDone) { Text("Done") }
         }
     }

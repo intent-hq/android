@@ -18,6 +18,8 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
@@ -30,6 +32,7 @@ import dev.intent.app.design.IntentScreen
 import dev.intent.app.design.IntentTextButton as TextButton
 import dev.intent.app.history.AgentHistoryStore
 import dev.intent.app.history.AgentVisit
+import dev.intent.app.history.historyIdentity
 
 @Composable
 fun ConnectionsDrawer(state: ConnectionState, onSelect: (String) -> Unit, onManage: () -> Unit) {
@@ -84,6 +87,7 @@ fun ConnectionsDrawer(state: ConnectionState, onSelect: (String) -> Unit, onMana
 }
 
 @Composable
+@Suppress("LongMethod") // History header and connection-scoped selectable rows.
 fun AgentHistoryDrawer(
     store: AgentHistoryStore,
     state: ConnectionState,
@@ -103,10 +107,15 @@ fun AgentHistoryDrawer(
             Row(Modifier.fillMaxWidth()) {
                 Text(
                     "Recent agents",
-                    Modifier.weight(1f),
+                    Modifier.weight(1f).semantics { heading() },
                     style = MaterialTheme.typography.titleMedium
                 )
-                if (visible.isNotEmpty()) TextButton(onClick = store::clear) { Text("Clear") }
+                if (visible.isNotEmpty()) {
+                    TextButton(
+                        onClick = store::clear,
+                        modifier = Modifier.semantics { contentDescription = "Clear agent history" }
+                    ) { Text("Clear") }
+                }
             }
         }
         if (visible.isEmpty()) item { Text("Agents you open on any device appear here.") }
@@ -118,37 +127,27 @@ fun AgentHistoryDrawer(
                 }.testTag("history.${visit.connectionId}.${visit.agentId}")
                     .clickable { onSelect(visit) }.padding(vertical = IntentScreen.itemSpacing)
             ) {
-                val liveTitle = titles[visit.workspaceId].takeIf {
-                    visit.connectionId ==
-                        state.activeId
-                }
-                Text(visit.agentName, style = MaterialTheme.typography.titleSmall)
-                if (current) CurrentAgentLabel()
-                Text(
-                    listOfNotNull(
-                        liveTitle ?: visit.workspaceTitle,
-                        saved[visit.connectionId]?.displayName
-                    ).joinToString(" · "),
-                    color = IntentScreen.secondaryText,
-                    style = MaterialTheme.typography.bodySmall
+                val identity = visit.historyIdentity(
+                    state.activeId,
+                    titles,
+                    saved[visit.connectionId]?.displayName
                 )
+                Text(identity.title, style = MaterialTheme.typography.titleSmall)
+                if (identity.subtitle.isNotBlank()) {
+                    Text(
+                        identity.subtitle,
+                        color = IntentScreen.secondaryText,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
                 Text(
                     android.text.format.DateUtils.getRelativeTimeSpanString(
                         visit.visitedAt
-                    ).toString(),
+                    ).toString() + if (current) " · Current agent" else "",
                     style = MaterialTheme.typography.labelSmall,
                     color = IntentScreen.secondaryText
                 )
             }
         }
     }
-}
-
-@Composable
-private fun CurrentAgentLabel() {
-    Text(
-        "Current agent",
-        style = MaterialTheme.typography.labelSmall,
-        color = MaterialTheme.colorScheme.onSurface
-    )
 }

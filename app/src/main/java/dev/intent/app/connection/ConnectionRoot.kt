@@ -2,6 +2,8 @@ package dev.intent.app.connection
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -19,6 +21,7 @@ import androidx.compose.ui.platform.LocalContext
 import dev.intent.app.attachments.AttachmentMedia
 import dev.intent.app.attachments.LocalAttachmentMedia
 import dev.intent.app.cache.RoomOfflineCache
+import dev.intent.app.design.IntentScreen
 import dev.intent.app.drawers.AgentHistoryDrawer
 import dev.intent.app.drawers.ConnectionsDrawer
 import dev.intent.app.drawers.DrawerPanels
@@ -76,6 +79,12 @@ fun ConnectionRoot(
         onSettings = { utilities = utilities.openUtility("Settings") }
     )
     CompositionLocalProvider(
+        dev.intent.app.navigation.LocalConnectionReady provides (state.status == "Connected"),
+        dev.intent.app.navigation.LocalConnectionName provides
+            (
+                state.connections.firstOrNull { it.id == state.activeId }?.displayName
+                    ?: "Connected host"
+                ),
         dev.intent.app.navigation.LocalLauncherActions provides launcher,
         LocalHistoryNavigation provides
             HistoryNavigation(history, state.activeId, historyTarget) { historyTarget = null },
@@ -100,7 +109,6 @@ fun ConnectionRoot(
         )
     ) {
         Column(modifier) {
-            state.error?.let { Text(it) }
             val utilityTitle = when {
                 utility == "Settings" -> "Settings"
                 utility == "Pair connection" || state.connections.isEmpty() -> "Pair connection"
@@ -113,13 +121,22 @@ fun ConnectionRoot(
                     onBack = if (utilities.isNotEmpty()) back else null
                 )
             }
+            state.error?.let {
+                Text(
+                    it,
+                    modifier = Modifier.padding(IntentScreen.pageInsets),
+                    color = IntentScreen.error,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
             when {
                 utility == "Settings" -> ConnectionSettings(
                     controller.diagnostics,
                     Modifier.weight(1f),
                     preferences,
                     state,
-                    onDisconnect = controller::disconnect
+                    onDisconnect = controller::disconnect,
+                    onPair = { utilities = utilities.openUtility("Pair connection") }
                 ) {
                     utilities = utilities.openUtility("Connections")
                 }
@@ -127,12 +144,13 @@ fun ConnectionRoot(
                     state.busy,
                     onScan,
                     controller::prepareManual,
-                    Modifier.weight(1f)
+                    Modifier.weight(1f),
+                    tunnelAvailable = controller.tunnelAvailable
                 )
                 utility == "Connections" || state.session == null -> ConnectionScreen(
                     state,
                     onSelect = {
-                        controller.select(it)
+                        if (it != state.activeId || state.session == null) controller.select(it)
                         utilities = emptyList()
                     },
                     onForget = controller::forget,
@@ -141,7 +159,12 @@ fun ConnectionRoot(
                 )
                 else -> key(state.session, state.cacheScope) {
                     contentState.SaveableStateProvider(state.cacheScope ?: "connected") {
-                        ConnectedContent(state, Modifier.weight(1f), notificationWorkspace)
+                        Column(Modifier.weight(1f)) {
+                            ConnectionRecoveryBanner(state) {
+                                utilities = utilities.openUtility("Connections")
+                            }
+                            ConnectedContent(state, Modifier.weight(1f), notificationWorkspace)
+                        }
                     }
                 }
             }
@@ -151,7 +174,7 @@ fun ConnectionRoot(
         PairingConfirmation(payload, state.busy, controller::probeCertificate, {
             controller.confirmPairing()
             utilities = emptyList()
-        }, controller::cancelPairing)
+        }, controller::cancelPairing, controller.tunnelAvailable)
     }
 }
 

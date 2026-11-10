@@ -1,6 +1,7 @@
 package dev.intent.app.notes
 
 import dev.intent.app.comments.RpcCommentSession
+import dev.intent.core.protocol.models.NoteListResult
 import dev.intent.core.protocol.models.NoteResult
 import dev.intent.core.protocol.models.NoteTaskRow
 import dev.intent.core.protocol.models.TaskUpdateNoteStatusParams
@@ -36,6 +37,15 @@ class SessionNoteSource(private val session: RpcSession) : NoteSource {
         params(workspaceId, noteId),
         ListSerializer(NoteTaskRow.serializer())
     )
+
+    override fun relatedNotes(workspaceId: String) = session.request(
+        "note.list",
+        buildJsonObject {
+            put("workspaceId", workspaceId)
+            put("projection", "slim")
+        },
+        NoteListResult.serializer()
+    ).thenApply { it.notes }
 
     override fun updateLine(
         workspaceId: String,

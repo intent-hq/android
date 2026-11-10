@@ -12,9 +12,16 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -25,10 +32,15 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.RectangleShape
-import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -36,10 +48,11 @@ import dev.intent.app.design.IntentColors
 import dev.intent.app.design.IntentLightDarkPreview
 import dev.intent.app.design.IntentScreen
 import dev.intent.app.design.IntentSpacing
+import dev.intent.app.design.IntentTabs
 import dev.intent.app.design.IntentTheme
 import dev.intent.app.lists.RefreshableList
 import dev.intent.app.navigation.ChromeAction
-import dev.intent.app.navigation.CompactAppBar
+import dev.intent.app.navigation.ChromeActionsMenu
 import dev.intent.core.protocol.models.Workspace
 
 @Suppress("LongParameterList", "LongMethod")
@@ -82,47 +95,83 @@ fun WorkspaceListScreen(
     var query by rememberSaveable { mutableStateOf("") }
     var showArchived by rememberSaveable { mutableStateOf(false) }
     var revealedId by rememberSaveable { mutableStateOf<String?>(null) }
-    val rows = state.workspaces.filter {
-        (showArchived || !it.status.equals("Archived", true)) &&
-            (
-                it.title.contains(query.trim(), true) ||
-                    it.statusMessage.orEmpty().contains(query.trim(), true)
-                )
-    }
+    var grouping by rememberSaveable { mutableStateOf(WorkspaceGrouping.Recent) }
+    val groups = workspaceGroups(state.workspaces, query, showArchived, grouping)
+    val listState = rememberLazyListState()
+    val canvas = IntentScreen.canvas
     val drawerButtons = dev.intent.app.drawers.LocalDrawerButtons.current
     Column(modifier) {
-        CompactAppBar(
-            "Workspaces",
-            leading = drawerButtons?.let {
-                { DrawerHeaderButton("Connections", "☰", it.connections) }
-            },
-            trailing = drawerButtons?.let {
-                { DrawerHeaderButton("Agent history", "◷", it.history) }
-            },
-            actions = listOf(
-                ChromeAction(if (showArchived) "Hide archived" else "Show archived") {
-                    showArchived = !showArchived
-                    revealedId = null
+        Row(
+            Modifier.fillMaxWidth()
+                .then(dev.intent.app.drawers.LocalHeaderDrawerGesture.current)
+                .padding(IntentScreen.pageInsets),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                "Workspaces",
+                style = MaterialTheme.typography.headlineLarge,
+                modifier = Modifier.weight(1f).semantics {
+                    heading()
+                    drawerButtons?.let {
+                        customActions = listOf(
+                            CustomAccessibilityAction("Connections") {
+                                it.connections()
+                                true
+                            },
+                            CustomAccessibilityAction("Agent history") {
+                                it.history()
+                                true
+                            }
+                        )
+                    }
                 }
             )
-        )
+            ChromeActionsMenu(
+                listOf(
+                    ChromeAction(if (showArchived) "Hide archived" else "Show archived") {
+                        showArchived = !showArchived
+                        revealedId = null
+                    }
+                )
+            )
+        }
         dev.intent.app.lists.SearchableList(
             query,
             {
                 query = it
+                revealedId = null
             },
             "Search workspaces",
             state.workspaces.isNotEmpty(),
-            launcher = dev.intent.app.navigation.LocalLauncherActions.current
+            launcher = dev.intent.app.navigation.LocalLauncherActions.current,
+            controls = { searching, toggleSearch ->
+                Row(
+                    Modifier.fillMaxWidth().padding(IntentScreen.pageInsets),
+                    horizontalArrangement = Arrangement.spacedBy(IntentSpacing.row),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IntentTabs(
+                        WorkspaceGrouping.entries.map { it.label },
+                        grouping.ordinal,
+                        {
+                            grouping = WorkspaceGrouping.entries[it]
+                            revealedId = null
+                        },
+                        Modifier.weight(1f)
+                    )
+                    WorkspaceSearchButton(searching, state.workspaces.isNotEmpty(), toggleSearch)
+                }
+            }
         ) { contentPadding ->
             RefreshableList(state.isLoading, onRefresh) {
                 LazyColumn(
-                    Modifier.fillMaxSize(),
+                    Modifier.fillMaxSize().workspaceTopFade(listState, canvas),
+                    state = listState,
                     contentPadding = contentPadding,
                     verticalArrangement = Arrangement.spacedBy(0.dp)
                 ) {
                     state.error?.let { item { Text(it, color = MaterialTheme.colorScheme.error) } }
-                    if (!state.isLoading && state.error == null && rows.isEmpty()) {
+                    if (!state.isLoading && state.error == null && groups.isEmpty()) {
                         item {
                             Text(
                                 if (query.isBlank()) {
@@ -133,16 +182,31 @@ fun WorkspaceListScreen(
                             )
                         }
                     }
-                    items(rows, key = { it.id }) { workspace ->
-                        WorkspaceSwipeRow(
-                            workspace = workspace,
-                            enabled = updatingId != workspace.id,
-                            revealed = revealedId == workspace.id,
-                            onReveal = { revealedId = if (it) workspace.id else null },
-                            onClick = { onWorkspaceSelected(workspace.id) },
-                            onOpenRecent = { onOpenRecent(workspace.id) },
-                            onAction = { onAction(workspace, it) }
-                        ) { WorkspaceRow(workspace) }
+                    groups.forEach { group ->
+                        group.title?.let { title ->
+                            item(key = "group:$title") {
+                                Text(
+                                    title,
+                                    style = MaterialTheme.typography.titleSmall,
+                                    color = IntentScreen.secondaryText,
+                                    modifier =
+                                    Modifier
+                                        .padding(vertical = IntentSpacing.medium)
+                                        .semantics { heading() }
+                                )
+                            }
+                        }
+                        items(group.workspaces, key = { "workspace:${it.id}" }) { workspace ->
+                            WorkspaceSwipeRow(
+                                workspace = workspace,
+                                enabled = updatingId != workspace.id,
+                                revealed = revealedId == workspace.id,
+                                onReveal = { revealedId = if (it) workspace.id else null },
+                                onClick = { onWorkspaceSelected(workspace.id) },
+                                onOpenRecent = { onOpenRecent(workspace.id) },
+                                onAction = { onAction(workspace, it) }
+                            ) { WorkspaceRow(workspace) }
+                        }
                     }
                 }
             }
@@ -150,11 +214,24 @@ fun WorkspaceListScreen(
     }
 }
 
+private fun Modifier.workspaceTopFade(state: LazyListState, canvas: Color) = drawWithCache {
+    val height = IntentSpacing.page.toPx()
+    val brush = Brush.verticalGradient(listOf(canvas, canvas.copy(alpha = 0f)), endY = height)
+    onDrawWithContent {
+        drawContent()
+        val opacity = if (state.firstVisibleItemIndex > 0) {
+            1f
+        } else {
+            (state.firstVisibleItemScrollOffset / height).coerceIn(0f, 1f)
+        }
+        if (opacity > 0f) drawRect(brush, size = Size(size.width, height), alpha = opacity)
+    }
+}
+
 @Composable
 private fun WorkspaceRow(workspace: Workspace) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RectangleShape,
         color = IntentScreen.canvas
     ) {
         Column {
@@ -163,8 +240,13 @@ private fun WorkspaceRow(workspace: Workspace) {
                 horizontalArrangement = Arrangement.spacedBy(IntentSpacing.page)
             ) {
                 Box(
-                    Modifier.padding(top = IntentSpacing.small).size(12.dp)
-                        .background(workspaceStatusColor(workspace.displayStatus), CircleShape)
+                    Modifier
+                        .padding(top = IntentSpacing.small)
+                        .size(12.dp)
+                        .background(
+                            workspaceStatusColor(workspaceDisplayStatus(workspace)),
+                            CircleShape
+                        )
                 )
                 Column(
                     Modifier.weight(1f),
@@ -176,29 +258,20 @@ private fun WorkspaceRow(workspace: Workspace) {
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )
-                    workspace.statusMessage?.takeIf { it.isNotBlank() }?.let {
+                    workspaceRepository(workspace)?.let {
                         Text(
                             it,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis
+                            style = MaterialTheme.typography.bodySmall,
+                            color = IntentScreen.secondaryText
                         )
                     }
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(IntentSpacing.medium),
-                        verticalArrangement = Arrangement.spacedBy(IntentSpacing.small)
-                    ) {
-                        val showLifecycle = !workspace.status.equals("Active", true)
-                        if (showLifecycle) {
-                            WorkspaceBadge(workspace.status)
-                        }
-                        workspace.displayStatus?.takeIf { it.isNotBlank() }?.let { status ->
-                            WorkspaceBadge(
-                                status.replace('_', ' ').replaceFirstChar { it.titlecase() }
-                                    .replace("Pr ", "PR ")
-                            )
-                        }
+                    WorkspaceRowBadges(workspace)
+                    workspaceActivityLabel(workspace)?.let {
+                        Text(
+                            it,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = IntentScreen.secondaryText
+                        )
                     }
                 }
             }
@@ -208,11 +281,28 @@ private fun WorkspaceRow(workspace: Workspace) {
 }
 
 @Composable
-private fun workspaceStatusColor(status: String?): Color = when (status?.lowercase()) {
-    "working", "active", "running", "implementing" -> IntentColors.statusWorking
-    "complete", "completed", "pr_ready", "pr_merged" -> IntentColors.statusComplete
-    "blocked", "blocker", "question", "needs_attention" -> IntentColors.statusAttention
-    "failed", "error" -> MaterialTheme.colorScheme.error
+private fun WorkspaceRowBadges(workspace: Workspace) {
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(IntentSpacing.medium),
+        verticalArrangement = Arrangement.spacedBy(IntentSpacing.small)
+    ) {
+        if (!workspace.status.equals("Active", true)) WorkspaceBadge(workspace.status)
+        WorkspaceBadge(workspaceDisplayStatus(workspace).label)
+        workspacePrLabel(workspace)?.let { WorkspaceBadge(it) }
+        workspaceSignals(workspace).forEach { WorkspaceBadge(it) }
+    }
+}
+
+@Composable
+private fun workspaceStatusColor(status: WorkspaceDisplayStatus): Color = when (status) {
+    WorkspaceDisplayStatus.InProgress -> IntentColors.statusWorking
+    WorkspaceDisplayStatus.Complete -> IntentColors.statusComplete
+    WorkspaceDisplayStatus.Blocked, WorkspaceDisplayStatus.NeedsAttention ->
+        IntentColors.statusAttention
+    WorkspaceDisplayStatus.Failed -> MaterialTheme.colorScheme.error
+    WorkspaceDisplayStatus.PrOpen, WorkspaceDisplayStatus.PrReady,
+    WorkspaceDisplayStatus.PrQueued, WorkspaceDisplayStatus.PrMerged
+    -> MaterialTheme.colorScheme.tertiary
     else -> MaterialTheme.colorScheme.onSurfaceVariant
 }
 
@@ -226,7 +316,8 @@ private fun WorkspaceBadge(label: String) {
     ) {
         Text(
             label,
-            modifier = Modifier.padding(
+            modifier =
+            Modifier.padding(
                 horizontal = IntentSpacing.medium,
                 vertical = IntentSpacing.small
             ),
@@ -270,9 +361,16 @@ private fun WorkspaceListPreview() {
 }
 
 @Composable
-private fun DrawerHeaderButton(label: String, symbol: String, onClick: () -> Unit) {
-    androidx.compose.material3.IconButton(
-        onClick = onClick,
-        modifier = Modifier.semantics { contentDescription = label }
-    ) { Text(symbol) }
+private fun WorkspaceSearchButton(
+    searching: Boolean,
+    hasWorkspaces: Boolean,
+    onToggle: () -> Unit
+) {
+    if (!searching && !hasWorkspaces) return
+    IconButton(onClick = onToggle) {
+        Icon(
+            if (searching) Icons.Default.Close else Icons.Default.Search,
+            if (searching) "Close workspace search" else "Search workspaces"
+        )
+    }
 }

@@ -19,13 +19,14 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityOptionsCompat
 import androidx.core.content.FileProvider
@@ -35,6 +36,7 @@ import dev.intent.app.attachments.PhotoAttachmentStore
 import dev.intent.app.attachments.PhotoAttachments
 import dev.intent.app.attachments.PhotoPicker
 import dev.intent.app.conversation.ConversationComposer
+import dev.intent.app.conversation.ConversationSendState
 import dev.intent.app.conversation.ConversationSendStore
 import dev.intent.app.conversation.RpcConversationCommands
 import dev.intent.app.design.IntentTheme
@@ -63,6 +65,36 @@ import org.junit.Test
 class AttachmentInputTest {
     @get:Rule val compose = createIntentComposeRule()
     private val context get() = InstrumentationRegistry.getInstrumentation().targetContext
+
+    @Test
+    fun attachmentOnlyDraftCanSendWhileResponseRuns() {
+        val attachments = store(UploadFixture())
+        attachments.addFiles(listOf(uri("follow-up.txt", "Follow up".toByteArray()).toString()))
+        compose.waitUntil(TIMEOUT) { attachments.state.value.ready }
+        var sent: String? = null
+        compose.setContent {
+            IntentTheme {
+                ConversationComposer(
+                    ConversationSendState(running = true),
+                    {
+                        sent = it
+                        false
+                    },
+                    {},
+                    { _, _ -> false },
+                    photos = attachments
+                )
+            }
+        }
+        compose.onNodeWithContentDescription("Stop").assertIsDisplayed()
+        compose.onNodeWithText("Send").assertIsEnabled().performClick()
+        compose.runOnIdle {
+            assertEquals("", sent)
+            assertEquals(1, attachments.state.value.photos.size)
+        }
+        screenshot("attachment-only-running")
+        attachments.close()
+    }
 
     @Test
     fun oversizedVideoFromMediaAndFilesShowsIOSMessageWithoutUpload() {
@@ -251,7 +283,7 @@ class AttachmentInputTest {
                         }, questionPhotos = question)
                     }
                 }
-                compose.onNodeWithText("Send answers").performScrollTo()
+                compose.onNodeWithText("Send answers").assertIsDisplayed()
                 screenshot("attachment-question")
                 compose.onNodeWithText("Send answers").performClick()
                 compose.waitUntil(TIMEOUT) {

@@ -22,12 +22,16 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -46,12 +50,19 @@ internal fun SearchableList(
     currentOnly: Boolean? = null,
     onCurrentOnly: (Boolean) -> Unit = {},
     launcher: dev.intent.app.navigation.LauncherActions? = null,
+    controls: (@Composable (Boolean, () -> Unit) -> Unit)? = null,
     content: @Composable (PaddingValues) -> Unit
 ) {
     var searching by rememberSaveable { mutableStateOf(false) }
     val keyboardVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
+    val showFloatingControls = !searching && !keyboardVisible
+    val floatingSearch = controls == null && hasData
     val keyboard = LocalSoftwareKeyboardController.current
     val focus = LocalFocusManager.current
+    val searchFocus = remember { FocusRequester() }
+    LaunchedEffect(searching) {
+        if (searching) searchFocus.requestFocus()
+    }
     val close: () -> Unit = {
         onQuery("")
         searching = false
@@ -61,6 +72,9 @@ internal fun SearchableList(
     BackHandler(searching, onBack = close)
     Box(Modifier.fillMaxSize()) {
         Column {
+            controls?.invoke(searching) {
+                if (searching) close() else searching = true
+            }
             if (searching) {
                 OutlinedTextField(
                     value = query,
@@ -76,19 +90,10 @@ internal fun SearchableList(
                         IconButton(onClick = close) { Icon(Icons.Default.Close, "Clear search") }
                     },
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
+                        .focusRequester(searchFocus)
                 )
             }
-            if (currentOnly != null) {
-                Row(
-                    Modifier.padding(horizontal = 16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    FilterChip(currentOnly, {
-                        onCurrentOnly(true)
-                    }, label = { Text("Current") })
-                    FilterChip(!currentOnly, { onCurrentOnly(false) }, label = { Text("All") })
-                }
-            }
+            CurrentListFilter(currentOnly, onCurrentOnly)
             Box(Modifier.weight(1f)) {
                 content(
                     PaddingValues(
@@ -98,22 +103,22 @@ internal fun SearchableList(
                         bottom = listBottomInset(
                             searching || keyboardVisible,
                             launcher != null,
-                            hasData
+                            floatingSearch
                         )
                     )
                 )
             }
         }
-        if (!searching && hasData && !keyboardVisible) {
+        if (showFloatingControls && floatingSearch) {
             FloatingActionButton(
                 onClick = { searching = true },
                 modifier = Modifier.align(Alignment.BottomEnd).padding(
                     end = 16.dp,
-                    bottom = if (launcher == null) 16.dp else 88.dp
+                    bottom = if (launcher == null) 16.dp else 112.dp
                 )
             ) { Icon(Icons.Default.Search, label) }
         }
-        if (!searching && launcher != null && !keyboardVisible) {
+        if (showFloatingControls && launcher != null) {
             dev.intent.app.navigation.WorkspaceActionLauncher(
                 launcher,
                 Modifier.align(Alignment.BottomEnd).padding(16.dp)
@@ -122,9 +127,23 @@ internal fun SearchableList(
     }
 }
 
+@Composable
+private fun CurrentListFilter(currentOnly: Boolean?, onCurrentOnly: (Boolean) -> Unit) {
+    if (currentOnly != null) {
+        Row(
+            Modifier.padding(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            FilterChip(currentOnly, { onCurrentOnly(true) }, label = { Text("Current") })
+            FilterChip(!currentOnly, { onCurrentOnly(false) }, label = { Text("All") })
+        }
+    }
+}
+
 private fun listBottomInset(searching: Boolean, launcher: Boolean, hasData: Boolean) = when {
     searching -> 16.dp
-    launcher && hasData -> 160.dp
-    launcher || hasData -> 88.dp
+    launcher && hasData -> 184.dp
+    launcher -> 112.dp
+    hasData -> 88.dp
     else -> 16.dp
 }

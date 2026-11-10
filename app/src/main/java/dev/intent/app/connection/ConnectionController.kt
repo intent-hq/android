@@ -5,7 +5,11 @@ import dev.intent.core.protocol.pairing.ManualPairingInput
 import dev.intent.core.protocol.pairing.PairingPayload
 import dev.intent.core.protocol.session.RpcSession
 import dev.intent.core.protocol.session.SessionState
+import dev.intent.tailcat.Tailcat
+import dev.intent.tailcat.TunnelClientFactory
+import dev.intent.tailcat.TunnelUnavailableException
 import java.io.Closeable
+import java.net.HttpURLConnection
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -30,6 +34,7 @@ data class ConnectionState(
 class ConnectionController(
     private val repository: ConnectionRepository,
     private val sessionFactory: ((SavedConnection, (SessionState) -> Unit) -> RpcSession)? = null,
+    private val tunnels: TunnelClientFactory = Tailcat,
     private val probe: (
         String,
         Int
@@ -45,6 +50,7 @@ class ConnectionController(
     private var selectedPath: ConnectionPath? = null
     private var namedAdmission = -1L
     val diagnostics = ConnectionDiagnostics()
+    val tunnelAvailable: Boolean get() = tunnels.available
 
     fun restore() = submit {
         val rows = repository.list()
@@ -60,7 +66,7 @@ class ConnectionController(
 
     private fun prepare(payload: PairingPayload) {
         mutableState.value = state.value.copy(pending = null, busy = true, error = null)
-        require(payload.hosts.isNotEmpty()) { "A direct host is required" }
+        checkTunnelSupport(payload)
         val fingerprint = payload.certFingerprint?.let(CertificateFingerprint::normalize)
         mutableState.value = state.value.copy(
             pending = payload.copy(certFingerprint = fingerprint),
@@ -71,7 +77,7 @@ class ConnectionController(
     fun probeCertificate() = submit {
         val payload = state.value.pending ?: return@submit
         mutableState.value = state.value.copy(busy = true)
-        val fingerprint = probe(payload.hosts.first().removeSurrounding("[", "]"), payload.port)
+        val fingerprint = probePairingCertificate(payload, tunnels, probe)
         mutableState.value = state.value.copy(
             pending = payload.copy(certFingerprint = fingerprint),
             busy = false
@@ -107,6 +113,7 @@ class ConnectionController(
     }
 
     private fun activate(connection: SavedConnection) {
+        checkTunnelSupport(connection.payload)
         repository.select(connection.id)
         stopSession()
         val ticket = generation
@@ -124,6 +131,7 @@ class ConnectionController(
                 repository.list().firstOrNull { it.id == connection.id }?.payload
                     ?: connection.payload
             },
+            tunnels = tunnels,
             onRoute = { path -> submit { if (ticket == generation) selectedPath = path } }
         )
         current?.connect()
@@ -139,10 +147,15 @@ class ConnectionController(
         }
         diagnostics.record(ConnectionEvent.valueOf(status.name))
         if (status == SessionState.CLOSED) {
+            val message = when (current?.rejectedStatusCode) {
+                HttpURLConnection.HTTP_UNAUTHORIZED ->
+                    "Pairing token rejected. Pair again with the desktop's current details."
+                HttpURLConnection.HTTP_FORBIDDEN ->
+                    "Connection refused. Enable Mobile access in desktop Settings."
+                else -> "Cannot verify identity. Reconnect to try again."
+            }
             stopSession()
-            mutableState.value = state.value.copy(
-                error = "Cannot verify identity. Reconnect to try again."
-            )
+            mutableState.value = state.value.copy(error = message)
             return
         }
         // Preserve the admitted session and Compose ownership during a transport retry.
@@ -231,20 +244,26 @@ class ConnectionController(
         )
     }
 
+    private fun checkTunnelSupport(payload: PairingPayload) {
+        if (payload.hosts.isEmpty() && !tunnels.available) throw TunnelUnavailableException()
+    }
+
     @Synchronized
     private fun submit(action: () -> Unit) {
         if (closed.get()) return
         executor.execute {
             try {
                 action()
+            } catch (_: TunnelUnavailableException) {
+                actionFailed(TUNNEL_UNAVAILABLE_MESSAGE)
             } catch (_: Exception) {
-                mutableState.value = state.value.copy(
-                    busy = false,
-                    pending = null,
-                    error = "Cannot complete this action. Check the connection details."
-                )
+                actionFailed("Cannot complete this action. Check the connection details.")
             }
         }
+    }
+
+    private fun actionFailed(message: String) {
+        mutableState.value = state.value.copy(busy = false, pending = null, error = message)
     }
 
     @Synchronized

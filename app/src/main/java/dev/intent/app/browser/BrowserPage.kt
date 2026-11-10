@@ -87,7 +87,13 @@ internal class BrowserPage(private val context: Context, private val store: Brow
         }
         override fun onPageFinished(view: WebView, url: String) {
             if (view.url != url) return
-            store.navigated(revision, address(url), view.canGoBack(), view.canGoForward())
+            store.navigated(
+                revision,
+                address(url),
+                view.canGoBack(),
+                view.canGoForward(),
+                view.title
+            )
             store.loaded(revision)
         }
         override fun onReceivedError(
