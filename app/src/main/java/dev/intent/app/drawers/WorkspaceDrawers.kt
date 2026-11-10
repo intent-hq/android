@@ -57,11 +57,14 @@ class DrawerPanels(
 
 val LocalDrawerPanels = staticCompositionLocalOf<DrawerPanels?> { null }
 val LocalTranscriptDrawerGesture = staticCompositionLocalOf<Modifier> { Modifier }
+
+/** Marks a page header where a horizontal swipe opens either drawer. */
+val LocalHeaderDrawerGesture = staticCompositionLocalOf<Modifier> { Modifier }
 val LocalCurrentHistoryAgent = staticCompositionLocalOf<String?> { null }
 val LocalDrawerButtons = staticCompositionLocalOf<DrawerButtons?> { null }
 class DrawerButtons(val connections: () -> Unit, val history: () -> Unit)
 
-/** Workspace edges reveal panels; row gestures retain the rest of the page. */
+/** Workspace edges and the page header reveal panels; row gestures retain the rest of the page. */
 @Suppress("LongMethod", "CyclomaticComplexMethod")
 @Composable
 fun WorkspaceDrawers(historyOnly: Boolean = false, content: @Composable () -> Unit) {
@@ -71,6 +74,7 @@ fun WorkspaceDrawers(historyOnly: Boolean = false, content: @Composable () -> Un
         return
     }
     var transcriptBounds by remember { mutableStateOf<Rect?>(null) }
+    var headerBounds by remember { mutableStateOf<Rect?>(null) }
     var drawerOrigin by remember { mutableStateOf(Offset.Zero) }
     var side by rememberSaveable { mutableStateOf<String?>(null) }
     var drag by remember { mutableFloatStateOf(0f) }
@@ -141,11 +145,14 @@ fun WorkspaceDrawers(historyOnly: Boolean = false, content: @Composable () -> Un
                 }
         val gesture = Modifier.pointerInput(side, width, leftInset, rightInset, historyOnly) {
             var fromLeft = false
+            var fromHeader = false
             drawerGestures(
                 canStart = { position ->
                     if (!historyOnly) {
                         fromLeft = position.x <= edgeMargin
-                        side != null || fromLeft || position.x >= size.width - edgeMargin
+                        fromHeader = headerBounds?.contains(position + drawerOrigin) == true
+                        val fromRight = position.x >= size.width - edgeMargin
+                        side != null || fromLeft || fromHeader || fromRight
                     } else {
                         position.x > leftInset &&
                             position.x < size.width - rightInset &&
@@ -174,10 +181,10 @@ fun WorkspaceDrawers(historyOnly: Boolean = false, content: @Composable () -> Un
                     drag = when (side) {
                         "Connections" -> (drag + amount).coerceIn(-width, 0f)
                         "Agent history" -> (drag + amount).coerceIn(0f, width)
-                        else -> if (!historyOnly && fromLeft) {
-                            (drag + amount).coerceIn(0f, width)
-                        } else {
-                            (drag + amount).coerceIn(-width, 0f)
+                        else -> when {
+                            !historyOnly && fromHeader -> (drag + amount).coerceIn(-width, width)
+                            !historyOnly && fromLeft -> (drag + amount).coerceIn(0f, width)
+                            else -> (drag + amount).coerceIn(-width, 0f)
                         }
                     }
                 }
@@ -236,6 +243,8 @@ fun WorkspaceDrawers(historyOnly: Boolean = false, content: @Composable () -> Un
                         LocalContentColor provides IntentScreen.text,
                         LocalTranscriptDrawerGesture provides
                             Modifier.onGloballyPositioned { transcriptBounds = it.boundsInRoot() },
+                        LocalHeaderDrawerGesture provides
+                            Modifier.onGloballyPositioned { headerBounds = it.boundsInRoot() },
                         LocalDrawerButtons provides DrawerButtons(
                             { side = "Connections" },
                             { side = "Agent history" }

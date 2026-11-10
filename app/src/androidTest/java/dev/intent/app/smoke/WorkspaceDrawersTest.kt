@@ -84,6 +84,21 @@ class WorkspaceDrawersTest {
     }
 
     @Test
+    fun headerSwipesAwayFromEdgesOpenBothDrawers() = connected {
+        val header = compose.onNodeWithText("Workspaces", substring = false)
+        header.performTouchInput {
+            swipe(Offset(width * 0.2f, centerY), Offset(width * 0.95f, centerY), 300)
+        }
+        compose.onNodeWithTag("drawer.Connections").assertIsDisplayed()
+        compose.runOnIdle { dispatcher.onBackPressed() }
+        compose.onNodeWithTag("drawer.Connections").assertDoesNotExist()
+        header.performTouchInput {
+            swipe(Offset(width * 0.9f, centerY), Offset(width * 0.1f, centerY), 300)
+        }
+        compose.onNodeWithTag("drawer.Agent history").assertIsDisplayed()
+    }
+
+    @Test
     fun edgeSwipesBackAndPredictiveBackKeepOnlyOneDrawerOpen() = connected {
         contentSwipe(right = true)
         compose.onNodeWithTag("drawer.Connections").assertIsDisplayed()

@@ -102,7 +102,9 @@ fun WorkspaceListScreen(
     val drawerButtons = dev.intent.app.drawers.LocalDrawerButtons.current
     Column(modifier) {
         Row(
-            Modifier.fillMaxWidth().padding(IntentScreen.pageInsets),
+            Modifier.fillMaxWidth()
+                .then(dev.intent.app.drawers.LocalHeaderDrawerGesture.current)
+                .padding(IntentScreen.pageInsets),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
