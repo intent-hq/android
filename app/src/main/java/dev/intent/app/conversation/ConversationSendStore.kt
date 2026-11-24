@@ -5,6 +5,7 @@ import dev.intent.core.protocol.models.ConversationMessage
 import dev.intent.core.protocol.models.QueuedMessage
 import java.io.Closeable
 import java.util.UUID
+import java.util.concurrent.CompletableFuture
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.serialization.json.JsonObject
@@ -339,64 +340,57 @@ class ConversationSendStore(
 
     @Synchronized
     fun editQueued(id: String, content: String) {
-        if (content.isBlank()) return
-        queueMutation(id) {
-            commands.editQueued(id, content.trim()).thenApply {
-                check(it.success)
-                state.value.queue.map { row ->
-                    if (row.id ==
-                        id
-                    ) {
-                        row.copy(content = content.trim())
-                    } else {
-                        row
-                    }
-                }
-            }
+        val trimmed = content.trim()
+        if (trimmed.isEmpty()) return
+        queueMutation(
+            id,
+            request = { commands.editQueued(id, trimmed) },
+            succeeded = { it.success }
+        ) { _, queue ->
+            queue.map { row -> if (row.id == id) row.copy(content = trimmed) else row }
         }
     }
 
     @Synchronized
     fun sendNow(id: String) {
-        queueMutation(id) {
-            commands.sendNow(id).thenApply {
-                check(it.success)
-                if (it.queued) {
-                    state.value.queue
-                } else {
-                    state.value.queue.filterNot { row ->
-                        row.id ==
-                            id
-                    }
-                }
-            }
+        queueMutation(
+            id,
+            request = { commands.sendNow(id) },
+            succeeded = { it.success }
+        ) { result, queue ->
+            if (result.queued) queue else queue.filterNot { row -> row.id == id }
         }
     }
 
     @Synchronized
     fun retract(id: String) {
-        queueMutation(id) {
-            commands.retract(id).thenApply {
-                check(it.success)
-                state.value.queue.filterNot { row -> row.id == id }
-            }
+        queueMutation(
+            id,
+            request = { commands.retract(id) },
+            succeeded = { it.success }
+        ) { _, queue ->
+            queue.filterNot { row -> row.id == id }
         }
     }
 
-    private fun queueMutation(
+    private fun <T> queueMutation(
         id: String,
-        request: () -> java.util.concurrent.CompletableFuture<List<QueuedMessage>>
+        request: () -> CompletableFuture<T>,
+        succeeded: (T) -> Boolean,
+        update: (T, List<QueuedMessage>) -> List<QueuedMessage>
     ) {
         if (closed || id in state.value.retracting || state.value.queue.none { it.id == id }) return
         ++readVersion
         mutableState.value =
             state.value.copy(retracting = state.value.retracting + id, error = null)
-        request().whenComplete { queue, error ->
+        request().whenComplete { result, error ->
             synchronized(this) {
                 if (!closed) {
                     ++readVersion
                     queueAwaitingRefresh.add(id)
-                    if (error == null) {
+                    val ok = error == null && result != null && succeeded(result)
+                    if (ok) {
+                        val queue = update(result, state.value.queue)
                         mutableState.value = state.value.copy(
                             queue = queue,
                             attempts = state.value.attempts.filterNot {
@@ -408,7 +402,7 @@ class ConversationSendStore(
                         updateQuestions()
                     }
                     refresh()
-                    if (error != null) {
+                    if (!ok) {
                         fail("Cannot confirm queue change. Refresh before trying again.")
                     }
                 }
