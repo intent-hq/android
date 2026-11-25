@@ -111,7 +111,8 @@ fun ConnectionRoot(
         Column(modifier) {
             val utilityTitle = when {
                 utility == "Settings" -> "Settings"
-                utility == "Pair connection" || state.connections.isEmpty() -> "Pair connection"
+                utility == "Pair connection" -> "Pair connection"
+                state.connections.isEmpty() -> null
                 utility == "Connections" || state.session == null -> "Connections"
                 else -> null
             }

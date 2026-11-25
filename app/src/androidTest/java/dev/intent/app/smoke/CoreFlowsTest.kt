@@ -65,30 +65,37 @@ class CoreFlowsTest {
         val repository = MemoryConnections()
         lateinit var server: SmokeServer
         lateinit var connectionState: (SessionState) -> Unit
-        ConnectionController(repository, { saved, callback ->
-            connectionState = callback
-            createConnectionSession(saved, callback, transport = { listener ->
-                SmokeServer(listener).also { server = it }
-            })
-        }).use { controller ->
+        ConnectionController(
+            repository,
+            { saved, callback ->
+                connectionState = callback
+                createConnectionSession(saved, callback, transport = { listener ->
+                    SmokeServer(listener).also { server = it }
+                })
+            },
+            probe = { _, _ -> "AB".repeat(32) }
+        ).use { controller ->
             content { ConnectionRoot(controller, {}) }
-            compose.onNodeWithText("Scan QR code").assertIsDisplayed()
+            compose.onNodeWithText("Scan QR Code").assertIsDisplayed()
             screenshots("pairing-landing")
-            compose.onNodeWithText("Enter connection details").performClick()
-            compose.onNodeWithText("Review connection").assertIsNotEnabled()
-            compose.onNodeWithText("Host / Tailcat address").performTextInput("desktop.test")
-            compose.onNodeWithText("Port").performTextReplacement("443")
-            compose.onNodeWithText(
-                "Pairing token"
-            ).performScrollTo().performTextInput("smoke-token")
-            compose.onNodeWithText("Show token").performClick()
-            compose.onNodeWithText("Hide token").assertIsDisplayed().performClick()
-            compose.onNodeWithText("Certificate fingerprint (optional)")
-                .performScrollTo().performTextInput("AB".repeat(32))
+            compose.onNodeWithText("Manual Connection").performClick()
+            compose.onNodeWithText("Connect").assertIsNotEnabled()
+            compose.onNodeWithContentDescription("Host / Tailcat Address")
+                .performTextInput("desktop.test")
+            compose.onNodeWithContentDescription("Port").performTextReplacement("443")
+            compose.onNodeWithContentDescription("API Token")
+                .performScrollTo().performTextInput("smoke-token")
+            compose.onNodeWithContentDescription("Show API token").performClick()
+            compose.onNodeWithContentDescription("Hide API token")
+                .assertIsDisplayed().performClick()
             screenshots("pairing")
-            compose.onNodeWithText("Review connection").performScrollTo().performClick()
+            compose.onNodeWithText("Connect").performScrollTo().performClick()
             compose.waitUntil(TIMEOUT) { controller.state.value.pending != null }
             compose.onNodeWithText("Trust and connect?").assertIsDisplayed()
+            compose.onNodeWithText("Fetch certificate").performClick()
+            compose.waitUntil(TIMEOUT) {
+                controller.state.value.pending?.certFingerprint != null
+            }
             screenshots("pairing-trust")
             assertTrue(repository.list().isEmpty())
             compose.onNodeWithText("Trust and connect").performClick()
