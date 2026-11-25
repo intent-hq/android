@@ -32,7 +32,6 @@ import dev.intent.app.drawers.LocalCurrentHistoryAgent
 import dev.intent.app.drawers.LocalDrawerButtons
 import dev.intent.app.drawers.WorkspaceDrawers
 import dev.intent.app.navigation.ChromeAction
-import dev.intent.app.navigation.CompactAppBar
 import dev.intent.app.navigation.LocalChromeActions
 import dev.intent.app.navigation.LocalChromeBack
 import dev.intent.app.status.AgentWatchStore
@@ -233,9 +232,10 @@ fun WorkspaceConversations(
             ) {
                 WorkspaceDrawers(historyOnly = true) {
                     Column {
-                        CompactAppBar(
+                        ConversationHeader(
                             agentState.agents.firstOrNull { it.id == agentId }?.name
                                 ?: "Conversation",
+                            subtitle = "Agent",
                             onBack = { selected = null },
                             actions = listOfNotNull(
                                 LocalDrawerButtons.current?.let { buttons ->

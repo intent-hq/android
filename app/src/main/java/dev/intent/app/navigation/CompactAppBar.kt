@@ -75,7 +75,7 @@ fun CompactAppBar(
 }
 
 @Composable
-internal fun ChromeActionsMenu(actions: List<ChromeAction>) {
+internal fun ChromeActionsMenu(actions: List<ChromeAction>, surface: Boolean = true) {
     var expanded by remember { mutableStateOf(false) }
     if (actions.isNotEmpty()) {
         Box {
@@ -84,7 +84,13 @@ internal fun ChromeActionsMenu(actions: List<ChromeAction>) {
                 modifier = Modifier.size(48.dp).semantics {
                     contentDescription = "More actions"
                 }
-                    .background(MaterialTheme.colorScheme.surface, CircleShape)
+                    .then(
+                        if (surface) {
+                            Modifier.background(MaterialTheme.colorScheme.surface, CircleShape)
+                        } else {
+                            Modifier
+                        }
+                    )
             ) { Icon(painterResource(R.drawable.ic_more), contentDescription = null) }
             DropdownMenu(expanded, onDismissRequest = { expanded = false }) {
                 actions.forEach { action ->
