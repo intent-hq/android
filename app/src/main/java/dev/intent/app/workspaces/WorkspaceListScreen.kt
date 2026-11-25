@@ -2,13 +2,16 @@ package dev.intent.app.workspaces
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -16,9 +19,9 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -31,6 +34,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
@@ -106,7 +110,12 @@ fun WorkspaceListScreen(
         Row(
             Modifier.fillMaxWidth()
                 .then(dev.intent.app.drawers.LocalHeaderDrawerGesture.current)
-                .padding(IntentScreen.pageInsets),
+                .padding(
+                    start = IntentSpacing.page,
+                    end = IntentSpacing.page,
+                    top = TITLE_TOP_SPACING,
+                    bottom = TITLE_BOTTOM_SPACING
+                ),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
@@ -148,8 +157,8 @@ fun WorkspaceListScreen(
             launcher = dev.intent.app.navigation.LocalLauncherActions.current,
             controls = { searching, toggleSearch ->
                 Row(
-                    Modifier.fillMaxWidth().padding(IntentScreen.pageInsets),
-                    horizontalArrangement = Arrangement.spacedBy(IntentSpacing.row),
+                    Modifier.fillMaxWidth().padding(horizontal = IntentSpacing.page),
+                    horizontalArrangement = Arrangement.spacedBy(IntentSpacing.medium),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     IntentTabs(
@@ -183,6 +192,9 @@ fun WorkspaceListScreen(
                                 }
                             )
                         }
+                    }
+                    if (grouping == WorkspaceGrouping.Recent && groups.isNotEmpty()) {
+                        item(key = "recent:spacing") { Spacer(Modifier.height(RECENT_TOP_SPACING)) }
                     }
                     groups.forEach { group ->
                         group.title?.let { title ->
@@ -388,7 +400,14 @@ private fun WorkspaceSearchButton(
     onToggle: () -> Unit
 ) {
     if (!searching && !hasWorkspaces) return
-    IconButton(onClick = onToggle) {
+    Box(
+        Modifier
+            .size(SEARCH_BUTTON_SIZE)
+            .clip(RoundedCornerShape(SEARCH_BUTTON_RADIUS))
+            .background(MaterialTheme.colorScheme.surface)
+            .clickable(onClick = onToggle),
+        contentAlignment = Alignment.Center
+    ) {
         Icon(
             if (searching) {
                 painterResource(
@@ -397,12 +416,19 @@ private fun WorkspaceSearchButton(
             } else {
                 painterResource(R.drawable.ic_search)
             },
-            if (searching) "Close workspace search" else "Search workspaces"
+            if (searching) "Close workspace search" else "Search workspaces",
+            Modifier.size(24.dp)
         )
     }
 }
 
-// iOS Constants.WorkspaceList and spacious WorkspaceRow spacing.
+// iOS Constants.WorkspaceList, WorkspaceSearch and spacious WorkspaceRow spacing.
+// The title paddings subtract Inter's space above the cap height and below the baseline.
+private val TITLE_TOP_SPACING = 56.dp
+private val TITLE_BOTTOM_SPACING = 56.dp
+private val RECENT_TOP_SPACING = 12.dp
+private val SEARCH_BUTTON_SIZE = 56.dp
+private val SEARCH_BUTTON_RADIUS = 20.dp
 private val GROUP_TOP_SPACING = 32.dp
 private val GROUP_BOTTOM_SPACING = 12.dp
 private val ROW_ICON_SPACING = 20.dp

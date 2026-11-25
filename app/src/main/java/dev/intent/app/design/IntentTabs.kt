@@ -43,7 +43,7 @@ fun IntentTabs(
             .background(colors.surface)
             .padding(Inset)
     ) {
-        val labelStyle = if (maxWidth < 300.dp) {
+        val labelStyle = if (maxWidth < 240.dp) {
             MaterialTheme.typography.labelMedium
         } else {
             MaterialTheme.typography.labelLarge
