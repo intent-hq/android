@@ -46,6 +46,11 @@ class WorkspaceDrawersTest {
     private lateinit var dispatcher: OnBackPressedDispatcher
     private val servers = java.util.concurrent.ConcurrentHashMap<String, SmokeServer>()
 
+    private fun openHistory() {
+        compose.onNodeWithContentDescription("More actions").performClick()
+        compose.onNodeWithText("Agent history").performClick()
+    }
+
     @Test
     fun nativeEdgeSwipesOpenBothPanelsWithSystemNavigationEnabled() = connected {
         val bounds = compose.onNodeWithTag("workspace.drawers").fetchSemanticsNode().boundsInRoot
@@ -224,12 +229,12 @@ class WorkspaceDrawersTest {
             compose.runOnIdle { dispatcher.onBackPressed() }
             compose.onNodeWithTag("drawer.Agent history").assertDoesNotExist()
             compose.onNodeWithText("Message").assertIsDisplayed()
-            compose.onNodeWithContentDescription("Agent history").performClick()
+            openHistory()
             waitForHistory("history.second.agent", selected = false)
             compose.onNodeWithTag("history.second.agent").performClick()
             waitForConversation()
             compose.waitUntil(TIMEOUT) { controller.state.value.activeId == "second" }
-            compose.onNodeWithContentDescription("Agent history").performClick()
+            openHistory()
             waitForHistory("history.second.agent", selected = true)
             compose.onNodeWithTag("history.second.agent").assertIsSelected()
             waitForHistory("history.first.agent", selected = false)
@@ -246,7 +251,7 @@ class WorkspaceDrawersTest {
         screenshot("connections-drawer-dark")
         compose.runOnIdle { dispatcher.onBackPressed() }
         openConversation()
-        compose.onNodeWithContentDescription("Agent history").performClick()
+        openHistory()
         waitForHistory("history.first.agent", selected = true)
         screenshot("conversation-history-dark")
     }
@@ -276,19 +281,19 @@ class WorkspaceDrawersTest {
     @Test
     fun repeatedHistorySelectionAfterManualNavigationOpensTheAgent() = connected {
         openConversation()
-        compose.onNodeWithContentDescription("Agent history").performClick()
+        openHistory()
         waitForHistory("history.first.agent", selected = false)
         compose.onNodeWithTag("history.first.agent").performClick()
         compose.onNodeWithContentDescription("Back").performClick()
         waitFor("Other agent")
         compose.onNodeWithText("Other agent").performClick()
         waitFor("Message")
-        compose.onNodeWithContentDescription("Agent history").performClick()
+        openHistory()
         waitForHistory("history.first.other", selected = true)
         compose.onNodeWithTag("history.first.other").assertIsSelected()
         waitForHistory("history.first.agent", selected = false)
         compose.onNodeWithTag("history.first.agent").performClick()
-        compose.onNodeWithContentDescription("Agent history").performClick()
+        openHistory()
         waitForHistory("history.first.agent", selected = true)
         compose.onNodeWithTag("history.first.agent").assertIsSelected()
     }

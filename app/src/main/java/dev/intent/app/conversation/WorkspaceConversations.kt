@@ -2,7 +2,6 @@ package dev.intent.app.conversation
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Column
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -16,10 +15,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import dev.intent.app.agents.AgentActionDialog
 import dev.intent.app.agents.AgentControls
 import dev.intent.app.agents.AgentListRoute
@@ -241,19 +237,11 @@ fun WorkspaceConversations(
                             agentState.agents.firstOrNull { it.id == agentId }?.name
                                 ?: "Conversation",
                             onBack = { selected = null },
-                            trailing = {
+                            actions = listOfNotNull(
                                 LocalDrawerButtons.current?.let { buttons ->
-                                    IconButton(
-                                        onClick = buttons.history,
-                                        modifier = Modifier.semantics {
-                                            contentDescription = "Agent history"
-                                        }
-                                    ) {
-                                        Text("◷")
-                                    }
+                                    ChromeAction("Agent history") { buttons.history() }
                                 }
-                            },
-                            actions = listOf(
+                            ) + listOf(
                                 "Model settings",
                                 "Rename agent",
                                 "Delete agent"
