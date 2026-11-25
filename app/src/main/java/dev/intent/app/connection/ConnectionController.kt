@@ -62,7 +62,17 @@ class ConnectionController(
         prepare(requireNotNull(PairingPayload.parse(code)))
     }
 
-    fun prepareManual(input: ManualPairingInput) = submit { prepare(input.toPayload()) }
+    fun prepareManual(input: ManualPairingInput) = submit {
+        val payload = input.toPayload()
+        mutableState.value = state.value.copy(pending = null, busy = true, error = null)
+        checkTunnelSupport(payload)
+        val fingerprint = payload.certFingerprint?.let(CertificateFingerprint::normalize)
+            ?: CertificateFingerprint.normalize(probePairingCertificate(payload, tunnels, probe))
+        mutableState.value = state.value.copy(
+            pending = payload.copy(certFingerprint = fingerprint),
+            busy = false
+        )
+    }
 
     private fun prepare(payload: PairingPayload) {
         mutableState.value = state.value.copy(pending = null, busy = true, error = null)

@@ -146,7 +146,9 @@ fun ConnectionRoot(
                     onScan,
                     controller::prepareManual,
                     Modifier.weight(1f),
-                    tunnelAvailable = controller.tunnelAvailable
+                    tunnelAvailable = controller.tunnelAvailable,
+                    error = state.error,
+                    onDismissError = controller::cancelPairing
                 )
                 utility == "Connections" || state.session == null -> ConnectionScreen(
                     state,

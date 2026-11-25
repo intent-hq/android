@@ -91,14 +91,10 @@ class CoreFlowsTest {
             screenshots("pairing")
             compose.onNodeWithText("Connect").performScrollTo().performClick()
             compose.waitUntil(TIMEOUT) { controller.state.value.pending != null }
-            compose.onNodeWithText("Trust and connect?").assertIsDisplayed()
-            compose.onNodeWithText("Fetch certificate").performClick()
-            compose.waitUntil(TIMEOUT) {
-                controller.state.value.pending?.certFingerprint != null
-            }
+            compose.onNodeWithText("Verify Server Identity").assertIsDisplayed()
             screenshots("pairing-trust")
             assertTrue(repository.list().isEmpty())
-            compose.onNodeWithText("Trust and connect").performClick()
+            compose.onNodeWithText("Trust & Connect").performClick()
             compose.waitUntil(TIMEOUT) { controller.state.value.session != null }
             compose.waitUntil(TIMEOUT) {
                 compose.onAllNodes(androidx.compose.ui.test.hasText("Android smoke workspace"))

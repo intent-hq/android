@@ -10,11 +10,13 @@ import dev.intent.core.protocol.WebSocketUpgradeException
 import dev.intent.core.protocol.WssTransport
 import dev.intent.core.protocol.pairing.CredentialBytes
 import dev.intent.core.protocol.pairing.CredentialStore
+import dev.intent.core.protocol.pairing.ManualPairingInput
 import dev.intent.core.protocol.pairing.PairingPayload
 import dev.intent.core.protocol.session.SessionTransport
 import dev.intent.tailcat.TunnelClient
 import dev.intent.tailcat.TunnelClientFactory
 import dev.intent.tailcat.UnavailableTunnelClientFactory
+import java.io.IOException
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
 import javax.crypto.KeyGenerator
@@ -273,6 +275,42 @@ class ConnectionControllerTest {
             assertNull(controller.state.value.session)
             controller.cancelPairing()
             await { controller.state.value.pending == null }
+            assertTrue(repository.list().isEmpty())
+        }
+    }
+
+    @Test
+    fun `manual pairing probes certificate immediately before showing confirmation`() {
+        val repository = repository()
+        var probes = 0
+        ConnectionController(repository, probe = { host, port ->
+            probes++
+            assertEquals("desktop.local", host)
+            assertEquals(5181, port)
+            "ab".repeat(32)
+        }).use { controller ->
+            controller.prepareManual(ManualPairingInput("desktop.local", "5181", "secret"))
+            await { controller.state.value.pending != null }
+            assertEquals(1, probes)
+            assertEquals(
+                List(32) { "AB" }.joinToString(":"),
+                controller.state.value.pending!!.certFingerprint
+            )
+            assertFalse(controller.state.value.busy)
+            assertTrue(repository.list().isEmpty())
+            assertNull(controller.state.value.session)
+        }
+    }
+
+    @Test
+    fun `manual pairing probe failure reports an error without opening confirmation`() {
+        val repository = repository()
+        ConnectionController(repository, probe = { _, _ ->
+            throw IOException("Connection refused")
+        }).use { controller ->
+            controller.prepareManual(ManualPairingInput("desktop.local", "5181", "secret"))
+            await { !controller.state.value.busy && controller.state.value.error != null }
+            assertNull(controller.state.value.pending)
             assertTrue(repository.list().isEmpty())
         }
     }

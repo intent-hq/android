@@ -50,27 +50,37 @@ import dev.intent.core.protocol.pairing.ManualPairingInput
 import dev.intent.core.protocol.pairing.PairingPayload
 import dev.intent.tailcat.Tailcat
 
+@Suppress("LongParameterList")
 @Composable
 fun PairingScreen(
     busy: Boolean,
     onScan: () -> Unit,
     onManual: (ManualPairingInput) -> Unit,
     modifier: Modifier = Modifier,
-    tunnelAvailable: Boolean = Tailcat.available
+    tunnelAvailable: Boolean = Tailcat.available,
+    error: String? = null,
+    onDismissError: () -> Unit = {}
 ) {
     var manual by rememberSaveable { mutableStateOf(false) }
     Box(modifier.fillMaxSize().background(IntentScreen.canvas)) {
         PairingLanding(
             busy = busy,
             onScan = onScan,
-            onOpenManual = { manual = true }
+            onOpenManual = {
+                onDismissError()
+                manual = true
+            }
         )
         ManualConnectionOverlay(
             visible = manual,
             busy = busy,
             tunnelAvailable = tunnelAvailable,
+            externalError = error,
             onManual = onManual,
-            onDismiss = { manual = false }
+            onDismiss = {
+                onDismissError()
+                manual = false
+            }
         )
     }
 }
@@ -220,47 +230,58 @@ fun PairingConfirmation(
     onCancel: () -> Unit,
     tunnelAvailable: Boolean = Tailcat.available
 ) {
+    val fingerprint = payload.certFingerprint
     AlertDialog(
         onDismissRequest = onCancel,
-        title = { Text("Trust and connect?") },
-        text = {
-            Column(Modifier.verticalScroll(rememberScrollState())) {
-                payload.hosts.forEach { host ->
-                    Text("Direct: ${connectionEndpoint(host, payload.port).removeSuffix("/ws")}")
-                }
-                payload.tcAddress?.let { address ->
-                    Text("Tailcat: $address")
-                    Text("Port: ${payload.port}")
-                    if (!tunnelAvailable) {
-                        Text(
-                            "Tailcat is unavailable in this build. Only direct routes will be used."
-                        )
-                    }
-                }
-                Text("Compare this certificate fingerprint with the fingerprint on your desktop.")
-                Text(
-                    payload.certFingerprint ?: "Fetch the certificate before you trust this server."
-                )
-            }
-        },
+        title = { Text("Verify Server Identity") },
+        text = { PairingConfirmationBody(payload, tunnelAvailable) },
         confirmButton = {
             TextButton(
-                onClick = if (payload.certFingerprint == null) onProbe else onConfirm,
+                onClick = if (fingerprint == null) onProbe else onConfirm,
                 enabled = !busy
             ) {
                 Text(
                     if (busy) {
                         "Checking certificate…"
-                    } else if (payload.certFingerprint == null) {
+                    } else if (fingerprint == null) {
                         "Fetch certificate"
                     } else {
-                        "Trust and connect"
+                        "Trust & Connect"
                     }
                 )
             }
         },
         dismissButton = { TextButton(onClick = onCancel) { Text("Cancel") } }
     )
+}
+
+@Composable
+private fun PairingConfirmationBody(payload: PairingPayload, tunnelAvailable: Boolean) {
+    val fingerprint = payload.certFingerprint
+    Column(
+        Modifier.verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        if (fingerprint != null) {
+            Text(
+                "The server\u2019s TLS certificate fingerprint is:\n\n" +
+                    "$fingerprint\n\n" +
+                    "Do you trust this server?"
+            )
+        } else {
+            payload.hosts.forEach { host ->
+                Text("Direct: ${connectionEndpoint(host, payload.port).removeSuffix("/ws")}")
+            }
+            payload.tcAddress?.let { address ->
+                Text("Tailcat: $address")
+                Text("Port: ${payload.port}")
+            }
+            Text("Fetch the server\u2019s TLS certificate before trusting this connection.")
+        }
+        if (payload.tcAddress != null && !tunnelAvailable) {
+            Text("Tailcat is unavailable in this build. Only direct routes will be used.")
+        }
+    }
 }
 
 internal val PairingHeadingStyle = TextStyle(

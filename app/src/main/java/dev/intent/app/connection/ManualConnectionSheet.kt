@@ -69,12 +69,13 @@ import dev.intent.app.design.Inter
 import dev.intent.app.design.LocalIntentDarkTheme
 import dev.intent.core.protocol.pairing.ManualPairingInput
 
-@Suppress("LongMethod")
+@Suppress("LongMethod", "LongParameterList")
 @Composable
 internal fun ManualConnectionOverlay(
     visible: Boolean,
     busy: Boolean,
     tunnelAvailable: Boolean,
+    externalError: String?,
     onManual: (ManualPairingInput) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -102,6 +103,7 @@ internal fun ManualConnectionOverlay(
             ManualConnectionSheet(
                 busy = busy,
                 tunnelAvailable = tunnelAvailable,
+                externalError = externalError,
                 onManual = onManual,
                 onDismiss = onDismiss
             )
@@ -114,6 +116,7 @@ internal fun ManualConnectionOverlay(
 private fun ManualConnectionSheet(
     busy: Boolean,
     tunnelAvailable: Boolean,
+    externalError: String?,
     onManual: (ManualPairingInput) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -122,8 +125,15 @@ private fun ManualConnectionSheet(
     var token by remember { mutableStateOf("") }
     var tokenVisible by remember { mutableStateOf(false) }
     var errorMessage by rememberSaveable { mutableStateOf<String?>(null) }
+    var hideExternalError by remember(externalError) { mutableStateOf(false) }
+    val shownError = errorMessage ?: externalError.takeUnless { hideExternalError }
     val focusManager = LocalFocusManager.current
     val canConnect = host.isNotBlank() && token.isNotBlank()
+
+    fun clearErrors() {
+        errorMessage = null
+        hideExternalError = true
+    }
 
     fun submit() {
         val input = ManualPairingInput(host, port, token)
@@ -133,6 +143,7 @@ private fun ManualConnectionSheet(
             errorMessage = firstError
         } else {
             errorMessage = null
+            hideExternalError = false
             onManual(input)
         }
     }
@@ -175,7 +186,7 @@ private fun ManualConnectionSheet(
                             value = host,
                             onValueChange = {
                                 host = it
-                                errorMessage = null
+                                clearErrors()
                             },
                             placeholder = "192.168.1.42",
                             enabled = !busy,
@@ -192,7 +203,7 @@ private fun ManualConnectionSheet(
                             value = port,
                             onValueChange = {
                                 port = it
-                                errorMessage = null
+                                clearErrors()
                             },
                             placeholder = "5181",
                             enabled = !busy,
@@ -208,7 +219,7 @@ private fun ManualConnectionSheet(
                             value = token,
                             onValueChange = {
                                 token = it
-                                errorMessage = null
+                                clearErrors()
                             },
                             visible = tokenVisible,
                             onToggleVisibility = { tokenVisible = !tokenVisible },
@@ -216,7 +227,7 @@ private fun ManualConnectionSheet(
                             onDone = { if (canConnect && !busy) submit() }
                         )
                     }
-                    errorMessage?.let { error ->
+                    shownError?.let { error ->
                         Text(
                             text = error,
                             color = IntentScreen.error,
