@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -38,6 +37,11 @@ import dev.intent.app.design.IntentTextButton as TextButton
 import dev.intent.core.protocol.models.Note
 
 private const val MAX_VISIBLE_DEPTH = 4
+
+// iOS WorkspaceDetailStyle note spacing: 48 between root notes, 24 between children.
+private val ROOT_NOTE_SPACING = 48.dp
+private val CHILD_NOTE_SPACING = 24.dp
+private val NOTE_INDENT = 24.dp
 
 @Composable
 internal fun ContextNoteList(
@@ -84,13 +88,16 @@ internal fun LazyListScope.contextNoteItems(
         item(key = "notes.empty") { Text("No notes", color = IntentScreen.secondaryText) }
     }
     items(rows, key = { "note.${it.note.id}" }) { row ->
-        ContextRow(row, row.note.id in collapsed, onSelected) { onToggle(row.note.id) }
+        ContextRow(row, row === rows.first(), row.note.id in collapsed, onSelected) {
+            onToggle(row.note.id)
+        }
     }
 }
 
 @Composable
 private fun ContextRow(
     row: ContextNoteRow,
+    first: Boolean,
     collapsed: Boolean,
     onSelected: (String) -> Unit,
     onToggle: () -> Unit
@@ -101,15 +108,17 @@ private fun ContextRow(
         Modifier
             .fillMaxWidth()
             .heightIn(min = 48.dp)
-            .padding(start = IntentSpacing.row * row.depth.coerceAtMost(MAX_VISIBLE_DEPTH)),
+            .padding(
+                start = NOTE_INDENT * row.depth.coerceAtMost(MAX_VISIBLE_DEPTH),
+                top = noteRowTopSpacing(first, row.depth)
+            ),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(
             Modifier
                 .weight(1f)
-                .clickable { onSelected(note.id) }
-                .padding(vertical = IntentSpacing.row),
-            verticalArrangement = Arrangement.spacedBy(IntentSpacing.small)
+                .clickable { onSelected(note.id) },
+            verticalArrangement = Arrangement.spacedBy(IntentSpacing.medium)
         ) {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(IntentSpacing.row),
@@ -120,11 +129,15 @@ private fun ContextRow(
                     note.title,
                     modifier = Modifier.weight(1f),
                     color = MaterialTheme.colorScheme.onSurface,
-                    style = MaterialTheme.typography.bodyLarge
+                    style = if (row.depth == 0) {
+                        MaterialTheme.typography.titleMedium
+                    } else {
+                        MaterialTheme.typography.bodyLarge
+                    }
                 )
             }
             if (taskStatus != null) {
-                Row(Modifier.padding(start = 32.dp)) {
+                Row(Modifier.padding(start = 24.dp + IntentSpacing.row)) {
                     ContextStatus(taskStatus)
                 }
             }
@@ -144,7 +157,6 @@ private fun ContextRow(
             }
         }
     }
-    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 }
 
 @Composable
@@ -169,7 +181,7 @@ private fun ContextStatus(status: String) {
 private fun NoteTypeIcon(note: Note) {
     val color = MaterialTheme.colorScheme.onSurfaceVariant
     val task = note.metadata?.task
-    Canvas(Modifier.size(20.dp)) {
+    Canvas(Modifier.size(24.dp).padding(2.dp)) {
         val stroke = 1.5.dp.toPx()
         drawRect(
             color,
@@ -199,4 +211,10 @@ private fun NoteTypeIcon(note: Note) {
             }
         }
     }
+}
+
+private fun noteRowTopSpacing(first: Boolean, depth: Int) = when {
+    first -> 0.dp
+    depth == 0 -> ROOT_NOTE_SPACING
+    else -> CHILD_NOTE_SPACING
 }

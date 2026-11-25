@@ -55,8 +55,10 @@ internal fun WorkspaceDetailScreen(
             selectedIndex = selectedIndex,
             onSelect = { open(sections[it].second) },
             modifier = Modifier.padding(
-                horizontal = IntentSpacing.page,
-                vertical = IntentSpacing.content
+                start = IntentSpacing.page,
+                end = IntentSpacing.page,
+                top = TAB_TOP_PADDING,
+                bottom = TAB_BOTTOM_PADDING
             )
         )
     }
@@ -66,8 +68,13 @@ internal fun WorkspaceDetailScreen(
 private fun WorkspaceHeading(workspace: Workspace?) {
     val largeText = LocalDensity.current.fontScale > LARGE_TEXT_SCALE
     Column(
-        Modifier.padding(horizontal = IntentSpacing.page),
-        verticalArrangement = Arrangement.spacedBy(IntentSpacing.medium)
+        Modifier.padding(
+            start = IntentSpacing.page,
+            end = IntentSpacing.page,
+            top = HEADING_TOP_PADDING,
+            bottom = HEADING_BOTTOM_PADDING
+        ),
+        verticalArrangement = Arrangement.spacedBy(HEADING_SPACING)
     ) {
         Text(
             workspace?.title ?: LocalWorkspaceTitle.current,
@@ -93,7 +100,7 @@ private fun WorkspaceSummaryPreview(workspace: Workspace) {
     val image = workspaceStatusImage(workspace)
     if (summary == null && image == null) return
     Row(
-        horizontalArrangement = Arrangement.spacedBy(IntentSpacing.row),
+        horizontalArrangement = Arrangement.spacedBy(HEADING_SPACING),
         verticalAlignment = Alignment.Top
     ) {
         image?.let {
@@ -113,3 +120,10 @@ private fun WorkspaceSummaryPreview(workspace: Workspace) {
 }
 
 private const val LARGE_TEXT_SCALE = 1.3f
+
+// iOS WorkspaceDetailStyle heading and tab spacing.
+private val HEADING_TOP_PADDING = 64.dp
+private val HEADING_BOTTOM_PADDING = 32.dp
+private val HEADING_SPACING = 20.dp
+private val TAB_TOP_PADDING = 8.dp
+private val TAB_BOTTOM_PADDING = 40.dp

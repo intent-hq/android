@@ -52,7 +52,11 @@ import dev.intent.app.navigation.WorkspaceSectionAppBar
 import dev.intent.core.protocol.models.Agent
 
 private const val MAX_VISIBLE_DEPTH = 5
-private val DELEGATED_TEXT_INDENT = 52.dp
+private val DELEGATED_TEXT_INDENT = 56.dp
+
+// iOS WorkspaceDetailStyle: 36 between agent rows, 24 from avatar to text.
+private val AGENT_ROW_SPACING = 36.dp
+private val AVATAR_SPACING = 24.dp
 
 @Composable
 fun AgentListRoute(
@@ -98,7 +102,7 @@ fun AgentListScreen(
                         horizontal = IntentSpacing.page,
                         vertical = IntentSpacing.medium
                     ),
-                    verticalArrangement = Arrangement.spacedBy(IntentSpacing.content)
+                    verticalArrangement = Arrangement.spacedBy(AGENT_ROW_SPACING)
                 ) {
                     agentListFeedback(state, false, onRefresh)
                     val display = AgentGroupDisplay(expanded.toSet(), ::toggle)
@@ -244,15 +248,14 @@ private fun AgentRow(agent: Agent, onClick: () -> Unit, onLongClick: () -> Unit)
                 onLongClick = onLongClick,
                 onLongClickLabel = "Agent actions",
                 onClick = onClick
-            )
-            .padding(vertical = IntentSpacing.small),
-        horizontalArrangement = Arrangement.spacedBy(IntentSpacing.row),
+            ),
+        horizontalArrangement = Arrangement.spacedBy(AVATAR_SPACING),
         verticalAlignment = Alignment.Top
     ) {
         AgentIdentityAvatar(agent)
         Column(
             Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(IntentSpacing.small)
+            verticalArrangement = Arrangement.spacedBy(IntentSpacing.medium)
         ) {
             Row(
                 Modifier.fillMaxWidth(),
@@ -269,7 +272,7 @@ private fun AgentRow(agent: Agent, onClick: () -> Unit, onLongClick: () -> Unit)
                     Text(
                         "Muted",
                         modifier = Modifier.alignBy(FirstBaseline),
-                        style = MaterialTheme.typography.labelSmall,
+                        style = MaterialTheme.typography.bodySmall,
                         color = IntentScreen.secondaryText
                     )
                 }
@@ -279,7 +282,7 @@ private fun AgentRow(agent: Agent, onClick: () -> Unit, onLongClick: () -> Unit)
                         modifier = Modifier
                             .alignBy(FirstBaseline)
                             .semantics { contentDescription = "Updated $relative" },
-                        style = MaterialTheme.typography.labelSmall,
+                        style = MaterialTheme.typography.bodySmall,
                         color = IntentScreen.secondaryText,
                         maxLines = 1,
                         softWrap = false
@@ -310,7 +313,7 @@ private fun AgentRowSubtitle(agent: Agent, avatarState: AgentAvatarState) {
     }
     Text(
         text,
-        style = MaterialTheme.typography.bodyMedium,
+        style = MaterialTheme.typography.bodyLarge,
         color = color,
         maxLines = 1,
         overflow = TextOverflow.Ellipsis

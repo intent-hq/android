@@ -42,6 +42,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.intent.app.R
@@ -187,12 +188,15 @@ fun WorkspaceListScreen(
                         group.title?.let { title ->
                             item(key = "group:$title") {
                                 Text(
-                                    title,
-                                    style = MaterialTheme.typography.titleSmall,
+                                    title.uppercase(),
+                                    style = MaterialTheme.typography.labelSmall,
                                     color = IntentScreen.secondaryText,
                                     modifier =
                                     Modifier
-                                        .padding(vertical = IntentSpacing.medium)
+                                        .padding(
+                                            top = GROUP_TOP_SPACING,
+                                            bottom = GROUP_BOTTOM_SPACING
+                                        )
                                         .semantics { heading() }
                                 )
                             }
@@ -238,7 +242,7 @@ private fun WorkspaceRow(workspace: Workspace) {
         Column {
             Row(
                 Modifier.padding(vertical = IntentSpacing.page),
-                horizontalArrangement = Arrangement.spacedBy(IntentSpacing.page)
+                horizontalArrangement = Arrangement.spacedBy(ROW_ICON_SPACING)
             ) {
                 Box(
                     Modifier
@@ -251,7 +255,7 @@ private fun WorkspaceRow(workspace: Workspace) {
                 )
                 Column(
                     Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(IntentSpacing.row)
+                    verticalArrangement = Arrangement.spacedBy(ROW_TITLE_SPACING)
                 ) {
                     WorkspaceRowTitle(workspace)
                     workspaceRepository(workspace)?.let {
@@ -278,7 +282,7 @@ private fun WorkspaceRowTitle(workspace: Workspace) {
         Text(
             workspace.title,
             modifier = Modifier.weight(1f).alignBy(FirstBaseline),
-            style = MaterialTheme.typography.titleMedium,
+            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
             maxLines = 2,
             overflow = TextOverflow.Ellipsis
         )
@@ -288,7 +292,7 @@ private fun WorkspaceRowTitle(workspace: Workspace) {
                 modifier = Modifier
                     .alignBy(FirstBaseline)
                     .semantics { contentDescription = "Updated $relative" },
-                style = MaterialTheme.typography.labelSmall,
+                style = MaterialTheme.typography.bodySmall,
                 color = IntentScreen.secondaryText,
                 maxLines = 1,
                 softWrap = false
@@ -397,3 +401,9 @@ private fun WorkspaceSearchButton(
         )
     }
 }
+
+// iOS Constants.WorkspaceList and spacious WorkspaceRow spacing.
+private val GROUP_TOP_SPACING = 32.dp
+private val GROUP_BOTTOM_SPACING = 12.dp
+private val ROW_ICON_SPACING = 20.dp
+private val ROW_TITLE_SPACING = 10.dp
