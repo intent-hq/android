@@ -108,6 +108,26 @@ internal fun workspaceActivityLabel(workspace: Workspace): String? =
         "Activity · $formatted"
     }
 
+internal fun workspaceRelativeTime(
+    workspace: Workspace,
+    now: Instant = Instant.now(),
+    zone: ZoneId = ZoneId.systemDefault()
+): String? = workspaceActivityTime(workspace).takeIf { it != Instant.EPOCH }?.let { instant ->
+    val seconds = now.epochSecond - instant.epochSecond
+    when {
+        seconds < SECONDS_PER_MINUTE -> "now"
+        seconds < SECONDS_PER_HOUR -> "${seconds / SECONDS_PER_MINUTE}m"
+        seconds < SECONDS_PER_DAY -> "${seconds / SECONDS_PER_HOUR}h"
+        seconds < SECONDS_PER_WEEK -> "${seconds / SECONDS_PER_DAY}d"
+        else -> DateTimeFormatter.ofLocalizedDate(FormatStyle.SHORT).withZone(zone).format(instant)
+    }
+}
+
+private const val SECONDS_PER_MINUTE = 60L
+private const val SECONDS_PER_HOUR = 3_600L
+private const val SECONDS_PER_DAY = 86_400L
+private const val SECONDS_PER_WEEK = 604_800L
+
 internal fun workspaceSignals(workspace: Workspace): List<String> = buildList {
     if (workspace.activity == "agent_running") add("Agent running")
     when (workspace.attention) {

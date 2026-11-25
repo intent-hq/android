@@ -38,7 +38,9 @@ import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.FirstBaseline
 import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -252,12 +254,7 @@ private fun WorkspaceRow(workspace: Workspace) {
                     Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(IntentSpacing.row)
                 ) {
-                    Text(
-                        workspace.title,
-                        style = MaterialTheme.typography.titleMedium,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                    WorkspaceRowTitle(workspace)
                     workspaceRepository(workspace)?.let {
                         Text(
                             it,
@@ -266,16 +263,37 @@ private fun WorkspaceRow(workspace: Workspace) {
                         )
                     }
                     WorkspaceRowBadges(workspace)
-                    workspaceActivityLabel(workspace)?.let {
-                        Text(
-                            it,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = IntentScreen.secondaryText
-                        )
-                    }
                 }
             }
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        }
+    }
+}
+
+@Composable
+private fun WorkspaceRowTitle(workspace: Workspace) {
+    Row(
+        Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(IntentSpacing.row)
+    ) {
+        Text(
+            workspace.title,
+            modifier = Modifier.weight(1f).alignBy(FirstBaseline),
+            style = MaterialTheme.typography.titleMedium,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis
+        )
+        workspaceRelativeTime(workspace)?.let { relative ->
+            Text(
+                relative,
+                modifier = Modifier
+                    .alignBy(FirstBaseline)
+                    .semantics { contentDescription = "Updated $relative" },
+                style = MaterialTheme.typography.labelSmall,
+                color = IntentScreen.secondaryText,
+                maxLines = 1,
+                softWrap = false
+            )
         }
     }
 }
