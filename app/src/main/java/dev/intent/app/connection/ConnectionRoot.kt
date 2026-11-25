@@ -109,7 +109,12 @@ fun ConnectionRoot(
         )
     ) {
         Column(modifier) {
+            val launching = utility == null &&
+                state.session == null &&
+                state.connections.isNotEmpty() &&
+                state.status == "Connecting"
             val utilityTitle = when {
+                launching -> null
                 utility == "Settings" -> "Settings"
                 utility == "Pair connection" -> "Pair connection"
                 state.connections.isEmpty() -> null
@@ -150,6 +155,7 @@ fun ConnectionRoot(
                     error = state.error,
                     onDismissError = controller::cancelPairing
                 )
+                launching -> LaunchSplash(Modifier.weight(1f))
                 utility == "Connections" || state.session == null -> ConnectionScreen(
                     state,
                     onSelect = {

@@ -182,6 +182,7 @@ fun WorkspaceListScreen(
                     verticalArrangement = Arrangement.spacedBy(0.dp)
                 ) {
                     state.error?.let { item { Text(it, color = MaterialTheme.colorScheme.error) } }
+                    workspaceLoadingItem(state)
                     if (!state.isLoading && state.error == null && groups.isEmpty()) {
                         item {
                             Text(
@@ -426,7 +427,7 @@ private fun WorkspaceSearchButton(
 // The title paddings subtract Inter's space above the cap height and below the baseline.
 private val TITLE_TOP_SPACING = 56.dp
 private val TITLE_BOTTOM_SPACING = 56.dp
-private val RECENT_TOP_SPACING = 12.dp
+internal val RECENT_TOP_SPACING = 12.dp
 private val SEARCH_BUTTON_SIZE = 56.dp
 private val SEARCH_BUTTON_RADIUS = 20.dp
 private val GROUP_TOP_SPACING = 32.dp
