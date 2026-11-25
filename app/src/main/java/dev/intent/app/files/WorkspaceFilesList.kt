@@ -23,6 +23,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import dev.intent.app.R
+import dev.intent.app.design.DisclosureChevron
 import dev.intent.app.design.IntentScreen
 import dev.intent.app.design.IntentTextButton as TextButton
 
@@ -77,10 +78,7 @@ internal fun LazyListScope.workspaceFiles(
                     style = MaterialTheme.typography.bodyMedium
                 )
                 if (entry.isDirectory) {
-                    Text(
-                        if (expanded) "⌄" else "›",
-                        color = IntentScreen.secondaryText
-                    )
+                    DisclosureChevron(expanded)
                 }
             }
             if (entry.isDirectory && expanded) DirectoryStatus(state, entry.path, onRetry)

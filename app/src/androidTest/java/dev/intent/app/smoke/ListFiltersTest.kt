@@ -44,9 +44,9 @@ class ListFiltersTest {
                 )
             }
         }
-        compose.onNodeWithText("▸ +2 delegated · 1 running").assertIsDisplayed()
+        compose.onNodeWithText("+2 delegated · 1 running").assertIsDisplayed()
         compose.onNodeWithText("Fix search").assertDoesNotExist()
-        compose.onNodeWithText("▸ +2 delegated · 1 running").performClick()
+        compose.onNodeWithText("+2 delegated · 1 running").performClick()
         compose.onNodeWithText("Fix search").assertIsDisplayed().performClick()
         compose.runOnIdle { assertEquals("current", selected) }
         compose.onNodeWithText("Old work").assertIsDisplayed()

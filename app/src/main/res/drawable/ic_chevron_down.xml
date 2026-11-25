@@ -1,7 +1,14 @@
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="24dp" android:height="24dp"
-    android:viewportWidth="24" android:viewportHeight="24">
-    <path android:strokeColor="#080808" android:strokeWidth="1.995"
-        android:strokeLineJoin="round"
-        android:pathData="m19.5,7.875 l-5.28,5.808a3,3 0,0 1,-4.44 0L4.5,7.875" />
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- iOS Assets.xcassets/ChevronDown.imageset/ChevronDown.svg -->
+    <path
+        android:pathData="m19.5 7.875-5.28 5.808a3 3 0 0 1-4.44 0L4.5 7.875"
+        android:fillColor="#00000000"
+        android:strokeColor="#080808"
+        android:strokeWidth="1.995"
+        android:strokeLineCap="butt"
+        android:strokeLineJoin="round" />
 </vector>

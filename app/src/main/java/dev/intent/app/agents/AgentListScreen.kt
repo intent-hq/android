@@ -13,9 +13,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
@@ -40,6 +40,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import dev.intent.app.design.AgentAvatarState
+import dev.intent.app.design.DisclosureChevron
+import dev.intent.app.design.DisclosureLabel
 import dev.intent.app.design.IntentColors
 import dev.intent.app.design.IntentScreen
 import dev.intent.app.design.IntentSpacing
@@ -158,11 +160,7 @@ private fun AgentGroupHeader(section: AgentGroupSection, open: Boolean, onToggle
             style = MaterialTheme.typography.labelSmall,
             color = IntentScreen.secondaryText
         )
-        Text(
-            if (open) "⌄" else "›",
-            style = MaterialTheme.typography.bodyMedium,
-            color = IntentScreen.secondaryText
-        )
+        DisclosureChevron(open)
     }
 }
 
@@ -189,8 +187,9 @@ private fun AgentTreeItem(
                     .padding(start = DELEGATED_TEXT_INDENT, top = IntentSpacing.small),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    "${if (expanded) "▾" else "▸"} $label",
+                DisclosureLabel(
+                    label,
+                    expanded,
                     style = MaterialTheme.typography.labelSmall,
                     color = IntentScreen.secondaryText
                 )

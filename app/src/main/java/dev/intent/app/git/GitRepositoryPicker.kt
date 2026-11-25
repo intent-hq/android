@@ -24,6 +24,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import dev.intent.app.design.DisclosureChevron
 import dev.intent.app.design.IntentScreen
 import dev.intent.app.design.IntentSpacing
 
@@ -49,11 +50,7 @@ internal fun GitRepositoryPicker(state: GitState, onSelect: (String?) -> Unit) {
                     Column(Modifier.weight(1f)) {
                         RepositoryLabel(state.selectedRoot)
                     }
-                    Text(
-                        "⌄",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = IntentScreen.secondaryText
-                    )
+                    DisclosureChevron(expanded = true)
                 }
                 DropdownMenu(expanded, onDismissRequest = { expanded = false }) {
                     DropdownMenuItem(text = { Text("Main repository") }, onClick = {

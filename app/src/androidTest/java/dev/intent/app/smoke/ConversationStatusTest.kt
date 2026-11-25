@@ -108,7 +108,7 @@ class ConversationStatusTest {
         }
         compose.onNodeWithText("Delegated task").assertDoesNotExist()
         screenshot("agent-groups-collapsed")
-        compose.onNodeWithText("▸ +1 delegated · 1 running").performClick()
+        compose.onNodeWithText("+1 delegated · 1 running").performClick()
         compose.onNodeWithText("1 background agents").performClick()
         compose.onNodeWithText("1 orphaned delegated agents").performClick()
         compose.onNodeWithText("1 retired agents").performClick()

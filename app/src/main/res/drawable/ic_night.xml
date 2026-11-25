@@ -1,0 +1,16 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- iOS Assets.xcassets/Night.imageset/Night.svg -->
+    <group>
+        <path
+            android:pathData="M5.63604 5.63597C7.52311 3.74891 10.0397 2.87508 12.5098 3.01436C10.3659 5.36915 10.4317 9.01742 12.7071 11.2928C14.9825 13.5682 18.6307 13.6339 20.9855 11.4901C21.1248 13.9602 20.2511 16.4768 18.364 18.3639C14.8492 21.8786 9.15076 21.8786 5.63604 18.3639C2.12132 14.8492 2.12132 9.15069 5.63604 5.63597Z"
+            android:fillColor="#00000000"
+            android:strokeColor="#080808"
+            android:strokeWidth="2"
+            android:strokeLineCap="butt"
+            android:strokeLineJoin="bevel" />
+    </group>
+</vector>

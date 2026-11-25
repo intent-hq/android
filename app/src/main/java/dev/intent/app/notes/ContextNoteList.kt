@@ -31,6 +31,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import dev.intent.app.design.DisclosureChevron
 import dev.intent.app.design.IntentScreen
 import dev.intent.app.design.IntentSpacing
 import dev.intent.app.design.IntentTextButton as TextButton
@@ -136,9 +137,9 @@ private fun ContextRow(
                         "${if (collapsed) "Expand" else "Collapse"} child notes for ${note.title}"
                 }
             ) {
-                Text(
-                    if (collapsed) "›" else "⌄",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                DisclosureChevron(
+                    !collapsed,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }

@@ -6,9 +6,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -22,6 +19,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
+import dev.intent.app.R
 import dev.intent.app.design.IntentScreen
 import dev.intent.app.design.IntentSection
 import dev.intent.app.design.IntentTextButton as TextButton
@@ -108,7 +107,7 @@ private fun TerminalListRow(
             modifier = Modifier.testTag("terminal-rename-${terminal.id}")
         ) {
             Icon(
-                Icons.Outlined.Edit,
+                painterResource(R.drawable.ic_edit),
                 contentDescription = "Rename terminal ${state.title(terminal)}"
             )
         }
@@ -118,7 +117,7 @@ private fun TerminalListRow(
             modifier = Modifier.testTag("terminal-delete-${terminal.id}")
         ) {
             Icon(
-                Icons.Outlined.Delete,
+                painterResource(R.drawable.ic_delete),
                 contentDescription = "Delete terminal ${state.title(terminal)}"
             )
         }

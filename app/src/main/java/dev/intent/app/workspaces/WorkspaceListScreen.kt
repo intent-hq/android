@@ -16,9 +16,6 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -39,6 +36,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.FirstBaseline
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
@@ -46,6 +44,7 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import dev.intent.app.R
 import dev.intent.app.design.IntentColors
 import dev.intent.app.design.IntentLightDarkPreview
 import dev.intent.app.design.IntentScreen
@@ -387,7 +386,13 @@ private fun WorkspaceSearchButton(
     if (!searching && !hasWorkspaces) return
     IconButton(onClick = onToggle) {
         Icon(
-            if (searching) Icons.Default.Close else Icons.Default.Search,
+            if (searching) {
+                painterResource(
+                    R.drawable.intent_close
+                )
+            } else {
+                painterResource(R.drawable.ic_search)
+            },
             if (searching) "Close workspace search" else "Search workspaces"
         )
     }

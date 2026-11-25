@@ -59,10 +59,10 @@ class ConversationTranscriptTest {
         compose.onNodeWithText("Visible answer").assertIsDisplayed()
         compose.onNodeWithText("Private reasoning detail").assertDoesNotExist()
         compose.onNodeWithText("tool payload").assertDoesNotExist()
-        compose.onNodeWithText("▸ Tool activity · 2 items").performClick()
-        compose.onNodeWithText("▸ thinking").assertDoesNotExist()
+        compose.onNodeWithText("Tool activity · 2 items").performClick()
+        compose.onNodeWithText("thinking").assertDoesNotExist()
         compose.onNodeWithText("Private reasoning detail").assertDoesNotExist()
-        compose.onNodeWithText("▸ read_file").performClick()
+        compose.onNodeWithText("read_file").performClick()
         compose.onNodeWithText("tool payload").assertIsDisplayed()
     }
 
@@ -270,9 +270,9 @@ class ConversationTranscriptTest {
         compose.onNodeWithText("Human message").assertIsDisplayed()
         compose.onNodeWithText(machineText).assertDoesNotExist()
         compose.onNodeWithText(queuedText).assertDoesNotExist()
-        compose.onNodeWithText("▸ Agent message").performClick()
+        compose.onNodeWithText("Agent message").performClick()
         compose.onNodeWithText(machineText).assertIsDisplayed()
-        compose.onNodeWithText("▸ 1 queued background updates").performClick()
+        compose.onNodeWithText("1 queued background updates").performClick()
         compose.onNodeWithText(queuedText).assertIsDisplayed()
     }
 
@@ -303,11 +303,11 @@ class ConversationTranscriptTest {
         show(ConversationState(messages = rows, isLoading = false))
         compose.onNodeWithText("Before").assertIsDisplayed()
         compose.onNodeWithText("After").assertIsDisplayed()
-        compose.onNodeWithText("▸ Agent update · 2 updates").assertIsDisplayed()
+        compose.onNodeWithText("Agent update · 2 updates").assertIsDisplayed()
         compose.onNodeWithText("Worker sent a message and finished").assertDoesNotExist()
         compose.onNodeWithText("<invoke", substring = true).assertDoesNotExist()
         screenshot("format-compact")
-        compose.onNodeWithText("▸ Tool detail").performClick()
+        compose.onNodeWithText("Tool detail").performClick()
         compose.onNodeWithText("<invoke name=\"read\">payload</invoke>").assertIsDisplayed()
         screenshot("format-expanded")
     }
@@ -342,14 +342,14 @@ class ConversationTranscriptTest {
                 )
             }
         }
-        compose.onNodeWithText("▸ 2 queued background updates").assertIsDisplayed()
+        compose.onNodeWithText("2 queued background updates").assertIsDisplayed()
         screenshot("queue-compact")
         compose.onNodeWithText("Monitoring PR", substring = true).assertDoesNotExist()
-        compose.onNodeWithText("▸ 2 queued background updates").performClick()
+        compose.onNodeWithText("2 queued background updates").performClick()
         compose.onNodeWithText("Monitoring PR intent-hq/android: #5").assertIsDisplayed()
         compose.onNodeWithText("Monitoring PR intent-hq/android: #6").assertIsDisplayed()
         screenshot("queue-expanded")
-        compose.onNodeWithText("▾ 2 queued background updates").performClick()
+        compose.onNodeWithText("2 queued background updates").performClick()
         compose.onNodeWithText("Monitoring PR", substring = true).assertDoesNotExist()
     }
 
@@ -365,14 +365,14 @@ class ConversationTranscriptTest {
             timestamp
         )
         show(ConversationState(messages = listOf(reply), isLoading = false))
-        compose.onNodeWithText("▸ Setup").assertIsDisplayed()
+        compose.onNodeWithText("Setup").assertIsDisplayed()
         compose.onNodeWithText("First").assertDoesNotExist()
         compose.onNodeWithText("Done").assertIsDisplayed()
         compose.onNodeWithText("<group:", substring = true).assertDoesNotExist()
         compose.onNodeWithText(timestamp, substring = true).assertDoesNotExist()
-        compose.onNodeWithText("▸ Setup").performClick()
+        compose.onNodeWithText("Setup").performClick()
         compose.onNodeWithText("First").assertIsDisplayed()
-        compose.onNodeWithText("▾ Result").performClick()
+        compose.onNodeWithText("Result").performClick()
         compose.onNodeWithText("Done").assertDoesNotExist()
         compose.onNodeWithText("Assistant ·", substring = true).performClick()
         compose.onNodeWithText("Message details").assertIsDisplayed()

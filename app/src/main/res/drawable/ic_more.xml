@@ -1,0 +1,10 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- iOS Assets.xcassets/More.imageset/More.svg -->
+    <path
+        android:pathData="M12 7.5a2.25 2.25 0 1 1 0-4.499A2.25 2.25 0 0 1 12 7.5m0 9a2.25 2.25 0 0 1 2.25 2.25A2.25 2.25 0 0 1 12 21a2.25 2.25 0 0 1-2.25-2.25A2.25 2.25 0 0 1 12 16.5m2.25-4.5A2.25 2.25 0 0 1 12 14.25 2.25 2.25 0 0 1 9.75 12 2.25 2.25 0 0 1 12 9.75 2.25 2.25 0 0 1 14.25 12"
+        android:fillColor="#080808" />
+</vector>

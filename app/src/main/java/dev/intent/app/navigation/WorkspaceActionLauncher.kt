@@ -18,11 +18,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccountBox
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -44,6 +39,7 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -51,6 +47,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.DialogWindowProvider
+import dev.intent.app.R
 
 @Composable
 internal fun WorkspaceActionLauncher(actions: LauncherActions, modifier: Modifier = Modifier) {
@@ -154,10 +151,10 @@ private fun LauncherTiles(actions: LauncherActions, enabled: Boolean, close: () 
             ) {
                 Column(Modifier.fillMaxSize().padding(24.dp)) {
                     val icon = when (tile.label.substringBefore(':')) {
-                        "Connections" -> Icons.Default.AccountBox
-                        "Appearance" -> Icons.Default.Refresh
-                        "Settings" -> Icons.Default.Settings
-                        else -> Icons.Default.Add
+                        "Connections" -> painterResource(R.drawable.ic_connection)
+                        "Appearance" -> painterResource(R.drawable.ic_night)
+                        "Settings" -> painterResource(R.drawable.ic_settings)
+                        else -> painterResource(R.drawable.ic_add)
                     }
                     if (tile.label == "Assistant") {
                         Icon(
