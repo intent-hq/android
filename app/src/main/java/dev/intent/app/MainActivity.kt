@@ -7,27 +7,36 @@ import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.ViewModelProvider
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
+import dev.intent.app.connection.ConnectionController
 import dev.intent.app.connection.ConnectionRoot
 import dev.intent.app.connection.ConnectionViewModel
+import dev.intent.app.connection.LaunchSplash
 import dev.intent.app.connection.LocalNetworkPermissionGate
 import dev.intent.app.connection.PairingScannerActivity
 import dev.intent.app.design.IntentTheme
 import dev.intent.app.settings.AppPreferences
 import dev.intent.app.settings.Appearance
+import kotlinx.coroutines.delay
 
 class MainActivity : ComponentActivity() {
     private val model by lazy { ViewModelProvider(this)[ConnectionViewModel::class.java] }
@@ -54,28 +63,31 @@ class MainActivity : ComponentActivity() {
                 enableEdgeToEdge(statusBarStyle = bars, navigationBarStyle = bars)
             }
             IntentTheme(darkTheme = darkTheme) {
-                Scaffold { padding ->
-                    LocalNetworkPermissionGate(Modifier.fillMaxSize().padding(padding)) {
-                        LaunchedEffect(pendingIntent) {
-                            pendingIntent?.let(::acceptLink)
-                            pendingIntent = null
+                Box {
+                    Scaffold { padding ->
+                        LocalNetworkPermissionGate(Modifier.fillMaxSize().padding(padding)) {
+                            LaunchedEffect(pendingIntent) {
+                                pendingIntent?.let(::acceptLink)
+                                pendingIntent = null
+                            }
+                            ConnectionRoot(
+                                model.controller,
+                                preferences = preferences,
+                                notificationWorkspace = notificationWorkspace,
+                                onScan = {
+                                    scanner.launch(
+                                        ScanOptions().setDesiredBarcodeFormats(ScanOptions.QR_CODE)
+                                            .setCaptureActivity(PairingScannerActivity::class.java)
+                                            .setOrientationLocked(false)
+                                            .setPrompt("Scan the Intent pairing code")
+                                            .setBeepEnabled(false).setBarcodeImageEnabled(false)
+                                    )
+                                },
+                                modifier = Modifier.fillMaxSize().padding(padding)
+                            )
                         }
-                        ConnectionRoot(
-                            model.controller,
-                            preferences = preferences,
-                            notificationWorkspace = notificationWorkspace,
-                            onScan = {
-                                scanner.launch(
-                                    ScanOptions().setDesiredBarcodeFormats(ScanOptions.QR_CODE)
-                                        .setCaptureActivity(PairingScannerActivity::class.java)
-                                        .setOrientationLocked(false)
-                                        .setPrompt("Scan the Intent pairing code")
-                                        .setBeepEnabled(false).setBarcodeImageEnabled(false)
-                                )
-                            },
-                            modifier = Modifier.fillMaxSize().padding(padding)
-                        )
                     }
+                    ColdStartSplash(model.controller, coldStart = savedInstanceState == null)
                 }
             }
         }
@@ -101,3 +113,23 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
+
+/** Like iOS LoadingView, a cold start keeps the splash for at least 1.2 s and until a saved connection connects. */
+@Composable
+private fun ColdStartSplash(controller: ConnectionController, coldStart: Boolean) {
+    val state by controller.state.collectAsState()
+    var held by remember { mutableStateOf(coldStart) }
+    var visible by remember { mutableStateOf(coldStart) }
+    LaunchedEffect(Unit) {
+        delay(MINIMUM_SPLASH_MILLIS)
+        held = false
+    }
+    val connecting =
+        state.session == null && state.connections.isNotEmpty() && state.status == "Connecting"
+    if (visible && !held && !connecting) visible = false
+    AnimatedVisibility(visible, enter = EnterTransition.None, exit = fadeOut()) {
+        LaunchSplash(Modifier.fillMaxSize())
+    }
+}
+
+private const val MINIMUM_SPLASH_MILLIS = 1_200L
