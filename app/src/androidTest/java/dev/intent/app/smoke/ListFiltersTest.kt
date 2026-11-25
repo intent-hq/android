@@ -4,7 +4,6 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import dev.intent.app.agents.AgentListScreen
 import dev.intent.app.agents.AgentListState
@@ -27,7 +26,7 @@ class ListFiltersTest {
     @get:Rule val compose = createIntentComposeRule()
 
     @Test
-    fun agentSearchReopensCollapsedAncestorsAndCurrentKeepsLiveWork() {
+    fun agentDelegationExpandsAndSelectsChildAgent() {
         var selected: String? = null
         compose.setContent {
             IntentTheme {
@@ -45,33 +44,16 @@ class ListFiltersTest {
                 )
             }
         }
-        compose.onNodeWithText("▸ 2 delegated · 1 running").assertIsDisplayed()
+        compose.onNodeWithText("▸ +2 delegated · 1 running").assertIsDisplayed()
         compose.onNodeWithText("Fix search").assertDoesNotExist()
-        compose.waitUntil(5_000) {
-            compose.onAllNodes(androidx.compose.ui.test.hasContentDescription("Search agents"))
-                .fetchSemanticsNodes().isNotEmpty()
-        }
-        compose.onNodeWithContentDescription("Search agents").performClick()
-        compose.onNodeWithText("Search agents").performTextInput("SEARCH")
-        compose.onNodeWithText("Coordinator").assertIsDisplayed()
-        compose.onNodeWithText("Fix search").performClick()
+        compose.onNodeWithText("▸ +2 delegated · 1 running").performClick()
+        compose.onNodeWithText("Fix search").assertIsDisplayed().performClick()
         compose.runOnIdle { assertEquals("current", selected) }
-        compose.onNodeWithContentDescription("Clear search").performClick()
-        compose.waitUntil(5_000) {
-            compose.onAllNodes(androidx.compose.ui.test.hasContentDescription("Search agents"))
-                .fetchSemanticsNodes().isNotEmpty()
-        }
-        compose.onNodeWithContentDescription("Search agents").performClick()
-        compose.onNodeWithText("Current").performClick()
-        compose.onNodeWithText("Old work").assertDoesNotExist()
-        compose.onNodeWithText("Fix search").assertIsDisplayed()
-        compose.onNodeWithText("All").performClick()
-        compose.onNodeWithText("▸ 2 delegated · 1 running").performClick()
         compose.onNodeWithText("Old work").assertIsDisplayed()
     }
 
     @Test
-    fun contextSearchReopensParentsAndCurrentHidesCompletedTasks() {
+    fun contextNotesCollapseAndExpandChildren() {
         var selected: String? = null
         compose.setContent {
             IntentTheme {
@@ -95,30 +77,12 @@ class ListFiltersTest {
                 )
             }
         }
+        compose.onNodeWithText("Fix search").assertIsDisplayed()
         compose.onNodeWithContentDescription("Collapse child notes for Plan").performClick()
         compose.onNodeWithText("Fix search").assertDoesNotExist()
-        compose.waitUntil(5_000) {
-            compose.onAllNodes(
-                androidx.compose.ui.test.hasContentDescription("Search notes and tasks")
-            )
-                .fetchSemanticsNodes().isNotEmpty()
-        }
-        compose.onNodeWithContentDescription("Search notes and tasks").performClick()
-        compose.onNodeWithText("Search notes and tasks").performTextInput("SEARCH")
-        compose.onNodeWithText("Plan").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Expand child notes for Plan").performClick()
         compose.onNodeWithText("Fix search").performClick()
         compose.runOnIdle { assertEquals("current", selected) }
-        compose.onNodeWithContentDescription("Clear search").performClick()
-        compose.waitUntil(5_000) {
-            compose.onAllNodes(
-                androidx.compose.ui.test.hasContentDescription("Search notes and tasks")
-            )
-                .fetchSemanticsNodes().isNotEmpty()
-        }
-        compose.onNodeWithContentDescription("Search notes and tasks").performClick()
-        compose.onNodeWithText("Current").performClick()
-        compose.onNodeWithText("Old work").assertDoesNotExist()
-        compose.onNodeWithText("All").performClick()
         compose.onNodeWithText("Old work").assertIsDisplayed()
     }
 

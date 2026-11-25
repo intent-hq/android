@@ -1,20 +1,27 @@
 package dev.intent.app.git
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.intent.app.design.IntentScreen
-import dev.intent.app.design.IntentTextButton as TextButton
+import dev.intent.app.design.IntentSpacing
 import dev.intent.core.protocol.models.GitFileStatus
 
 internal data class GitTreeRow(
@@ -69,43 +76,57 @@ internal fun GitTreeItem(
 ) {
     val stage = if (staged) "staged" else "unstaged"
     val folder = row.file == null
-    val modifier = Modifier.fillMaxWidth().padding(
-        start = (minOf(row.depth, MAX_DEPTH) * INDENT).dp
-    )
+    val indent = (minOf(row.depth, MAX_DEPTH) * INDENT).dp
+    val rowModifier = Modifier
+        .fillMaxWidth()
+        .heightIn(min = 44.dp)
         .testTag("changes.${if (folder) "folder" else "file"}.$stage.${row.path}")
-    TextButton(
-        onClick = onClick,
-        modifier = if (folder) {
-            modifier.semantics {
-                contentDescription = "Folder ${row.path}, ${row.count} files"
-                stateDescription = if (collapsed) "Collapsed" else "Expanded"
+        .clickable(role = Role.Button, onClick = onClick)
+        .let { base ->
+            if (folder) {
+                base.semantics {
+                    contentDescription = "Folder ${row.path}, ${row.count} files"
+                    stateDescription = if (collapsed) "Collapsed" else "Expanded"
+                }
+            } else {
+                base
             }
-        } else {
-            modifier
         }
-    ) {
-        Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            val name = if (row.depth >= MAX_DEPTH) row.path else row.name
-            Text(
-                if (folder) {
-                    "${if (collapsed) "▸" else "▾"}  $name (${row.count})"
-                } else {
-                    "${row.file?.status}  $name"
-                }
-            )
-            row.file?.metadata?.let { metadata ->
-                val stats = if (metadata.stats.binary) {
-                    "Binary"
-                } else {
-                    "+${metadata.stats.additions} −${metadata.stats.deletions}"
-                }
+        .padding(start = indent, top = 10.dp, bottom = 10.dp)
+    Column(Modifier.fillMaxWidth()) {
+        Row(
+            modifier = rowModifier,
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(IntentSpacing.medium)
+        ) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                val name = if (row.depth >= MAX_DEPTH) row.path else row.name
                 Text(
-                    listOfNotNull(metadata.agentName, stats).joinToString(" · "),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = IntentScreen.secondaryText
+                    if (folder) {
+                        "${if (collapsed) "▸" else "▾"}  $name (${row.count})"
+                    } else {
+                        "${row.file?.status}  $name"
+                    },
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = IntentScreen.text,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
+                row.file?.metadata?.let { metadata ->
+                    val stats = if (metadata.stats.binary) {
+                        "Binary"
+                    } else {
+                        "+${metadata.stats.additions} −${metadata.stats.deletions}"
+                    }
+                    Text(
+                        listOfNotNull(metadata.agentName, stats).joinToString(" · "),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = IntentScreen.secondaryText
+                    )
+                }
             }
         }
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
     }
 }
 

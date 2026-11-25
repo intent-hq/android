@@ -113,8 +113,16 @@ internal fun workspaceRelativeTime(
     now: Instant = Instant.now(),
     zone: ZoneId = ZoneId.systemDefault()
 ): String? = workspaceActivityTime(workspace).takeIf { it != Instant.EPOCH }?.let { instant ->
+    formatRelativeTime(instant, now, zone)
+}
+
+internal fun formatRelativeTime(
+    instant: Instant,
+    now: Instant = Instant.now(),
+    zone: ZoneId = ZoneId.systemDefault()
+): String {
     val seconds = now.epochSecond - instant.epochSecond
-    when {
+    return when {
         seconds < SECONDS_PER_MINUTE -> "now"
         seconds < SECONDS_PER_HOUR -> "${seconds / SECONDS_PER_MINUTE}m"
         seconds < SECONDS_PER_DAY -> "${seconds / SECONDS_PER_HOUR}h"
@@ -148,11 +156,6 @@ internal fun workspacePrLabel(workspace: Workspace): String? = workspace.prNumbe
                 ?.replaceFirstChar { it.titlecase() }
         listOfNotNull("PR #$number", status).joinToString(" · ")
     }
-
-internal fun workspaceStateLabel(workspace: Workspace): String = listOfNotNull(
-    workspace.status.takeIf { it.isNotBlank() },
-    workspaceDisplayStatus(workspace).label
-).joinToString(" · ")
 
 internal fun workspaceStatusImage(workspace: Workspace): MediaReference? =
     workspace.statusImageAssetId

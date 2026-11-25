@@ -11,7 +11,6 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
-import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipe
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -133,19 +132,18 @@ class WorkspaceFilesTest {
     }
 
     @Test
-    fun filesAreDirectAndSearchIsSeparateFromNotes() = connected {
+    fun notesAndFilesCollapseIndependentlyOnContextScreen() = connected {
+        compose.onNodeWithText("Notes").assertIsDisplayed().performClick()
+        compose.onNodeWithText("Note 1").assertDoesNotExist()
+        scrollTo("files.file.picture.png")
         compose.onNodeWithTag("files.file.picture.png").assertIsDisplayed()
-        compose.onNodeWithContentDescription("Search loaded files").performClick()
-        compose.onNodeWithText("Search loaded files").performTextInput("picture")
-        compose.onNodeWithTag("files.file.picture.png").assertIsDisplayed()
-        compose.onNodeWithTag("files.file.archive.zip").assertDoesNotExist()
-        screenshot("files-direct-search")
+        compose.onNodeWithText("Files").performClick()
+        compose.onNodeWithTag("files.file.picture.png").assertDoesNotExist()
         compose.onNodeWithText("Notes").performClick()
         compose.onNodeWithText("Note 1").assertIsDisplayed()
-        compose.onNodeWithText("Current").assertIsDisplayed()
         compose.onNodeWithText("Files").performClick()
+        scrollTo("files.file.picture.png")
         compose.onNodeWithTag("files.file.picture.png").assertIsDisplayed()
-        compose.onNodeWithTag("files.file.archive.zip").assertDoesNotExist()
     }
 
     private fun screenshot(name: String) {
@@ -182,7 +180,7 @@ class WorkspaceFilesTest {
                 )
                     .fetchSemanticsNodes().isNotEmpty()
             }
-            compose.onNodeWithText("Files").assertIsDisplayed().performClick()
+            compose.onNodeWithText("Files").assertIsDisplayed()
             test(server)
         }
     }

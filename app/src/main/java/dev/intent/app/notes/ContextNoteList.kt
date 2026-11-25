@@ -4,12 +4,15 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -19,7 +22,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -32,7 +34,6 @@ import androidx.compose.ui.unit.dp
 import dev.intent.app.design.IntentScreen
 import dev.intent.app.design.IntentSpacing
 import dev.intent.app.design.IntentTextButton as TextButton
-import dev.intent.app.lists.SearchableList
 import dev.intent.core.protocol.models.Note
 
 private const val MAX_VISIBLE_DEPTH = 4
@@ -44,39 +45,45 @@ internal fun ContextNoteList(
     loading: Boolean = false,
     error: String? = null
 ) {
-    var query by rememberSaveable { mutableStateOf("") }
-    var currentOnly by rememberSaveable { mutableStateOf(false) }
-    var collapsed by remember(query, currentOnly) { mutableStateOf(emptySet<String>()) }
-    val rows = remember(notes, collapsed, query, currentOnly) {
-        contextNoteRows(filterContextNotes(notes, query, currentOnly), collapsed)
+    var collapsed by remember { mutableStateOf(emptySet<String>()) }
+    val rows = remember(notes, collapsed) { contextNoteRows(notes, collapsed) }
+    LazyColumn(
+        Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(
+            horizontal = IntentSpacing.page,
+            vertical = IntentSpacing.medium
+        )
+    ) {
+        contextNoteItems(
+            rows = rows,
+            collapsed = collapsed,
+            loading = loading,
+            error = error,
+            hasNotes = notes.isNotEmpty(),
+            onSelected = onSelected,
+            onToggle = { id ->
+                collapsed = if (id in collapsed) collapsed - id else collapsed + id
+            }
+        )
     }
-    SearchableList(
-        query,
-        { query = it },
-        "Search notes and tasks",
-        notes.isNotEmpty(),
-        currentOnly,
-        { currentOnly = it }
-    ) { contentPadding ->
-        LazyColumn(Modifier.fillMaxSize(), contentPadding = contentPadding) {
-            error?.let { item { Text(it, color = IntentScreen.error) } }
-            if (!loading && error == null && notes.isEmpty()) item { Text("No notes") }
-            if (rows.isEmpty() && notes.isNotEmpty()) {
-                item { Text("No matching notes or tasks. Change the search or select All.") }
-            }
-            items(rows, key = { it.note.id }) { row ->
-                ContextRow(row, row.note.id in collapsed, onSelected) {
-                    collapsed =
-                        if (row.note.id in
-                            collapsed
-                        ) {
-                            collapsed - row.note.id
-                        } else {
-                            collapsed + row.note.id
-                        }
-                }
-            }
-        }
+}
+
+@Suppress("LongParameterList")
+internal fun LazyListScope.contextNoteItems(
+    rows: List<ContextNoteRow>,
+    collapsed: Set<String>,
+    loading: Boolean,
+    error: String?,
+    hasNotes: Boolean,
+    onSelected: (String) -> Unit,
+    onToggle: (String) -> Unit
+) {
+    error?.let { item(key = "notes.error") { Text(it, color = IntentScreen.error) } }
+    if (!loading && error == null && !hasNotes) {
+        item(key = "notes.empty") { Text("No notes", color = IntentScreen.secondaryText) }
+    }
+    items(rows, key = { "note.${it.note.id}" }) { row ->
+        ContextRow(row, row.note.id in collapsed, onSelected) { onToggle(row.note.id) }
     }
 }
 
@@ -88,43 +95,37 @@ private fun ContextRow(
     onToggle: () -> Unit
 ) {
     val note = row.note
+    val taskStatus = note.metadata?.task?.status
     Row(
-        Modifier.fillMaxWidth().padding(
-            start =
-            IntentSpacing.row * row.depth.coerceAtMost(MAX_VISIBLE_DEPTH)
-        ),
+        Modifier
+            .fillMaxWidth()
+            .heightIn(min = 48.dp)
+            .padding(start = IntentSpacing.row * row.depth.coerceAtMost(MAX_VISIBLE_DEPTH)),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(
-            Modifier.weight(1f).clickable {
-                onSelected(note.id)
-            }.padding(vertical = IntentSpacing.medium),
+            Modifier
+                .weight(1f)
+                .clickable { onSelected(note.id) }
+                .padding(vertical = IntentSpacing.row),
             verticalArrangement = Arrangement.spacedBy(IntentSpacing.small)
         ) {
-            Row(horizontalArrangement = Arrangement.spacedBy(IntentSpacing.row)) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(IntentSpacing.row),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 NoteTypeIcon(note)
                 Text(
                     note.title,
+                    modifier = Modifier.weight(1f),
                     color = MaterialTheme.colorScheme.onSurface,
                     style = MaterialTheme.typography.bodyLarge
                 )
             }
-            Row(
-                Modifier.padding(start = 32.dp),
-                horizontalArrangement = Arrangement.spacedBy(IntentSpacing.medium),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                val type = when {
-                    note.isDefault || note.id == "spec" -> "Spec"
-                    note.metadata?.task != null -> "Task"
-                    else -> "Note"
+            if (taskStatus != null) {
+                Row(Modifier.padding(start = 32.dp)) {
+                    ContextStatus(taskStatus)
                 }
-                Text(
-                    type,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.labelMedium
-                )
-                note.metadata?.task?.status?.let { ContextStatus(it) }
             }
         }
         if (row.hasChildren) {
@@ -136,7 +137,7 @@ private fun ContextRow(
                 }
             ) {
                 Text(
-                    if (collapsed) "+" else "−",
+                    if (collapsed) "›" else "⌄",
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
@@ -172,10 +173,7 @@ private fun NoteTypeIcon(note: Note) {
         drawRect(
             color,
             Offset(stroke, stroke),
-            Size(
-                size.width - stroke * 2,
-                size.height - stroke * 2
-            ),
+            Size(size.width - stroke * 2, size.height - stroke * 2),
             style = Stroke(stroke)
         )
         if (task != null) {
@@ -183,19 +181,13 @@ private fun NoteTypeIcon(note: Note) {
                 drawLine(
                     color,
                     Offset(size.width * .2f, size.height * .5f),
-                    Offset(
-                        size.width * .45f,
-                        size.height * .7f
-                    ),
+                    Offset(size.width * .45f, size.height * .7f),
                     stroke
                 )
                 drawLine(
                     color,
                     Offset(size.width * .45f, size.height * .7f),
-                    Offset(
-                        size.width * .8f,
-                        size.height * .3f
-                    ),
+                    Offset(size.width * .8f, size.height * .3f),
                     stroke
                 )
             }

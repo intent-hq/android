@@ -10,19 +10,15 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
-import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.hasScrollAction
-import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performScrollToNode
-import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -44,28 +40,14 @@ class WorkspaceSectionsTest {
     private val dark = mutableStateOf(false)
 
     @Test
-    fun sectionsKeepSearchScrollAndSelectionAcrossRotationAndTheme() = connected {
+    fun sectionsKeepScrollAndSelectionAcrossRotationAndTheme() = connected {
         openWorkspace()
         compose.onNodeWithText("Agents").assertIsSelected()
-        compose.waitUntil(TIMEOUT) {
-            compose.onAllNodes(androidx.compose.ui.test.hasContentDescription("Search agents"))
-                .fetchSemanticsNodes().isNotEmpty()
-        }
-        compose.onNodeWithContentDescription("Search agents").performClick()
-        compose.onNodeWithText("Search agents").performTextInput("Agent")
         compose.onNode(hasScrollAction()).performScrollToNode(hasText("Agent 35"))
         compose.onNodeWithText("Agent 35").assertIsDisplayed()
         val agentAnchor = firstVisibleRow("Agent ")
         compose.onNodeWithText("Context").performClick()
         waitForVisibleText("Plan 1")
-        compose.waitUntil(TIMEOUT) {
-            compose.onAllNodes(
-                androidx.compose.ui.test.hasContentDescription("Search notes and tasks")
-            )
-                .fetchSemanticsNodes().isNotEmpty()
-        }
-        compose.onNodeWithContentDescription("Search notes and tasks").performClick()
-        compose.onNodeWithText("Search notes and tasks").performTextInput("Plan")
         compose.onNode(hasScrollAction()).performScrollToNode(hasText("Plan 35"))
         compose.onNodeWithText("Plan 35").assertIsDisplayed()
         val noteAnchor = firstVisibleRow("Plan ")
@@ -84,13 +66,9 @@ class WorkspaceSectionsTest {
         compose.onNodeWithText("Context").performClick()
         waitForVisibleText(noteAnchor)
         compose.onNodeWithText(noteAnchor).assertIsDisplayed()
-        compose.onNode(hasScrollAction()).performScrollToIndex(0)
-        compose.onNode(hasSetTextAction()).assertTextContains("Plan")
         compose.onNodeWithText("Agents").performClick()
         waitForVisibleText(agentAnchor)
         compose.onNodeWithText(agentAnchor).assertIsDisplayed()
-        compose.onNode(hasScrollAction()).performScrollToIndex(0)
-        compose.onNode(hasSetTextAction()).assertTextContains("Agent")
         back()
         compose.onNodeWithText("Workspaces").assertIsDisplayed()
     }

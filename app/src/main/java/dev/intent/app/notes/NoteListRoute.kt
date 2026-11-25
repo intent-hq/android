@@ -1,9 +1,18 @@
 package dev.intent.app.notes
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
@@ -11,16 +20,21 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.unit.dp
+import dev.intent.app.design.IntentScreen
 import dev.intent.app.design.IntentSpacing
-import dev.intent.app.design.IntentTabs
 import dev.intent.app.files.WorkspaceFilePreviewRoute
 import dev.intent.app.files.WorkspaceFileRpc
 import dev.intent.app.files.WorkspaceFileSource
-import dev.intent.app.files.WorkspaceFilesList
+import dev.intent.app.files.WorkspaceFilesState
 import dev.intent.app.files.WorkspaceFilesStore
+import dev.intent.app.files.workspaceFiles
 import dev.intent.app.lists.RefreshableList
 import dev.intent.app.navigation.WorkspaceSectionAppBar
 import dev.intent.core.protocol.models.NoteListResult
@@ -71,57 +85,115 @@ fun NoteListRoute(
         onDispose { store.close() }
     }
     NoteListScreen(
-        state,
-        {
+        state = state,
+        onRefresh = {
             store.refresh()
             files.refresh()
         },
-        onSelected,
-        modifier,
-        files = {
-            WorkspaceFilesList(filesState, files::toggle, files::retry) { selectedFile = it }
-        },
-        refreshingFiles = filesState.loading.isNotEmpty()
+        onSelected = onSelected,
+        modifier = modifier,
+        filesState = filesState,
+        onToggleFolder = files::toggle,
+        onRetryFolder = files::retry,
+        onSelectFile = { selectedFile = it }
     )
 }
 
-@Suppress("LongParameterList") // Note hydration and folder refresh have separate loading states.
+@Suppress("LongParameterList") // Coordinates notes and files in one unified Context scroll list.
 @Composable
 internal fun NoteListScreen(
     state: NoteListState,
     onRefresh: () -> Unit,
     onSelected: (String) -> Unit,
     modifier: Modifier = Modifier,
-    files: (@Composable () -> Unit)? = null,
-    refreshingFiles: Boolean = false
+    filesState: WorkspaceFilesState? = null,
+    onToggleFolder: (String) -> Unit = {},
+    onRetryFolder: (String) -> Unit = {},
+    onSelectFile: (String) -> Unit = {}
 ) {
-    var showFiles by rememberSaveable { mutableStateOf(false) }
-    val savedState = rememberSaveableStateHolder()
+    var notesExpanded by rememberSaveable { mutableStateOf(true) }
+    var filesExpanded by rememberSaveable { mutableStateOf(true) }
+    var collapsedNotes by remember { mutableStateOf(emptySet<String>()) }
+    val rows = remember(state.notes, collapsedNotes) {
+        contextNoteRows(state.notes, collapsedNotes)
+    }
+    val refreshing = state.loading || filesState?.loading?.isNotEmpty() == true
     Column(modifier) {
         WorkspaceSectionAppBar("Context")
-        if (files != null) {
-            IntentTabs(
-                titles = listOf("Notes", "Files"),
-                selectedIndex = if (showFiles) 1 else 0,
-                onSelect = { showFiles = it == 1 },
-                modifier = Modifier.padding(horizontal = IntentSpacing.page)
-            )
-        }
-        RefreshableList(state.loading || refreshingFiles, onRefresh) {
-            if (showFiles && files != null) {
-                savedState.SaveableStateProvider("files") { files() }
-            } else if (state.loading && state.notes.isEmpty()) {
+        RefreshableList(refreshing, onRefresh) {
+            if (state.loading && state.notes.isEmpty() && filesState == null) {
                 Spacer(Modifier.fillMaxSize())
             } else {
-                savedState.SaveableStateProvider("notes") {
-                    ContextNoteList(
-                        state.notes,
-                        onSelected,
-                        loading = state.loading,
-                        error = state.error
+                LazyColumn(
+                    Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(
+                        horizontal = IntentSpacing.page,
+                        vertical = IntentSpacing.medium
                     )
+                ) {
+                    item(key = "section.notes") {
+                        ContextSectionHeader("Notes", notesExpanded) {
+                            notesExpanded = !notesExpanded
+                        }
+                    }
+                    if (notesExpanded) {
+                        contextNoteItems(
+                            rows = rows,
+                            collapsed = collapsedNotes,
+                            loading = state.loading,
+                            error = state.error,
+                            hasNotes = state.notes.isNotEmpty(),
+                            onSelected = onSelected,
+                            onToggle = { id ->
+                                collapsedNotes = collapsedNotes.toggled(id)
+                            }
+                        )
+                    }
+                    if (filesState != null) {
+                        item(key = "section.files") {
+                            Column {
+                                Spacer(Modifier.height(20.dp))
+                                ContextSectionHeader("Files", filesExpanded) {
+                                    filesExpanded = !filesExpanded
+                                }
+                            }
+                        }
+                        if (filesExpanded) {
+                            workspaceFiles(filesState, onToggleFolder, onRetryFolder, onSelectFile)
+                        }
+                    }
                 }
             }
         }
     }
 }
+
+@Composable
+private fun ContextSectionHeader(title: String, expanded: Boolean, onToggle: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 44.dp)
+            .clickable(onClick = onToggle)
+            .semantics {
+                heading()
+                stateDescription = if (expanded) "Expanded" else "Collapsed"
+            }
+            .padding(vertical = IntentSpacing.medium),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            title,
+            modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.titleSmall,
+            color = IntentScreen.secondaryText
+        )
+        Text(
+            if (expanded) "⌄" else "›",
+            style = MaterialTheme.typography.bodyMedium,
+            color = IntentScreen.secondaryText
+        )
+    }
+}
+
+private fun Set<String>.toggled(id: String): Set<String> = if (id in this) this - id else this + id
