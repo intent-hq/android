@@ -17,8 +17,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
@@ -27,15 +25,22 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import dev.intent.app.R
 import dev.intent.app.design.IntentScreen
 import dev.intent.app.design.LocalIntentDarkTheme
+import dev.intent.app.design.TREE_GUIDE_ALPHA
+import dev.intent.app.design.TREE_MAX_DEPTH
+import dev.intent.app.design.TreeFileIconSize
+import dev.intent.app.design.TreeIconSize
+import dev.intent.app.design.TreeRowHeight
+import dev.intent.app.design.TreeRowPadding
+import dev.intent.app.design.TreeRowSpacing
+import dev.intent.app.design.treeDisplayName
+import dev.intent.app.design.treeGuides
+import dev.intent.app.design.treeIndentation
+import dev.intent.app.design.treeNameStyle
 import dev.intent.core.protocol.models.GitFileStatus
 
 internal data class GitTreeRow(
@@ -82,10 +87,7 @@ internal fun gitTreeRows(files: List<GitFileStatus>, collapsed: Set<String>): Li
 }
 
 /** Deep rows stop indenting and show the trailing path segments instead. */
-internal fun gitTreeDisplayName(row: GitTreeRow): String {
-    val parts = row.path.split('/')
-    return parts.takeLast((row.depth - MAX_DEPTH).coerceAtLeast(0) + 1).joinToString("/")
-}
+internal fun gitTreeDisplayName(row: GitTreeRow): String = treeDisplayName(row.path, row.depth)
 
 @Composable
 internal fun GitTreeItem(
@@ -97,18 +99,27 @@ internal fun GitTreeItem(
     val folder = row.file == null
     Row(
         modifier = Modifier
-            .treeRow(row, staged, collapsed, IntentScreen.secondaryText.copy(alpha = GUIDE_ALPHA))
+            .treeRow(
+                row,
+                staged,
+                collapsed,
+                IntentScreen.secondaryText.copy(alpha = TREE_GUIDE_ALPHA)
+            )
             .clickable(role = Role.Button, onClick = onClick)
-            .padding(start = indentation(row.depth), top = 7.dp, bottom = 7.dp),
+            .padding(
+                start = treeIndentation(row.depth),
+                top = TreeRowPadding,
+                bottom = TreeRowPadding
+            ),
         verticalAlignment = if (folder) Alignment.CenterVertically else Alignment.Top,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        horizontalArrangement = Arrangement.spacedBy(TreeRowSpacing)
     ) {
-        Box(Modifier.size(IconSize), contentAlignment = Alignment.Center) {
+        Box(Modifier.size(TreeIconSize), contentAlignment = Alignment.Center) {
             Icon(
                 painterResource(if (folder) R.drawable.ic_folder else R.drawable.ic_file),
                 contentDescription = null,
                 tint = IntentScreen.secondaryText,
-                modifier = Modifier.size(if (folder) IconSize else FileIconSize)
+                modifier = Modifier.size(if (folder) TreeIconSize else TreeFileIconSize)
             )
         }
         TreeLabel(row, Modifier.weight(1f))
@@ -125,9 +136,9 @@ private fun Modifier.treeRow(
     val folder = row.file == null
     val stage = if (staged) "staged" else "unstaged"
     val base = fillMaxWidth()
-        .heightIn(min = 36.dp)
+        .heightIn(min = TreeRowHeight)
         .testTag("changes.${if (folder) "folder" else "file"}.$stage.${row.path}")
-        .treeGuides(row.depth, guide, ownGuide = folder && !collapsed && row.depth < MAX_DEPTH)
+        .treeGuides(row.depth, guide, ownGuide = folder && !collapsed && row.depth < TREE_MAX_DEPTH)
     return if (!folder) {
         base
     } else {
@@ -144,11 +155,7 @@ private fun TreeLabel(row: GitTreeRow, modifier: Modifier) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
                 gitTreeDisplayName(row),
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    fontFamily = FontFamily.Monospace,
-                    fontWeight = FontWeight.Medium,
-                    letterSpacing = 0.sp
-                ),
+                style = treeNameStyle,
                 color = IntentScreen.text,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -182,7 +189,7 @@ private fun FolderTrail(count: Int, collapsed: Boolean) {
         painterResource(if (collapsed) R.drawable.ic_chevron_right else R.drawable.ic_chevron_down),
         contentDescription = null,
         tint = IntentScreen.secondaryText,
-        modifier = Modifier.size(IconSize)
+        modifier = Modifier.size(TreeIconSize)
     )
 }
 
@@ -213,26 +220,3 @@ private fun fileDetail(file: GitFileStatus): String? = listOfNotNull(
     file.metadata?.agentName,
     "Binary".takeIf { file.metadata?.stats?.binary == true }
 ).joinToString(" · ").ifEmpty { null }
-
-private fun indentation(depth: Int): Dp = INDENT * minOf(depth, MAX_DEPTH)
-
-private fun Modifier.treeGuides(depth: Int, color: Color, ownGuide: Boolean): Modifier =
-    drawBehind {
-        val stroke = 1.dp.toPx()
-        val half = IconSize.toPx() / 2
-        for (level in 0 until minOf(depth, MAX_DEPTH)) {
-            val x = indentation(level).toPx() + half
-            drawLine(color, Offset(x, 0f), Offset(x, size.height), stroke)
-        }
-        if (ownGuide) {
-            val x = indentation(depth).toPx() + half
-            val top = size.height / 2 + half + 3.dp.toPx()
-            if (top < size.height) drawLine(color, Offset(x, top), Offset(x, size.height), stroke)
-        }
-    }
-
-private const val MAX_DEPTH = 5
-private const val GUIDE_ALPHA = 0.3f
-private val INDENT = 22.dp
-private val IconSize = 16.dp
-private val FileIconSize = 13.dp
