@@ -133,15 +133,15 @@ class WorkspaceFilesTest {
 
     @Test
     fun notesAndFilesCollapseIndependentlyOnContextScreen() = connected {
-        compose.onNodeWithText("Notes").assertIsDisplayed().performClick()
+        compose.onNodeWithText("NOTES").assertIsDisplayed().performClick()
         compose.onNodeWithText("Note 1").assertDoesNotExist()
         scrollTo("files.file.picture.png")
         compose.onNodeWithTag("files.file.picture.png").assertIsDisplayed()
-        compose.onNodeWithText("Files").performClick()
+        compose.onNodeWithText("FILES").performClick()
         compose.onNodeWithTag("files.file.picture.png").assertDoesNotExist()
-        compose.onNodeWithText("Notes").performClick()
+        compose.onNodeWithText("NOTES").performClick()
         compose.onNodeWithText("Note 1").assertIsDisplayed()
-        compose.onNodeWithText("Files").performClick()
+        compose.onNodeWithText("FILES").performClick()
         scrollTo("files.file.picture.png")
         compose.onNodeWithTag("files.file.picture.png").assertIsDisplayed()
     }
@@ -180,7 +180,7 @@ class WorkspaceFilesTest {
                 )
                     .fetchSemanticsNodes().isNotEmpty()
             }
-            compose.onNodeWithText("Files").assertIsDisplayed()
+            compose.onNodeWithText("FILES").assertIsDisplayed()
             test(server)
         }
     }

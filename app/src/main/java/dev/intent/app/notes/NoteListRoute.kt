@@ -1,18 +1,11 @@
 package dev.intent.app.notes
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
@@ -21,13 +14,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.semantics.heading
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
-import dev.intent.app.design.IntentScreen
+import dev.intent.app.design.IntentCollapsibleSectionHeader
 import dev.intent.app.design.IntentSpacing
 import dev.intent.app.files.WorkspaceFilePreviewRoute
 import dev.intent.app.files.WorkspaceFileRpc
@@ -132,7 +121,7 @@ internal fun NoteListScreen(
                     )
                 ) {
                     item(key = "section.notes") {
-                        ContextSectionHeader("Notes", notesExpanded) {
+                        IntentCollapsibleSectionHeader("Notes", notesExpanded) {
                             notesExpanded = !notesExpanded
                         }
                     }
@@ -153,7 +142,7 @@ internal fun NoteListScreen(
                         item(key = "section.files") {
                             Column {
                                 Spacer(Modifier.height(20.dp))
-                                ContextSectionHeader("Files", filesExpanded) {
+                                IntentCollapsibleSectionHeader("Files", filesExpanded) {
                                     filesExpanded = !filesExpanded
                                 }
                             }
@@ -165,34 +154,6 @@ internal fun NoteListScreen(
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun ContextSectionHeader(title: String, expanded: Boolean, onToggle: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .heightIn(min = 44.dp)
-            .clickable(onClick = onToggle)
-            .semantics {
-                heading()
-                stateDescription = if (expanded) "Expanded" else "Collapsed"
-            }
-            .padding(vertical = IntentSpacing.medium),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            title,
-            modifier = Modifier.weight(1f),
-            style = MaterialTheme.typography.titleSmall,
-            color = IntentScreen.secondaryText
-        )
-        Text(
-            if (expanded) "⌄" else "›",
-            style = MaterialTheme.typography.bodyMedium,
-            color = IntentScreen.secondaryText
-        )
     }
 }
 

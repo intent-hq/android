@@ -62,7 +62,7 @@ class GitPresentationTest {
     fun missingPushMetadataIsNotTreatedAsUnpushed() {
         assertNull(commitPushLabel(null))
         assertEquals("Pushed", commitPushLabel(true))
-        assertEquals("Not pushed", commitPushLabel(false))
+        assertEquals("Local", commitPushLabel(false))
     }
 
     @Test

@@ -38,11 +38,11 @@ class GitChangesTest {
 
     @Test
     fun rootSwitchClearsOldRowsAndScopesReads() = connected {
-        waitFor("M  primary.kt")
+        waitFor("primary.kt")
         compose.onNodeWithContentDescription("Repository").performClick()
         compose.onNodeWithText("Library").performClick()
-        waitFor("M  secondary.kt")
-        compose.onNodeWithText("M  primary.kt").assertDoesNotExist()
+        waitFor("secondary.kt")
+        compose.onNodeWithText("primary.kt").assertDoesNotExist()
         compose.onNodeWithText("Library").assertIsDisplayed()
         val status = server.requests.last { it.method == "git.status" }
         assertEquals(JsonPrimitive("library"), status.params!!.jsonObject["gitRootId"])
@@ -50,7 +50,7 @@ class GitChangesTest {
         assertTrue(server.requests.any { it.method == "git.commits" })
         compose.onNodeWithContentDescription("Repository").performClick()
         compose.onNodeWithText("Main repository").performClick()
-        waitFor("M  primary.kt")
+        waitFor("primary.kt")
         assertTrue(
             server.requests.last { it.method == "git.status" }.params!!.jsonObject["gitRootId"] ==
                 null
@@ -59,13 +59,13 @@ class GitChangesTest {
 
     @Test
     fun repeatedRepositoryNamesShowPathsAndSelectTheIntendedRoot() = connected {
-        waitFor("M  primary.kt")
+        waitFor("primary.kt")
         compose.onNodeWithContentDescription("Repository").performClick()
         compose.onNodeWithText("/checkouts/one/android").assertIsDisplayed()
         compose.onNodeWithText("/checkouts/two/android").assertIsDisplayed()
         screenshot("changes-distinct-repositories")
         compose.onNodeWithText("/checkouts/two/android").performClick()
-        waitFor("M  secondary.kt")
+        waitFor("secondary.kt")
         compose.onNodeWithText("/checkouts/two/android").assertIsDisplayed()
         assertEquals(
             JsonPrimitive("android-two"),
@@ -75,29 +75,29 @@ class GitChangesTest {
 
     @Test
     fun foldersCollapseIndependentlyAndFileBackKeepsTree() = connected {
-        waitFor("M  primary.kt")
+        waitFor("primary.kt")
         screenshot("changes-tree")
         val folder = "changes.folder.unstaged.src"
         compose.onNodeWithTag(folder).performClick()
-        compose.onNodeWithText("M  primary.kt").assertDoesNotExist()
-        compose.onNodeWithText("M  staged.kt").assertIsDisplayed()
+        compose.onNodeWithText("primary.kt").assertDoesNotExist()
+        compose.onNodeWithText("staged.kt").assertIsDisplayed()
         compose.onNodeWithTag(folder).performClick()
-        compose.onNodeWithText("M  primary.kt").performClick()
+        compose.onNodeWithText("primary.kt").performClick()
         waitFor("Unstaged diff")
         compose.onNodeWithContentDescription("Back").performClick()
-        waitFor("M  primary.kt")
+        waitFor("primary.kt")
         compose.onNodeWithTag(folder).assertIsDisplayed()
     }
 
     @Test
     fun commitOpensFilesAndHunksAndBackReturnsToChanges() = connected {
-        waitFor("M  primary.kt")
+        waitFor("primary.kt")
         compose.onNode(hasScrollAction()).performScrollToNode(hasText("Primary commit"))
         compose.onNodeWithText("Primary commit").performClick()
         waitFor("Commit changes")
         waitFor("+new line")
         compose.onNodeWithText("File (2)").assertIsDisplayed()
-        compose.onNodeWithText("Not pushed").assertIsDisplayed()
+        compose.onNodeWithText("Local").assertIsDisplayed()
         compose.onNodeWithTag("commit.copy").performClick()
         compose.onNodeWithText("Copied commit hash").assertIsDisplayed()
         compose.runOnIdle {
@@ -124,10 +124,10 @@ class GitChangesTest {
 
     @Test
     fun secondaryCommitUsesScopedContents() = connected {
-        waitFor("M  primary.kt")
+        waitFor("primary.kt")
         compose.onNodeWithContentDescription("Repository").performClick()
         compose.onNodeWithText("Library").performClick()
-        waitFor("M  secondary.kt")
+        waitFor("secondary.kt")
         compose.onNode(hasScrollAction()).performScrollToNode(hasText("Secondary commit"))
         compose.onNodeWithText("Secondary commit").performClick()
         waitFor("+root content")
