@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
@@ -107,14 +108,16 @@ internal fun NoteListScreen(
         contextNoteRows(state.notes, collapsedNotes)
     }
     val refreshing = state.loading || filesState?.loading?.isNotEmpty() == true
+    val listState = rememberLazyListState()
     Column(modifier) {
         WorkspaceSectionAppBar("Context")
         RefreshableList(refreshing, onRefresh) {
-            if (state.loading && state.notes.isEmpty() && filesState == null) {
+            if (state.loading && state.notes.isEmpty()) {
                 Spacer(Modifier.fillMaxSize())
             } else {
                 LazyColumn(
                     Modifier.fillMaxSize(),
+                    state = listState,
                     contentPadding = PaddingValues(
                         horizontal = IntentSpacing.page,
                         vertical = IntentSpacing.medium

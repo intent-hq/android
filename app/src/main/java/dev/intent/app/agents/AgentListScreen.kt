@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -81,6 +82,7 @@ fun AgentListScreen(
     fun toggle(id: String) {
         expanded = ArrayList(if (id in expanded) expanded - id else expanded + id)
     }
+    val listState = rememberLazyListState()
     Column(modifier) {
         WorkspaceSectionAppBar("Agents")
         RefreshableList(state.isLoading, onRefresh) {
@@ -89,6 +91,7 @@ fun AgentListScreen(
             } else {
                 LazyColumn(
                     Modifier.fillMaxSize(),
+                    state = listState,
                     contentPadding = PaddingValues(
                         horizontal = IntentSpacing.page,
                         vertical = IntentSpacing.medium

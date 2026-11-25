@@ -38,20 +38,36 @@ class IntentComposeRule private constructor(
                 android.os.Build.FINGERPRINT
             )
         ) {
-            // Disabling the radio alone does not stop an already crashing Bluetooth service.
-            val packages = shell("pm list packages").lineSequence().map {
-                it.removePrefix("package:")
-            }
-                .filter { it == "com.google.android.bluetooth" || it == "com.android.bluetooth" }
-            packages.forEach { name ->
-                check(shell("pm disable-user --user 0 $name").contains("disabled-user")) {
-                    "Could not disable emulator Bluetooth package $name"
-                }
-            }
+            disableEmulatorBluetooth()
         }
         delegate.activityRule.scenario.onActivity { it.setTestContent(composable) }
         delegate.waitForIdle()
     }
+
+    /**
+     * Disabling the radio alone does not stop an already crashing Bluetooth service, but
+     * disabling the package while the radio is on makes system_server rebind and crash.
+     */
+    private fun disableEmulatorBluetooth() {
+        val disabled = packages("pm list packages -d").toSet()
+        val packages = packages("pm list packages")
+            .filter { it == "com.google.android.bluetooth" || it == "com.android.bluetooth" }
+            .filterNot { it in disabled }
+        if (packages.isEmpty()) return
+        shell("settings put global bluetooth_on 0")
+        shell("cmd bluetooth_manager disable")
+        shell("cmd bluetooth_manager wait-for-state:STATE_OFF")
+        packages.forEach { name ->
+            check(shell("pm disable-user --user 0 $name").contains("disabled-user")) {
+                "Could not disable emulator Bluetooth package $name"
+            }
+        }
+    }
+
+    private fun packages(command: String) = shell(command).lineSequence()
+        .map { it.trim().removePrefix("package:") }
+        .filter { it.isNotEmpty() }
+        .toList()
 
     private fun shell(command: String): String {
         val descriptor = InstrumentationRegistry.getInstrumentation().uiAutomation
