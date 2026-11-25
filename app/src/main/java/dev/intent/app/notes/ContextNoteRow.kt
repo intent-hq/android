@@ -41,3 +41,41 @@ internal fun contextStatusLabel(status: String): String = when (status) {
     "blocked" -> "Blocked"
     else -> status.replace('_', ' ').replaceFirstChar { it.uppercase() }
 }
+
+internal data class TaskStats(val total: Int, val completed: Int, val inProgress: Int)
+
+/** iOS NoteRowIcon: tasks show their status, specs a file list, and notes with child tasks a progress ring. */
+internal sealed interface NoteIconKind {
+    data object Document : NoteIconKind
+    data object Spec : NoteIconKind
+    data class Progress(val stats: TaskStats) : NoteIconKind
+    data class Task(val status: String) : NoteIconKind
+}
+
+internal fun noteIconKind(note: Note, notes: List<Note>): NoteIconKind {
+    val children = notes.filter { !it.isArchived && it.parentId == note.id }
+    val status = note.metadata?.task?.status
+    val tasks = children.mapNotNull { it.metadata?.task?.status }
+    return when {
+        status != null -> NoteIconKind.Task(derivedTaskStatus(children, status))
+        note.isDefault || note.id == "spec" -> NoteIconKind.Spec
+        tasks.isEmpty() -> NoteIconKind.Document
+        else -> NoteIconKind.Progress(
+            TaskStats(
+                total = tasks.size,
+                completed = tasks.count { it == "complete" },
+                inProgress = tasks.count { it == "in_progress" || it == "in-progress" }
+            )
+        )
+    }
+}
+
+private fun derivedTaskStatus(children: List<Note>, status: String): String {
+    val statuses = children.map { it.metadata?.task?.status }
+    return when {
+        statuses.isEmpty() -> status
+        statuses.all { it == "complete" } -> "complete"
+        statuses.all { it == "not_started" } -> "not_started"
+        else -> "in_progress"
+    }
+}

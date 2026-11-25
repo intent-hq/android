@@ -134,7 +134,7 @@ internal fun NoteListScreen(
                             collapsed = collapsedNotes,
                             loading = state.loading,
                             error = state.error,
-                            hasNotes = state.notes.isNotEmpty(),
+                            notes = state.notes,
                             onSelected = onSelected,
                             onToggle = { id ->
                                 collapsedNotes = collapsedNotes.toggled(id)
