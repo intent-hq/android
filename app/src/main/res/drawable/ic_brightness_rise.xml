@@ -1,0 +1,14 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- iOS Assets.xcassets/BrightnessRise.imageset/BrightnessRise.svg -->
+    <path
+        android:pathData="M12 5.5v2M4.68 8.68l1.41 1.41M2 16h4.375m11.25 0H22m-2.68-7.32-1.41 1.41M17 16a5 5 0 0 0-10 0"
+        android:fillColor="#00000000"
+        android:strokeColor="#080808"
+        android:strokeWidth="2"
+        android:strokeLineCap="square"
+        android:strokeLineJoin="round" />
+</vector>
