@@ -262,7 +262,7 @@ private fun TranscriptMessageContents(
     } else {
         Modifier
     }
-    Column(highlight, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    Column(highlight, verticalArrangement = Arrangement.spacedBy(MESSAGE_BLOCK_SPACING)) {
         TranscriptMetadata(message)
         val sections = remember(presentation.blocks, message.isStreaming) {
             if (message.role == "assistant") {
@@ -294,7 +294,11 @@ private fun TranscriptMessageContents(
             }
         }
         if (showSuggestions && !promptSent) {
-            PromptChips(presentation.prompts, suggestionsEnabled) { prompt ->
+            PromptChips(
+                presentation.prompts,
+                suggestionsEnabled,
+                Modifier.padding(top = TRANSCRIPT_ROW_SPACING - MESSAGE_BLOCK_SPACING)
+            ) { prompt ->
                 if (!promptSent) promptSent = onSuggestedPrompt(prompt)
             }
         }
@@ -433,3 +437,7 @@ private fun TranscriptText(text: String) {
         }
     }
 }
+
+// iOS Conversation.Design: 12 between blocks in a message, 32 between transcript rows.
+internal val MESSAGE_BLOCK_SPACING = 12.dp
+internal val TRANSCRIPT_ROW_SPACING = 32.dp

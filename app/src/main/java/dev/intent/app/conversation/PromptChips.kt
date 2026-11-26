@@ -22,9 +22,14 @@ import dev.intent.app.R
 import dev.intent.app.design.IntentSpacing
 
 @Composable
-internal fun PromptChips(prompts: List<String>, enabled: Boolean, onSend: (String) -> Unit) {
+internal fun PromptChips(
+    prompts: List<String>,
+    enabled: Boolean,
+    modifier: Modifier = Modifier,
+    onSend: (String) -> Unit
+) {
     Column(
-        Modifier.fillMaxWidth(),
+        modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(IntentSpacing.medium)
     ) {
         prompts.forEach { prompt ->
