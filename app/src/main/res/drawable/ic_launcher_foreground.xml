@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- iOS IntentLogo at the iOS AppIcon proportion: the mark spans 64% of the visible 72dp icon. -->
+<!-- iOS IntentLogo spanning half of the visible 72dp icon, leaving clear space around the mark. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <group android:translateX="30" android:translateY="29.6" android:scaleX="2" android:scaleY="2">
+    <group android:translateX="36" android:translateY="35.5" android:scaleX="1.5" android:scaleY="1.5">
         <path
             android:pathData="M12,15.82L12,23.76M4.44,21L8.35,16.35C10.16,14.95 8.51,12.12 6.4,12.99L0.42,14.04M1.82,6.12L7.08,9.16C8.77,10.73 11.31,8.6 10.06,6.66L7.98,0.95M16.02,0.95L13.94,6.66C12.69,8.6 15.23,10.73 16.92,9.16L22.18,6.12M23.58,14.04L17.6,12.99C15.49,12.12 13.84,14.95 15.65,16.35L19.56,21"
             android:fillColor="#00000000"
