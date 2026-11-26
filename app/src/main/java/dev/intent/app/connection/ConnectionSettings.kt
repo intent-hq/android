@@ -4,15 +4,26 @@ import android.content.Intent
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -21,9 +32,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
@@ -31,7 +47,7 @@ import androidx.compose.ui.window.Dialog
 import dev.intent.app.BuildConfig
 import dev.intent.app.R
 import dev.intent.app.design.IntentScreen
-import dev.intent.app.design.IntentSection
+import dev.intent.app.design.IntentSpacing
 import dev.intent.app.design.IntentTextButton as TextButton
 import dev.intent.app.design.intentPageInsets
 import dev.intent.app.notifications.NotificationPermissionFlow
@@ -61,65 +77,173 @@ fun ConnectionSettings(
         }
     var acknowledgements by rememberSaveable { mutableStateOf(false) }
     var report by remember { mutableStateOf<String?>(null) }
+    // iOS SettingsView: uppercase section labels over rounded cards of icon rows.
     Column(
         modifier.verticalScroll(rememberScrollState()).intentPageInsets(),
-        verticalArrangement = Arrangement.spacedBy(IntentScreen.sectionSpacing)
+        verticalArrangement = Arrangement.spacedBy(SettingsSpacing)
     ) {
-        IntentSection("Appearance") {
-            AppearanceSelector(appearance, preferences::setAppearance)
-            SettingsDescription("System follows the appearance of your device.")
+        SettingsGroup("Connection") {
+            state.connections.firstOrNull { it.id == state.activeId }?.let {
+                SettingsRow(R.drawable.ic_connection_laptop, it.displayName) {
+                    ConnectionPathBadge(state, it.id)
+                }
+                SettingsDivider()
+            }
+            SettingsRow(R.drawable.ic_connection, "Manage connections", onClick = onConnections)
+            if (state.activeId != null && onDisconnect != null) {
+                SettingsDivider()
+                SettingsRow(
+                    R.drawable.ic_logout,
+                    "Disconnect",
+                    destructive = true,
+                    onClick = onDisconnect
+                )
+            }
         }
-        IntentSection("Notifications") {
-            Text("Local notifications: ${if (notifications) "On" else "Off"}")
-            SettingsDescription(
-                "Alerts require a connected session. Android can suspend the app in the background."
+        onPair?.let { pair ->
+            SettingsGroup("New connection") {
+                SettingsRow(R.drawable.ic_qr_code, "Pair computer", onClick = pair)
+            }
+        }
+        SettingsSection("Appearance") { AppearanceSelector(appearance, preferences::setAppearance) }
+        SettingsGroup("Notifications") {
+            SettingsRow(
+                R.drawable.ic_bell,
+                "Local notifications",
+                onClick = { permissionFlow.toggle { permission.launch(it) } },
+                trailing = {
+                    Switch(
+                        checked = notifications,
+                        onCheckedChange = null,
+                        modifier = Modifier.clearAndSetSemantics {}
+                    )
+                }
             )
-            TextButton(onClick = {
-                permissionFlow.toggle { permission.launch(it) }
-            }) { Text(if (notifications) "Disable notifications" else "Enable notifications") }
-            TextButton(onClick = {
+            SettingsDivider()
+            SettingsRow(R.drawable.ic_settings, "Android notification settings", onClick = {
                 context.startActivity(
                     Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
                         .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
                 )
-            }) { Text("Android notification settings") }
+            })
         }
-        ConnectionsSection(state, onConnections)
-        onPair?.let { pair ->
-            IntentSection("Pair new computer") {
-                SettingsDescription(
-                    "Scan a QR code or enter connection details from Intent on your computer."
-                )
-                TextButton(onClick = pair) { Text("Pair computer") }
-            }
-        }
-        IntentSection("Diagnostics") {
-            SettingsDescription("Connection diagnostics — under development")
-            TextButton(onClick = { report = diagnostics.report() }) { Text("View diagnostics") }
+        SettingsGroup("Support") {
+            SettingsRow(R.drawable.ic_download_file, "View diagnostics", onClick = {
+                report = diagnostics.report()
+            })
             report?.let { preview ->
-                Text(preview, style = MaterialTheme.typography.bodySmall)
-                TextButton(onClick = {
+                Text(
+                    preview,
+                    Modifier.padding(
+                        horizontal = IntentSpacing.page,
+                        vertical = IntentSpacing.medium
+                    ),
+                    style = MaterialTheme.typography.bodySmall
+                )
+                SettingsDivider()
+                SettingsRow(R.drawable.ic_arrow_right, "Export reviewed report", onClick = {
                     val share = Intent(Intent.ACTION_SEND).apply {
                         type = "text/plain"
                         putExtra(Intent.EXTRA_TEXT, preview)
                     }
                     context.startActivity(Intent.createChooser(share, "Export diagnostics"))
-                }) { Text("Export reviewed report") }
-                TextButton(onClick = {
+                })
+                SettingsDivider()
+                SettingsRow(R.drawable.ic_delete, "Clear diagnostics", onClick = {
                     diagnostics.clear()
                     report = null
-                }) { Text("Clear diagnostics") }
+                })
             }
+            SettingsDivider()
+            SettingsRow(R.drawable.ic_file, "Acknowledgements", onClick = {
+                acknowledgements = true
+            })
         }
-        AboutSection()
-        TextButton(onClick = { acknowledgements = true }) { Text("Acknowledgements") }
-        if (state.activeId != null && onDisconnect != null) {
-            SettingsDescription("Disconnect keeps this computer saved so you can reconnect later.")
-            TextButton(onClick = onDisconnect) { Text("Disconnect") }
-        }
+        Text(
+            "Intent for Android · Version ${BuildConfig.VERSION_NAME} (build ${BuildConfig.VERSION_CODE})",
+            style = MaterialTheme.typography.bodySmall,
+            color = IntentScreen.secondaryText
+        )
     }
     if (acknowledgements) AcknowledgementsDialog { acknowledgements = false }
 }
+
+@Composable
+private fun SettingsSection(title: String, content: @Composable () -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(SettingsHeaderSpacing)) {
+        Text(
+            title.uppercase(),
+            Modifier.semantics { heading() },
+            style = MaterialTheme.typography.labelSmall,
+            color = IntentScreen.secondaryText
+        )
+        content()
+    }
+}
+
+@Composable
+private fun SettingsGroup(title: String, rows: @Composable ColumnScope.() -> Unit) {
+    SettingsSection(title) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(SettingsCardRadius))
+                .background(IntentScreen.surface),
+            content = rows
+        )
+    }
+}
+
+@Composable
+private fun SettingsDivider() {
+    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+}
+
+@Suppress("LongParameterList") // Icon, title, optional detail, trailing control and action.
+@Composable
+private fun SettingsRow(
+    icon: Int,
+    title: String,
+    destructive: Boolean = false,
+    onClick: (() -> Unit)? = null,
+    trailing: (@Composable () -> Unit)? = null,
+    detail: (@Composable () -> Unit)? = null
+) {
+    val color = if (destructive) IntentScreen.error else IntentScreen.text
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .heightIn(min = SettingsRowHeight)
+            .then(
+                if (onClick !=
+                    null
+                ) {
+                    Modifier.clickable(role = Role.Button, onClick = onClick)
+                } else {
+                    Modifier
+                }
+            )
+            .padding(horizontal = IntentSpacing.page, vertical = IntentSpacing.content),
+        horizontalArrangement = Arrangement.spacedBy(IntentSpacing.page),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(painterResource(icon), null, Modifier.size(24.dp), tint = color)
+        Column(
+            Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(IntentSpacing.small)
+        ) {
+            Text(title, style = MaterialTheme.typography.titleSmall, color = color)
+            detail?.invoke()
+        }
+        trailing?.invoke()
+    }
+}
+
+// iOS SettingsStyle geometry.
+private val SettingsSpacing = 24.dp
+private val SettingsHeaderSpacing = 12.dp
+private val SettingsCardRadius = 20.dp
+private val SettingsRowHeight = 56.dp
 
 @Composable
 internal fun AppearanceSelector(appearance: Appearance, onSelect: (Appearance) -> Unit) {
@@ -128,34 +252,6 @@ internal fun AppearanceSelector(appearance: Appearance, onSelect: (Appearance) -
         selectedIndex = Appearance.entries.indexOf(appearance),
         onSelect = { onSelect(Appearance.entries[it]) }
     )
-}
-
-@Composable
-private fun SettingsDescription(text: String) {
-    Text(text, style = MaterialTheme.typography.bodySmall, color = IntentScreen.secondaryText)
-}
-
-@Composable
-private fun AboutSection() {
-    IntentSection("About") {
-        Text("Intent for Android", style = MaterialTheme.typography.bodyLarge)
-        SettingsDescription(
-            "Version ${BuildConfig.VERSION_NAME} (build ${BuildConfig.VERSION_CODE})"
-        )
-        SettingsDescription("Android companion app — under development")
-    }
-}
-
-@Composable
-private fun ConnectionsSection(state: ConnectionState, onConnections: () -> Unit) {
-    IntentSection("Connections") {
-        state.connections.firstOrNull { it.id == state.activeId }?.let {
-            Text(it.displayName)
-            ConnectionPathBadge(state, it.id)
-        }
-        SettingsDescription("Connect to a saved computer or add a connection.")
-        TextButton(onClick = onConnections) { Text("Manage connections") }
-    }
 }
 
 @Composable
@@ -183,7 +279,11 @@ private fun AcknowledgementsDialog(onDismiss: () -> Unit) {
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     item {
-                        SettingsDescription("License notices bundled with this app.")
+                        Text(
+                            "License notices bundled with this app.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = IntentScreen.secondaryText
+                        )
                     }
                     licenses.forEach { (name, license) ->
                         item {
