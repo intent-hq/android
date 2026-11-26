@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
@@ -42,17 +43,17 @@ class WorkspaceCreateTest {
         waitText("android")
         screenshot("creation-repositories")
         compose.onNodeWithText("android").performClick()
-        tap("Choose branch")
+        tap("Next")
         waitText("main")
         screenshot("creation-branches")
-        tap("Configure agent")
+        tap("Next")
         waitText("Provider A")
         tap("Model A")
         tap("high")
         compose.onNodeWithText(
             "Initial prompt"
         ).performScrollTo().performTextInput("Build a feature")
-        tap("Create workspace")
+        tap("Create")
         compose.waitUntil { created == "created" }
         assertEquals(
             "high",
@@ -66,15 +67,15 @@ class WorkspaceCreateTest {
         val fake = CreateChoices().apply { exists = true }
         val workflow = CreationWorkflow(fake)
         compose.setContent { IntentTheme { WorkspaceCreateScreen(workflow, {}, {}) } }
-        tap("New repository")
+        compose.onNodeWithContentDescription("New repository").performClick()
         compose.onNodeWithText("Repository name").performTextInput("new-project")
-        tap("Configure agent")
+        tap("Next")
         waitText("This folder exists or could not be checked. Choose another name or retry.")
         screenshot("creation-new-repository-error")
         fake.exists = false
-        tap("Configure agent")
+        tap("Next")
         waitText("Provider A")
-        tap("Create workspace")
+        tap("Create")
         compose.waitUntil { fake.created != null }
         assertEquals("true", fake.created!!["isNewRepo"].toString())
     }
@@ -88,12 +89,12 @@ class WorkspaceCreateTest {
         val workflow = CreationWorkflow(fake, persistence.load(), persistence::save)
         compose.setContent { IntentTheme { WorkspaceCreateScreen(workflow, {}, {}) } }
         waitText("Agent choices could not load. Check provider sign-in on the host, then retry.")
-        compose.onNodeWithText("Create workspace").assertIsNotEnabled()
+        compose.onNodeWithText("Create").assertIsNotEnabled()
         fake.failProviders = false
         tap("Retry agent choices")
         waitText("Provider A")
         compose.waitUntil { workflow.draft.value.provider == "a" }
-        compose.onNodeWithText("Create workspace").assertIsEnabled()
+        compose.onNodeWithText("Create").assertIsEnabled()
         screenshot("creation-provider-recovery")
         assertEquals("Keep my draft", persistence.load().prompt)
         assertEquals("a", persistence.load().provider)
@@ -106,11 +107,11 @@ class WorkspaceCreateTest {
         waitText("Provider A")
         tap("Specialist B")
         tap("None")
-        tap("Previous step")
-        tap("Previous step")
-        tap("New repository")
+        compose.onNodeWithContentDescription("Back").performClick()
+        compose.onNodeWithContentDescription("Back").performClick()
+        compose.onNodeWithContentDescription("New repository").performClick()
         compose.onNodeWithText("Repository name").performTextInput("plain-agent")
-        tap("Configure agent")
+        tap("Next")
         waitText("Provider A")
         assertEquals("", workflow.draft.value.specialist)
         assertEquals(
@@ -118,7 +119,7 @@ class WorkspaceCreateTest {
             compose.onAllNodesWithText("Retry agent choices").fetchSemanticsNodes().size
         )
         screenshot("creation-no-specialist")
-        tap("Create workspace")
+        tap("Create")
         compose.waitUntil { fake.created != null }
         assertEquals(null, (fake.created!!["initialAgent"] as JsonObject)["specialist"])
     }
@@ -185,7 +186,7 @@ class WorkspaceCreateTest {
         compose.waitUntil { workflow.draft.value.media.size == 1 }
         compose.onNodeWithText("creation-test.txt").performScrollTo()
         screenshot("creation-media-prompt")
-        tap("Create workspace")
+        tap("Create")
         compose.waitUntil(10_000) { created == "created" }
         assertEquals(null, (fake.created!!["initialAgent"] as JsonObject)["prompt"])
         assertEquals("Read this", fake.sent!!["content"].toString().trim('"'))
@@ -194,7 +195,7 @@ class WorkspaceCreateTest {
 
     private fun tap(text: String) {
         val node = compose.onNodeWithText(text)
-        if (text != "Create workspace") node.performScrollTo()
+        if (text != "Create" && text != "Next") node.performScrollTo()
         node.performClick()
     }
     private fun waitText(text: String) {

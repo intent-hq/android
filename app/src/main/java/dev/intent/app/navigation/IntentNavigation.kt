@@ -206,11 +206,10 @@ fun IntentNavigation(
                     store.refresh()
                 }
                 creating -> {
-                    CompactAppBar("Create workspace", onBack = back)
                     WorkspaceCreateScreen(creation, onBusy = { operationBusy = it }, onCreated = {
                         selectedWorkspace = it
                         creating = false
-                    }, photos = creationPhotos)
+                    }, photos = creationPhotos, onClose = back)
                 }
                 selected == null -> WorkspaceDrawers {
                     WorkspaceListRoute(

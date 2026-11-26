@@ -10,7 +10,12 @@ import kotlinx.serialization.json.put
 enum class CreationStep { REPOSITORY, BRANCH, NEW_REPOSITORY, AGENT }
 
 @Serializable
-data class CreationRepository(val owner: String, val name: String, val defaultBranch: String = "") {
+data class CreationRepository(
+    val owner: String,
+    val name: String,
+    val defaultBranch: String = "",
+    val recent: Boolean = false
+) {
     val fullName: String get() = "$owner/$name"
 }
 

@@ -4,7 +4,6 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -17,10 +16,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import dev.intent.app.attachments.PhotoAttachmentStore
-import dev.intent.app.design.IntentButton
 import dev.intent.app.design.IntentScreen
-import dev.intent.app.design.IntentTextButton
 import dev.intent.app.design.intentPageInsets
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
@@ -34,7 +32,8 @@ fun WorkspaceCreateScreen(
     workflow: CreationWorkflow,
     onBusy: (Boolean) -> Unit,
     onCreated: (String) -> Unit,
-    photos: PhotoAttachmentStore? = null
+    photos: PhotoAttachmentStore? = null,
+    onClose: () -> Unit = {}
 ) {
     val draft by workflow.draft.collectAsState()
     var busy by remember { mutableStateOf(false) }
@@ -84,50 +83,50 @@ fun WorkspaceCreateScreen(
     BackHandler(draft.step != CreationStep.REPOSITORY || busy) {
         if (!busy && draft.submitted == null) workflow.update(draft.back())
     }
+    var next by remember { mutableStateOf<CreationNext?>(null) }
+    val repositoryStep = draft.step == CreationStep.REPOSITORY
+    // iOS CreateWorkspaceView: a titled page per step over Close/Back and Next/Create controls.
     Column(Modifier.fillMaxSize().imePadding()) {
         Column(
             Modifier.weight(1f).verticalScroll(rememberScrollState()).intentPageInsets(),
-            verticalArrangement = Arrangement.spacedBy(IntentScreen.sectionSpacing)
+            verticalArrangement = Arrangement.spacedBy(CREATION_SECTION_SPACING)
         ) {
-            Text("Workspace creation is under development.")
-            if (draft.step != CreationStep.REPOSITORY && draft.submitted == null) {
-                IntentTextButton(onClick = {
-                    workflow.update(draft.back())
-                }, enabled = !busy) { Text("Previous step") }
-            }
             when (draft.step) {
-                CreationStep.REPOSITORY -> CreationRepositories(workflow, !busy)
-                CreationStep.BRANCH -> CreationBranches(workflow, !busy)
-                CreationStep.NEW_REPOSITORY -> CreationNewRepository(workflow, !busy)
-                CreationStep.AGENT -> CreationAgent(
-                    workflow,
-                    photos,
-                    !busy && draft.submitted == null,
-                    { createReady = it }
-                )
-            }
-        }
-        Column(Modifier.fillMaxWidth().intentPageInsets()) {
-            error?.let { Text(it, color = IntentScreen.error) }
-            if (draft.step == CreationStep.AGENT && draft.submitted == null) {
-                IntentButton(
-                    onClick = submit,
-                    enabled = createReady && !busy,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Create workspace")
+                CreationStep.REPOSITORY -> CreationRepositories(workflow, !busy) { next = it }
+                CreationStep.BRANCH -> CreationBranches(workflow, !busy) { next = it }
+                CreationStep.NEW_REPOSITORY -> CreationNewRepository(workflow, !busy) { next = it }
+                CreationStep.AGENT -> {
+                    CreationHeading("New Workspace")
+                    CreationAgent(
+                        workflow,
+                        photos,
+                        !busy && draft.submitted == null,
+                        { createReady = it }
+                    )
                 }
             }
-            if (draft.submitted !=
-                null
-            ) {
+            error?.let { Text(it, color = IntentScreen.error) }
+            if (draft.submitted != null) {
                 Text("Saved creation attempt. Retry recovers the same workspace.")
             }
-            if (draft.step == CreationStep.AGENT && draft.submitted != null) {
-                IntentButton(onClick = submit, enabled = !busy) {
-                    Text(if (busy) "Creating…" else "Recover creation")
-                }
-            }
         }
+        val action = when {
+            draft.step != CreationStep.AGENT -> next
+            draft.submitted == null -> CreationNext("Create", createReady && !busy, submit)
+            else -> CreationNext(if (busy) "Creating…" else "Recover creation", !busy, submit)
+        }
+        CreationBottomBar(
+            back = if (repositoryStep) {
+                CreationNext("Close", !busy, onClose)
+            } else {
+                CreationNext("Back", !busy && draft.submitted == null) {
+                    workflow.update(draft.back())
+                }
+            },
+            backIsClose = repositoryStep,
+            next = action
+        )
     }
 }
+
+private val CREATION_SECTION_SPACING = 32.dp
