@@ -94,9 +94,6 @@ fun ConnectionRoot(
                     close()
                     historyTarget = null
                     if (it != state.activeId) controller.select(it)
-                }, onManage = {
-                    close()
-                    utilities = utilities.openUtility("Connections")
                 })
             },
             history = { close ->

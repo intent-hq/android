@@ -1,0 +1,23 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- iOS Assets.xcassets/ConnectionLaptop.imageset/ConnectionLaptop.svg -->
+    <group>
+        <path
+            android:pathData="M3 19.5H21"
+            android:fillColor="#00000000"
+            android:strokeColor="#080808"
+            android:strokeWidth="1.995"
+            android:strokeLineCap="butt"
+            android:strokeLineJoin="round" />
+        <path
+            android:pathData="M6 15H18C18.8284 15 19.5 14.3284 19.5 13.5V6C19.5 5.17157 18.8284 4.5 18 4.5H6C5.17157 4.5 4.5 5.17157 4.5 6V13.5C4.5 14.3284 5.17157 15 6 15Z"
+            android:fillColor="#00000000"
+            android:strokeColor="#080808"
+            android:strokeWidth="1.995"
+            android:strokeLineCap="butt"
+            android:strokeLineJoin="miter" />
+    </group>
+</vector>
