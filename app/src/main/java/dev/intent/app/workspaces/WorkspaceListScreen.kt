@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -20,7 +21,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -178,10 +178,15 @@ fun WorkspaceListScreen(
                 LazyColumn(
                     Modifier.fillMaxSize().workspaceTopFade(listState, canvas),
                     state = listState,
-                    contentPadding = contentPadding,
+                    contentPadding = PaddingValues(
+                        top = contentPadding.calculateTopPadding(),
+                        bottom = contentPadding.calculateBottomPadding()
+                    ),
                     verticalArrangement = Arrangement.spacedBy(0.dp)
                 ) {
-                    state.error?.let { item { Text(it, color = MaterialTheme.colorScheme.error) } }
+                    state.error?.let {
+                        item { Text(it, PageInset, color = MaterialTheme.colorScheme.error) }
+                    }
                     workspaceLoadingItem(state)
                     if (!state.isLoading && state.error == null && groups.isEmpty()) {
                         item {
@@ -190,7 +195,8 @@ fun WorkspaceListScreen(
                                     "No workspaces yet"
                                 } else {
                                     "No matching workspaces"
-                                }
+                                },
+                                PageInset
                             )
                         }
                     }
@@ -205,7 +211,7 @@ fun WorkspaceListScreen(
                                     style = MaterialTheme.typography.labelSmall,
                                     color = IntentScreen.secondaryText,
                                     modifier =
-                                    Modifier
+                                    PageInset
                                         .padding(
                                             top = GROUP_TOP_SPACING,
                                             bottom = GROUP_BOTTOM_SPACING
@@ -281,7 +287,6 @@ private fun WorkspaceRow(workspace: Workspace) {
                     WorkspaceRowBadges(workspace)
                 }
             }
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         }
     }
 }
@@ -434,3 +439,6 @@ private val GROUP_TOP_SPACING = 32.dp
 private val GROUP_BOTTOM_SPACING = 12.dp
 private val ROW_ICON_SPACING = 20.dp
 private val ROW_TITLE_SPACING = 10.dp
+
+// The list runs edge to edge so swiped rows reach the screen edge; other items keep the page inset.
+internal val PageInset = Modifier.padding(horizontal = IntentSpacing.page)

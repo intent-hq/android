@@ -137,7 +137,7 @@ class WorkspaceDrawersTest {
     @Test
     fun rowSwipeDoesNotOpenDrawerAndVisitedAgentAppearsInHistory() = connected {
         compose.onNodeWithTag("workspace.row.workspace").performTouchInput { swipeLeft() }
-        compose.onNodeWithText("Archive").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Archive workspace").assertIsDisplayed()
         compose.onNodeWithTag("drawer.Agent history").assertDoesNotExist()
         compose.onNodeWithTag("workspace.row.workspace").performTouchInput { swipeRight() }
         compose.onNodeWithTag("workspace.row.workspace").performTouchInput { swipeRight() }
