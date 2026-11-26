@@ -262,20 +262,21 @@ private fun PairingConfirmationBody(payload: PairingPayload, tunnelAvailable: Bo
         Modifier.verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
+        payload.hosts.forEach { host ->
+            Text("Direct: ${connectionEndpoint(host, payload.port).removeSuffix("/ws")}")
+        }
+        payload.tcAddress?.let { address ->
+            Text("Tailcat: $address")
+            Text("Port: ${payload.port}")
+        }
         if (fingerprint != null) {
             Text(
                 "The server\u2019s TLS certificate fingerprint is:\n\n" +
                     "$fingerprint\n\n" +
-                    "Do you trust this server?"
+                    "Check that it matches the fingerprint shown on your desktop " +
+                    "before you trust this server."
             )
         } else {
-            payload.hosts.forEach { host ->
-                Text("Direct: ${connectionEndpoint(host, payload.port).removeSuffix("/ws")}")
-            }
-            payload.tcAddress?.let { address ->
-                Text("Tailcat: $address")
-                Text("Port: ${payload.port}")
-            }
             Text("Fetch the server\u2019s TLS certificate before trusting this connection.")
         }
         if (payload.tcAddress != null && !tunnelAvailable) {

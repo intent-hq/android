@@ -71,7 +71,7 @@ internal fun noteIconKind(note: Note, notes: List<Note>): NoteIconKind {
 }
 
 private fun derivedTaskStatus(children: List<Note>, status: String): String {
-    val statuses = children.map { it.metadata?.task?.status }
+    val statuses = children.mapNotNull { it.metadata?.task?.status }
     return when {
         statuses.isEmpty() -> status
         statuses.all { it == "complete" } -> "complete"

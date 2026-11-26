@@ -60,7 +60,9 @@ private class BounceOverscrollEffect : OverscrollEffect {
         velocity: Velocity,
         performFling: suspend (Velocity) -> Velocity
     ) {
-        val remaining = if (offset == Offset.Zero) performFling(velocity) else Velocity.Zero
+        val stretched = offset != Offset.Zero
+        val consumed = performFling(if (stretched) Velocity.Zero else velocity)
+        val remaining = if (stretched) Velocity.Zero else velocity - consumed
         val animation = Animatable(offset, Offset.VectorConverter)
         animation.animateTo(
             Offset.Zero,
