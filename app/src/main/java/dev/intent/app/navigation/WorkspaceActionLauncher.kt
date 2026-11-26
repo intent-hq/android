@@ -104,7 +104,7 @@ private fun LauncherOverlay(
         val end = (maxWidth - with(density) { anchor.right.toDp() }).coerceAtLeast(0.dp)
         Box(
             Modifier.matchParentSize().graphicsLayer { alpha = LAUNCHER_SHADE * fraction }
-                .background(Color.Black).clickable(onClick = close)
+                .background(LauncherShade).clickable(onClick = close)
                 .semantics { contentDescription = "Dismiss app launcher" }
         )
         Column(
@@ -181,4 +181,9 @@ private fun launcherIcon(label: String, appearance: dev.intent.app.settings.Appe
 private const val ICON_ALPHA = 0.3f
 private const val LAUNCHER_DAMPING = 0.85f
 private const val LAUNCHER_STIFFNESS = 322f
-private const val LAUNCHER_SHADE = 0.32f
+
+// iOS WorkspaceActionLauncher shade: DesignPalette.homeMenuFade at 80%.
+private const val LAUNCHER_SHADE = 0.8f
+
+@Suppress("MagicNumber") // iOS DesignPalette.homeMenuFade.
+private val LauncherShade = Color(0xFF1A1A19)
