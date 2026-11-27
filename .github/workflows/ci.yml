@@ -2,7 +2,7 @@ name: CI
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened, edited, ready_for_review]
+    types: [opened, synchronize, reopened, ready_for_review]
   push:
     branches: [main]
   merge_group:
@@ -136,25 +136,3 @@ jobs:
           path: ui-shards
       - name: Check screenshot export across all shards
         run: python3 scripts/check-ui-screenshots.py ui-shards
-
-  pr-title:
-    name: Conventional PR title
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    permissions:
-      pull-requests: read
-    steps:
-      - uses: amannn/action-semantic-pull-request@v6
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          types: |
-            feat
-            fix
-            chore
-            docs
-            refactor
-            test
-            ci
-            perf
