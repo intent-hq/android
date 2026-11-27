@@ -21,7 +21,9 @@ data class TransferProgress(
     val phase: TransferPhase = TransferPhase.CHECKING,
     val message: String = "Checking the destination…",
     val receivedBytes: Long = 0,
-    val totalBytes: Long? = null
+    val totalBytes: Long? = null,
+    /** Failure detail, or the completion warning when the source could not be finalized. */
+    val error: String? = null
 ) {
     val fraction: Float? get() = totalBytes?.takeIf { it > 0 }?.let {
         (receivedBytes.toDouble() / it).toFloat().coerceIn(0f, 1f)
@@ -39,7 +41,7 @@ class TransferControl {
         cancelled = true
         mutable.value = mutable.value.copy(
             phase = TransferPhase.CANCELLING,
-            message = "Cancelling the transfer… Waiting for the current request and cleanup."
+            message = "Cancelling the transfer…"
         )
         return true
     }
@@ -61,9 +63,10 @@ class TransferControl {
         )
     }
 
-    @Synchronized internal fun finish(phase: TransferPhase, message: String) {
+    @Synchronized
+    internal fun finish(phase: TransferPhase, message: String, error: String? = null) {
         check(!phase.busy)
-        mutable.value = mutable.value.copy(phase = phase, message = message)
+        mutable.value = mutable.value.copy(phase = phase, message = message, error = error)
     }
 }
 

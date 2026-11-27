@@ -1,14 +1,21 @@
 package dev.intentapp.android.workspaces
 
+import dev.intent.core.protocol.session.RpcException
+import dev.intent.core.protocol.session.SessionDisconnectedException
 import java.io.Closeable
 import java.util.Base64
 import java.util.concurrent.CancellationException
+import java.util.concurrent.ExecutionException
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeoutException
 import java.util.concurrent.atomic.AtomicReference
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.longOrNull
 import kotlinx.serialization.json.put
 
 /** One relay owns its staging IDs. An uncertain commit is never retried or source-archived. */
@@ -26,15 +33,19 @@ class WorkspaceTransfer(
     private var importBeginSent = false
     private var started = false
 
+    /** Returns the source-finalization warning, if any (iOS `WorkspaceTransferRelay.run`). */
     @Suppress("TooGenericExceptionCaught") // Every failure must settle owned staging.
-    fun run(archiveSource: Boolean): String {
+    fun run(archiveSource: Boolean): String? {
         check(!started) { "A transfer attempt cannot be reused" }
         started = true
         var lease: Closeable? = null
         try {
             control.checkCancellation()
-            check(source !== target) { "Choose a different destination" }
-            val plan = source.request("workspace.transfer.plan", sourceParams()).obj("plan")
+            ensure(source !== target) { "Choose a different machine for the transfer." }
+            val plan = transferPlan(
+                source.request("workspace.transfer.plan", sourceParams()),
+                workspaceId
+            )
             preflight(plan)
             control.checkCancellation()
             val events = LinkedBlockingQueue<JsonObject>(MAX_EVENTS)
@@ -54,15 +65,17 @@ class WorkspaceTransfer(
             exportId = source.request("workspace.export.start", sourceParams()).string("exportId")
             control.checkCancellation()
             val archive = awaitArchive(events, progress)
-            require(
-                archive.obj("manifest").string("creatingIntentdVersion") ==
-                    plan.obj("manifest").string("creatingIntentdVersion")
-            )
+            ensure(
+                (archive["manifest"] as? JsonObject)?.optional("creatingIntentdVersion") ==
+                    plan.version
+            ) { "The source version changed. Refresh the transfer preview and try again." }
             stage(archive)
             control.beginCommit()
             commitSent = true
             val result = target.request("workspace.import.commit", importParams())
-            require(result.obj("workspace").string("id") == workspaceId)
+            ensure((result["workspace"] as? JsonObject)?.optional("id") == workspaceId) {
+                "The destination returned an invalid completion response."
+            }
             committed = true
             control.update(
                 control.state.value.copy(
@@ -70,9 +83,9 @@ class WorkspaceTransfer(
                     message = "Settling the source workspace…"
                 )
             )
-            val message = finalizeSource(archiveSource)
-            control.finish(TransferPhase.DONE, message)
-            return message
+            val warning = finalizeSource(archiveSource)
+            control.finish(TransferPhase.DONE, "Workspace transferred.", warning)
+            return warning
         } catch (error: CancellationException) {
             fail(error, cancelled = true)
         } catch (error: Exception) {
@@ -89,45 +102,49 @@ class WorkspaceTransfer(
             cancelled && warning.isEmpty() -> TransferPhase.CANCELLED
             else -> TransferPhase.FAILED
         }
-        val message = when (phase) {
-            TransferPhase.UNCERTAIN ->
-                "The destination did not confirm import. Check it before retrying. The source was not archived."
-            TransferPhase.CANCELLED ->
-                "Transfer cancelled. The source workspace is still available. " +
-                    "Stopped agents can be restarted there."
-            else ->
-                "Transfer failed. The source was not archived. Check both hosts before retrying."
-        } + warning
-        control.finish(phase, message)
-        if (phase == TransferPhase.UNCERTAIN) throw IllegalStateException(message, error)
+        val detail = if (cancelled) "Transfer cancelled." else transferErrorText(error)
+        when (phase) {
+            TransferPhase.UNCERTAIN -> control.finish(
+                phase,
+                TRANSFER_FAILED,
+                "The destination did not confirm the transfer. It may already contain the " +
+                    "workspace. Check it before trying again. The source was not archived. " +
+                    detail + warning
+            )
+            TransferPhase.CANCELLED -> control.finish(phase, TRANSFER_CANCELLED)
+            else -> control.finish(phase, TRANSFER_FAILED, detail + warning)
+        }
+        if (phase == TransferPhase.UNCERTAIN) {
+            throw TransferException(requireNotNull(control.state.value.error), error)
+        }
         throw error
     }
 
-    private fun preflight(plan: JsonObject) {
+    private fun preflight(plan: TransferPlan) {
         listOf(source, target).forEach {
             control.checkCancellation()
-            require(it.request("principal.me")["isAdministrator"] == JsonPrimitive(true)) {
-                "Transfer requires owner access on both hosts"
+            ensure(it.request("principal.me")["isAdministrator"] == JsonPrimitive(true)) {
+                "Workspace transfer requires owner access on both machines."
             }
         }
-        require(
-            target.request("system.status").string("version") ==
-                plan.obj("manifest").string("creatingIntentdVersion")
-        ) {
-            "Both hosts must run the same version"
+        ensure(target.request("system.status").optional("version") == plan.version) {
+            "Both machines must run the same host version. Update them before transferring."
         }
-        require(
+        val rows = runCatching {
             target.request(
                 "workspace.list",
                 buildJsonObject {
                     put("includeArchived", true)
                     put("includeRetired", true)
                 }
-            )
-                .rows("workspaces").none {
-                    it.string("id") == workspaceId
-                }
-        ) { "Workspace already exists on the destination" }
+            ).rows("workspaces")
+        }.getOrElse {
+            if (it !is IllegalStateException) throw it
+            fault("The destination could not check for an existing workspace.")
+        }
+        ensure(rows.none { it.optional("id") == workspaceId }) {
+            "This workspace already exists on that machine. Choose another destination."
+        }
     }
 
     private fun awaitArchive(
@@ -151,29 +168,37 @@ class WorkspaceTransfer(
                 }
             }
             val remaining = deadline - System.nanoTime()
-            check(remaining > 0) { "Export timed out" }
+            ensure(remaining > 0) { "The source took too long to prepare the transfer. Try again." }
             val event = events.poll(
                 minOf(remaining, TimeUnit.MILLISECONDS.toNanos(CANCEL_POLL_MS)),
                 TimeUnit.NANOSECONDS
             ) ?: continue
-            val data = event.obj("data")
-            if (data.string("exportId") == exportId &&
-                data.string("workspaceId") == workspaceId
+            val data = event["data"] as? JsonObject
+            if (data != null &&
+                data.optional("exportId") == exportId &&
+                data.optional("workspaceId") == workspaceId
             ) {
-                check(event.string("type") == "workspace:transfer:ready") { "Export failed" }
-                require(data.obj("manifest").string("workspaceId") == workspaceId)
+                ensure(event.optional("type") == "workspace:transfer:ready") {
+                    data.optional("reason") ?: "The source could not prepare the transfer."
+                }
+                ensure((data["manifest"] as? JsonObject)?.optional("workspaceId") == workspaceId) {
+                    INVALID_ARCHIVE
+                }
                 return data
             }
         }
     }
 
     private fun stage(archive: JsonObject) {
-        val size = archive.number("archiveSizeBytes")
-        val chunkBytes = archive.number("maxChunkBytes")
-        val count = archive.number("totalChunks")
-        require(
-            size > 0 && chunkBytes in 1..MAX_CHUNK_BYTES && count == (size - 1) / chunkBytes + 1
-        )
+        val size = archive.optionalNumber("archiveSizeBytes") ?: fault(INVALID_ARCHIVE)
+        val chunkBytes = archive.optionalNumber("maxChunkBytes") ?: fault(INVALID_ARCHIVE)
+        val count = archive.optionalNumber("totalChunks") ?: fault(INVALID_ARCHIVE)
+        ensure(
+            size > 0 &&
+                chunkBytes in 1..MAX_CHUNK_BYTES &&
+                count == (size - 1) / chunkBytes + 1 &&
+                archive.optional("archiveSha256") != null
+        ) { INVALID_ARCHIVE }
         control.checkCancellation()
         control.update(
             TransferProgress(TransferPhase.IMPORTING, "Preparing the destination…", 0, size)
@@ -182,19 +207,10 @@ class WorkspaceTransfer(
         var received = 0L
         for (seq in 0 until count) {
             control.checkCancellation()
-            val chunk = source.request("workspace.export.read", sourceParams { put("seq", seq) })
-            require(
-                chunk.string("exportId") == exportId &&
-                    chunk.number("seq") == seq &&
-                    chunk.number("totalChunks") == count
+            val encoded = validChunk(
+                source.request("workspace.export.read", sourceParams { put("seq", seq) }),
+                ChunkExpectation(requireNotNull(exportId), seq, count, chunkBytes, size - received)
             )
-            val encoded = chunk.string("data")
-            require(
-                encoded.length <=
-                    ((chunkBytes + BASE64_DECODED - 1) / BASE64_DECODED) * BASE64_ENCODED
-            )
-            val bytes = Base64.getDecoder().decode(encoded)
-            require(bytes.size.toLong() == minOf(chunkBytes, size - received))
             control.checkCancellation()
             val receipt = target.request(
                 "workspace.import.chunk",
@@ -203,12 +219,12 @@ class WorkspaceTransfer(
                     put("data", encoded)
                 }
             )
-            received += bytes.size
-            require(
-                receipt.string("importId") == importId &&
-                    receipt.number("seq") == seq &&
-                    receipt.number("receivedBytes") == received
-            )
+            received += minOf(chunkBytes, size - received)
+            ensure(
+                receipt.optional("importId") == importId &&
+                    receipt.optionalNumber("seq") == seq &&
+                    receipt.optionalNumber("receivedBytes") == received
+            ) { "The destination did not confirm receipt of the transfer archive." }
             control.checkCancellation()
             control.update(
                 TransferProgress(
@@ -219,7 +235,7 @@ class WorkspaceTransfer(
                 )
             )
         }
-        require(received == size)
+        ensure(received == size) { "The transfer archive was incomplete. Try again." }
     }
 
     private fun beginImport(archive: JsonObject, size: Long, chunkBytes: Long) {
@@ -232,24 +248,30 @@ class WorkspaceTransfer(
                 put("archiveSha256", archive.string("archiveSha256"))
             }
         )
-        importId = begun.string("importId")
+        importId = begun.optional("importId")
+            ?: fault("The host returned an invalid transfer response.")
         control.checkCancellation()
-        require(begun.number("maxChunkBytes") >= chunkBytes)
+        ensure((begun.optionalNumber("maxChunkBytes") ?: 0) >= chunkBytes) {
+            "The destination cannot receive this archive’s transfer chunks. Update both hosts."
+        }
     }
 
-    private fun finalizeSource(archiveSource: Boolean): String = try {
+    @Suppress("TooGenericExceptionCaught") // Any finalize failure becomes a completion warning.
+    private fun finalizeSource(archiveSource: Boolean): String? = try {
         val result = source.request(
             "workspace.export.finalize",
             sourceParams {
                 put("archiveSource", archiveSource)
             }
         )
-        require(result.string("exportId") == exportId && result["finalized"] == JsonPrimitive(true))
-        "Workspace transferred."
-    } catch (_: Exception) {
-        "Workspace imported. Source finalization was not confirmed. " +
-            "Check the source; do not repeat the transfer." +
-            cleanup()
+        ensure(
+            result.optional("exportId") == exportId && result["finalized"] == JsonPrimitive(true)
+        ) { "The source did not confirm finalization." }
+        null
+    } catch (error: Exception) {
+        "The workspace was transferred successfully. The source could not be finalized; " +
+            "check its archive status on the source machine. Do not repeat the transfer. " +
+            transferErrorText(error) + cleanup()
     }
 
     private fun cleanup(): String {
@@ -267,7 +289,7 @@ class WorkspaceTransfer(
         return if (failures.isEmpty()) {
             ""
         } else {
-            " Transfer cleanup was not confirmed on the ${failures.joinToString(" and ")}."
+            " Transfer cleanup could not be confirmed on the ${failures.joinToString(" and ")}."
         }
     }
 
@@ -289,6 +311,84 @@ class WorkspaceTransfer(
     }
 }
 
+/** A transfer failure whose message is shown to the user as-is. */
+class TransferException(message: String, cause: Throwable? = null) :
+    IllegalStateException(message, cause)
+
+/** iOS `WorkspaceTransferPlan`: the preview a transfer is checked against. */
+data class TransferPlan(val estimatedBytes: Long, val warnings: List<String>, val version: String)
+
+internal fun transferPlan(response: JsonObject, workspaceId: String): TransferPlan {
+    val invalid = "The host could not provide a transfer preview. Update the host and try again."
+    val plan = response["plan"] as? JsonObject ?: fault(invalid)
+    val manifest = plan["manifest"] as? JsonObject ?: fault(invalid)
+    val version = manifest.optional("creatingIntentdVersion") ?: fault(invalid)
+    val bytes = plan.optionalNumber("totalSizeBytes")?.takeIf { it >= 0 } ?: fault(invalid)
+    val warnings = plan["warnings"] as? JsonArray ?: fault(invalid)
+    ensure(manifest.optional("workspaceId") == workspaceId) { invalid }
+    return TransferPlan(
+        bytes,
+        warnings.mapNotNull { (it as? JsonObject)?.let(::transferWarningText) },
+        version
+    )
+}
+
+/** User-facing text for a transfer error, matching iOS `localizedDescription` copy. */
+internal fun transferErrorText(error: Throwable): String = when (error) {
+    is TransferException -> error.message.orEmpty()
+    is ExecutionException -> error.cause?.let(::transferErrorText) ?: INVALID_RESPONSE
+    is RpcException -> error.error.message.takeIf { it.isNotBlank() } ?: INVALID_RESPONSE
+    is SessionDisconnectedException ->
+        "The host disconnected during transfer. Reconnect and check the workspace."
+    is TimeoutException -> "The host took too long to respond. Try again."
+    else -> INVALID_RESPONSE
+}
+
+internal data class ChunkExpectation(
+    val exportId: String,
+    val seq: Long,
+    val count: Long,
+    val chunkBytes: Long,
+    val remaining: Long
+)
+
+/** Returns the validated base64 payload of one `workspace.export.read` reply. */
+internal fun validChunk(chunk: JsonObject, expected: ChunkExpectation): String {
+    val encoded = chunk.optional("data")
+    val maximum =
+        ((expected.chunkBytes + BASE64_DECODED - 1) / BASE64_DECODED) * BASE64_ENCODED
+    val decoded = encoded?.takeIf { it.length <= maximum }
+        ?.let { runCatching { Base64.getDecoder().decode(it) }.getOrNull() }
+    val header = ChunkExpectation(
+        chunk.optional("exportId").orEmpty(),
+        chunk.optionalNumber("seq") ?: -1,
+        chunk.optionalNumber("totalChunks") ?: -1,
+        expected.chunkBytes,
+        decoded?.size?.toLong() ?: -1
+    )
+    val wanted = expected.copy(remaining = minOf(expected.chunkBytes, expected.remaining))
+    ensure(header == wanted) { "The source returned an invalid archive chunk. Try again." }
+    return requireNotNull(encoded)
+}
+
+internal fun fault(message: String): Nothing = throw TransferException(message)
+
+private inline fun ensure(condition: Boolean, message: () -> String) {
+    if (!condition) fault(message())
+}
+
+private fun JsonObject.optional(key: String): String? =
+    (get(key) as? JsonPrimitive)?.takeIf { it.isString }?.contentOrNull?.takeIf { it.isNotBlank() }
+
+private fun JsonObject.optionalNumber(key: String): Long? =
+    (get(key) as? JsonPrimitive)?.takeIf { !it.isString }?.longOrNull
+
+internal const val TRANSFER_FAILED = "The transfer could not finish."
+internal const val TRANSFER_CANCELLED =
+    "Transfer cancelled. The source workspace is still available; " +
+        "stopped agents can be restarted there."
+private const val INVALID_RESPONSE = "The host returned an invalid transfer response."
+private const val INVALID_ARCHIVE = "The source returned an invalid transfer archive."
 private const val CANCEL_POLL_MS = 100L
 private const val MAX_EVENTS = 16
 private const val BUILD_MINUTES = 10L

@@ -216,7 +216,6 @@ fun IntentNavigation(
                     )
                 }
                 transferring -> {
-                    CompactAppBar("Transfer workspace", onBack = back)
                     WorkspaceTransferScreen(
                         session,
                         selected,
@@ -227,7 +226,6 @@ fun IntentNavigation(
                         },
                         onDone = { transferring = false },
                         workspaceTitle = selectedRow?.title ?: "Workspace",
-                        sourceName = LocalConnectionName.current,
                         sourceState = if (LocalConnectionReady.current) {
                             dev.intent.core.protocol.session.SessionState.READY
                         } else {

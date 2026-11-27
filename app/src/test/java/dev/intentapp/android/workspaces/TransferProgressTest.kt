@@ -101,8 +101,10 @@ class TransferProgressTest {
         })
         assertThrows(CancellationException::class.java) { fixture.relay(control).run(true) }
         assertEquals(TransferPhase.FAILED, control.state.value.phase)
-        assertTrue(
-            control.state.value.message.contains("cleanup was not confirmed on the destination")
+        assertEquals("The transfer could not finish.", control.state.value.message)
+        assertEquals(
+            "Transfer cancelled. Transfer cleanup could not be confirmed on the destination.",
+            control.state.value.error
         )
         assertTrue(fixture.calls.contains("workspace.export.abort"))
     }
@@ -114,7 +116,11 @@ class TransferProgressTest {
         })
         assertThrows(IllegalStateException::class.java) { fixture.relay(control).run(true) }
         assertEquals(TransferPhase.FAILED, control.state.value.phase)
-        assertTrue(control.state.value.message.contains("cleanup was not confirmed on the source"))
+        assertTrue(
+            control.state.value.error!!.endsWith(
+                "Transfer cleanup could not be confirmed on the source."
+            )
+        )
     }
 
     @Test fun sourceFinalizationFailureKeepsConfirmedDestinationComplete() {
@@ -122,9 +128,11 @@ class TransferProgressTest {
         val fixture = TransferFixture(beforeReply = { method ->
             if (method == "workspace.export.finalize") error("Disconnected")
         })
-        fixture.relay(control).run(true)
+        val warning = fixture.relay(control).run(true)
         assertEquals(TransferPhase.DONE, control.state.value.phase)
-        assertTrue(control.state.value.message.contains("do not repeat the transfer"))
+        assertEquals("Workspace transferred.", control.state.value.message)
+        assertEquals(warning, control.state.value.error)
+        assertTrue(warning!!.contains("Do not repeat the transfer."))
     }
 
     @Test fun progressHasDistinctExportStagesAndByteFraction() {
@@ -146,5 +154,38 @@ class TransferProgressTest {
                 phase.cancellable
             )
         }
+    }
+
+    @Test fun cancelledTransferUsesIosCopy() {
+        val control = TransferControl()
+        val fixture = TransferFixture(beforeReply = { method ->
+            if (method == "workspace.export.start") control.cancel()
+        })
+        assertThrows(CancellationException::class.java) { fixture.relay(control).run(true) }
+        assertEquals(TRANSFER_CANCELLED, control.state.value.message)
+        assertEquals(null, control.state.value.error)
+    }
+
+    @Test fun previewRequiresManifestSizeAndWarnings() {
+        val plan = transferPlan(
+            kotlinx.serialization.json.Json.parseToJsonElement(
+                """{"plan":{"manifest":{"workspaceId":"ws","creatingIntentdVersion":"1"},""" +
+                    """"totalSizeBytes":2048,"warnings":[{"code":"agents-running",""" +
+                    """"message":"1 agent(s) are running"}]}}"""
+            ) as kotlinx.serialization.json.JsonObject,
+            "ws"
+        )
+        assertEquals(TransferPlan(2048, listOf("1 agent is running"), "1"), plan)
+        val error = assertThrows(TransferException::class.java) {
+            transferPlan(kotlinx.serialization.json.JsonObject(emptyMap()), "ws")
+        }
+        assertEquals(
+            "The host could not provide a transfer preview. Update the host and try again.",
+            error.message
+        )
+        assertEquals(
+            "The host returned an invalid transfer response.",
+            transferErrorText(IllegalStateException("Missing exportId"))
+        )
     }
 }

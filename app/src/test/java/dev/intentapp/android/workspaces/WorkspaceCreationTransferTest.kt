@@ -5,6 +5,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -61,7 +62,10 @@ class WorkspaceCreationTransferTest {
 
     @Test fun transferCorrelatesEarlyEventAndFinalizesAfterCommit() {
         val fixture = TransferFixture()
-        assertEquals("Workspace transferred.", fixture.relay().run(true))
+        val control = TransferControl()
+        assertNull(fixture.relay(control).run(true))
+        assertEquals("Workspace transferred.", control.state.value.message)
+        assertNull(control.state.value.error)
         assertTrue(
             fixture.calls.indexOf("workspace.import.commit") <
                 fixture.calls.indexOf("workspace.export.finalize")
@@ -71,7 +75,8 @@ class WorkspaceCreationTransferTest {
 
     @Test fun uncertainCommitNeverArchivesOrRetries() {
         val fixture = TransferFixture(failCommit = true)
-        assertThrows(IllegalStateException::class.java) { fixture.relay().run(true) }
+        val error = assertThrows(TransferException::class.java) { fixture.relay().run(true) }
+        assertTrue(error.message!!.startsWith("The destination did not confirm the transfer."))
         assertFalse(fixture.calls.contains("workspace.export.finalize"))
         assertEquals(1, fixture.calls.count { it == "workspace.import.commit" })
         assertFalse(fixture.calls.contains("workspace.import.abort"))
@@ -80,7 +85,8 @@ class WorkspaceCreationTransferTest {
 
     @Test fun corruptChunkAbortsBeforeCommit() {
         val fixture = TransferFixture(corruptChunk = true)
-        assertThrows(IllegalArgumentException::class.java) { fixture.relay().run(false) }
+        val error = assertThrows(TransferException::class.java) { fixture.relay().run(false) }
+        assertEquals("The source returned an invalid archive chunk. Try again.", error.message)
         assertFalse(fixture.calls.contains("workspace.import.commit"))
         assertTrue(fixture.calls.contains("workspace.import.abort"))
         assertTrue(fixture.calls.contains("workspace.export.abort"))
@@ -88,7 +94,11 @@ class WorkspaceCreationTransferTest {
 
     @Test fun versionMismatchNeverStartsExport() {
         val fixture = TransferFixture(version = "other")
-        assertThrows(IllegalArgumentException::class.java) { fixture.relay().run(false) }
+        val error = assertThrows(TransferException::class.java) { fixture.relay().run(false) }
+        assertEquals(
+            "Both machines must run the same host version. Update them before transferring.",
+            error.message
+        )
         assertFalse(fixture.calls.contains("workspace.export.start"))
     }
 }
@@ -115,7 +125,8 @@ internal class TransferFixture(
             beforeReply(method)
             return when (method) {
                 "workspace.transfer.plan" -> json(
-                    """{"plan":{"manifest":{"workspaceId":"ws","creatingIntentdVersion":"1"}}}"""
+                    """{"plan":{"manifest":{"workspaceId":"ws","creatingIntentdVersion":"1"},""" +
+                        """"totalSizeBytes":1,"warnings":[]}}"""
                 )
                 "principal.me" -> json("""{"id":"owner","isAdministrator":true}""")
                 "workspace.export.start" -> {

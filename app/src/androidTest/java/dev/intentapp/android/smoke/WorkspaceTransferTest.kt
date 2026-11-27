@@ -1,14 +1,19 @@
 package dev.intentapp.android.smoke
 
 import android.graphics.Bitmap
+import android.os.SystemClock
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
-import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
@@ -33,17 +38,35 @@ import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.serialization.json.JsonObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
+/** Matches iOS `WorkspaceTransferSheet` copy and states; each state is captured in both themes. */
 @RunWith(AndroidJUnit4::class)
 class WorkspaceTransferTest {
     @get:Rule val compose = createIntentComposeRule()
+    private var dark by mutableStateOf(true)
+    private var done = false
 
-    @Test fun exportAndImportProgressThenCommitDisablesCancel() {
+    @Test fun previewDestinationProgressCommitAndDone() {
         withTransfer { source, target ->
-            start(source)
+            waitText("Choose a machine")
+            waitText("Estimated size: 2 B")
+            waitText("2 agents are running and will be stopped.")
+            screenshot("transfer-preview")
+            compose.onNodeWithTag(
+                "workspace-transfer.submit"
+            ).performScrollTo().assertIsNotEnabled()
+            compose.onNodeWithTag("workspace-transfer.destination").performClick()
+            waitText("destination")
+            screenshot("transfer-destination-menu")
+            compose.onNodeWithText("destination").performClick()
+            compose.onNodeWithTag("workspace-transfer.archive-source").performClick()
+            submitButton().performScrollTo().assertIsEnabled()
+            screenshot("transfer-ready")
+            submit(source)
             listOf(
                 "stopping-agents" to "Stopping running agents…",
                 "exporting-rows" to "Preparing workspace data…",
@@ -68,9 +91,13 @@ class WorkspaceTransferTest {
             screenshot("transfer-commit")
             target.release("workspace.import.commit")
             waitText("Workspace transferred.")
+            waitText("Workspace transferred")
             screenshot("transfer-done")
             assertEquals(1, target.calls.count { it == "workspace.import.commit" })
             assertEquals(1, source.calls.count { it == "workspace.export.finalize" })
+            assertTrue(source.archived)
+            compose.onNodeWithText("Done").performScrollTo().performClick()
+            compose.waitUntil(10_000) { done }
         }
     }
 
@@ -80,11 +107,12 @@ class WorkspaceTransferTest {
             source.progress("bundling-git")
             waitText("Preparing repository files…")
             compose.onNodeWithText("Cancel transfer").performClick()
-            waitText("Transfer cancelled")
+            waitText(CANCELLED)
             screenshot("transfer-cancelled")
             assertEquals(1, source.calls.count { it == "workspace.export.abort" })
             assertFalse(target.calls.contains("workspace.import.begin"))
             assertFalse(source.calls.contains("workspace.export.finalize"))
+            submitButton().performScrollTo().assertIsEnabled()
         }
     }
 
@@ -94,32 +122,36 @@ class WorkspaceTransferTest {
             source.archiveReady()
             waitHeld(target, "workspace.import.chunk")
             compose.onNodeWithText("Cancel transfer").performClick()
-            waitText("Cancelling the transfer… Waiting for the current request and cleanup.")
+            waitText("Cancelling the transfer…")
             compose.onNodeWithText("Cancel transfer").assertIsNotEnabled()
             screenshot("transfer-cancelling")
             assertFalse(target.calls.contains("workspace.import.abort"))
             target.release("workspace.import.chunk")
-            waitText("Transfer cancelled")
+            waitText(CANCELLED)
             assertEquals(1, target.calls.count { it == "workspace.import.abort" })
             assertEquals(1, source.calls.count { it == "workspace.export.abort" })
             assertFalse(target.calls.contains("workspace.import.commit"))
         }
     }
 
-    @Test fun exportFailureDoesNotStartImport() {
+    @Test fun exportFailureReturnsToFormAndRetries() {
         withTransfer { source, target ->
             start(source)
             source.failed()
-            waitText("Transfer failed")
+            waitText("The transfer could not finish.")
+            waitText("Export failed")
             screenshot("transfer-failed")
-            compose.onNodeWithText("Review and retry").performClick()
-            waitText("Review the preview and choose a destination.")
-            assertEquals(1, source.calls.count { it == "workspace.export.start" })
+            assertFalse(target.calls.contains("workspace.import.begin"))
+            submitButton().performScrollTo().performClick()
+            compose.waitUntil(10_000) {
+                source.calls.count { it == "workspace.export.start" } == 2
+            }
+            waitText("Preparing the transfer…")
             assertFalse(target.calls.contains("workspace.import.commit"))
         }
     }
 
-    @Test fun uncertainCommitNeverArchivesOrOffersCancel() {
+    @Test fun uncertainCommitNeverArchivesOrAborts() {
         withTransfer { source, target ->
             start(source)
             source.archiveReady()
@@ -129,40 +161,58 @@ class WorkspaceTransferTest {
             }
             waitHeld(target, "workspace.import.commit")
             target.release("workspace.import.commit", "{}")
-            waitText("Transfer not confirmed")
-            waitText(
-                "The destination did not confirm import. Check it before retrying. The source was not archived."
-            )
+            waitText("The transfer could not finish.")
+            waitText("The destination did not confirm the transfer.", substring = true)
             screenshot("transfer-uncertain")
-            assertEquals(
-                0,
-                compose.onAllNodesWithText("Review and retry").fetchSemanticsNodes().size
-            )
             assertFalse(source.calls.contains("workspace.export.finalize"))
             assertFalse(target.calls.contains("workspace.import.abort"))
             assertEquals(1, target.calls.count { it == "workspace.import.commit" })
         }
     }
 
-    @Test fun previewRetryDoesNotStartTransfer() {
+    @Test fun previewCanBeCancelledAndRetried() {
+        withTransfer(source = TransferServer(hold = setOf("workspace.transfer.plan"))) {
+                source,
+                _
+            ->
+            waitText("Loading transfer preview…")
+            screenshot("transfer-preview-loading")
+            compose.onNodeWithText("Cancel").performClick()
+            waitText("Transfer preview cancelled.")
+            compose.onNodeWithTag(
+                "workspace-transfer.submit"
+            ).performScrollTo().assertIsNotEnabled()
+            source.release("workspace.transfer.plan")
+            source.hold = emptySet()
+            compose.onNodeWithText("Retry").performScrollTo().performClick()
+            waitText("Estimated size: 2 B")
+            assertFalse(source.calls.contains("workspace.export.start"))
+        }
+    }
+
+    @Test fun previewFailureShowsErrorAndRetryRecovers() {
         withTransfer(source = TransferServer(failPreview = true)) { source, _ ->
-            waitText("Retry preview")
-            compose.onNodeWithText("Transfer workspace").performScrollTo().assertIsNotEnabled()
+            waitText("Could not load the transfer preview.")
+            waitText("Transfer preview unavailable. The host may need an update.", substring = true)
+            screenshot("transfer-preview-failed")
+            compose.onNodeWithTag(
+                "workspace-transfer.submit"
+            ).performScrollTo().assertIsNotEnabled()
             source.failPreview = false
-            compose.onNodeWithText("Retry preview").performScrollTo().performClick()
-            waitText("Review the preview and choose a destination.")
-            compose.onNodeWithText("destination").performScrollTo().performClick()
-            compose.onNodeWithText("Selected destination: destination").assertIsDisplayed()
-            screenshot("transfer-preview-recovered")
+            compose.onNodeWithText("Retry").performScrollTo().performClick()
+            waitText("Estimated size: 2 B")
+            assertEquals(0, compose.onAllNodesWithText("Retry").fetchSemanticsNodes().size)
             assertFalse(source.calls.contains("workspace.export.start"))
         }
     }
 
     @Test fun nonOwnerCannotPreviewOrStartTransfer() {
         withTransfer(source = TransferServer(owner = false)) { source, _ ->
-            waitText("Only a host owner can transfer a workspace. Check your access on the host.")
-            compose.onNodeWithText("destination").performScrollTo().performClick()
-            compose.onNodeWithText("Transfer workspace").performScrollTo().assertIsNotEnabled()
+            waitText("Connect as the workspace owner to transfer this workspace.", substring = true)
+            selectDestination()
+            compose.onNodeWithTag(
+                "workspace-transfer.submit"
+            ).performScrollTo().assertIsNotEnabled()
             assertFalse(source.calls.contains("workspace.transfer.plan"))
             assertFalse(source.calls.contains("workspace.export.start"))
         }
@@ -170,31 +220,61 @@ class WorkspaceTransferTest {
 
     @Test fun disconnectedSourceCannotPreviewOrStartTransfer() {
         withTransfer(sourceState = SessionState.DISCONNECTED) { source, _ ->
-            waitText("Reconnect to the source host to preview this transfer.")
-            compose.onNodeWithText("destination").performScrollTo().performClick()
-            compose.onNodeWithText("Transfer workspace").performScrollTo().assertIsNotEnabled()
+            waitText("Connect as the workspace owner to transfer this workspace.", substring = true)
+            selectDestination()
+            compose.onNodeWithTag(
+                "workspace-transfer.submit"
+            ).performScrollTo().assertIsNotEnabled()
+            compose.onNodeWithText("Retry").performScrollTo().assertIsNotEnabled()
             assertFalse(source.calls.contains("workspace.transfer.plan"))
             assertFalse(source.calls.contains("workspace.export.start"))
         }
     }
 
-    private fun start(source: TransferServer) {
-        waitText("Review the preview and choose a destination.")
-        compose.waitUntil(10_000) {
-            compose.onAllNodesWithText("Review the preview and choose a destination.")
-                .fetchSemanticsNodes().isNotEmpty()
+    @Test fun noDestinationsExplainsPairing() {
+        withTransfer(destinations = emptyList()) { _, _ ->
+            waitText(
+                "Pair another machine from Settings to transfer this workspace. " +
+                    "You must be an owner on both machines."
+            )
+            screenshot("transfer-no-destinations")
+            compose.onNodeWithTag(
+                "workspace-transfer.submit"
+            ).performScrollTo().assertIsNotEnabled()
         }
-        compose.onNodeWithText("Transfer workspace").performScrollTo().assertIsNotEnabled()
-        compose.onNodeWithText("destination").performScrollTo().performClick()
-        compose.onNodeWithText("destination").assertIsSelected()
+    }
+
+    private fun submitButton() = compose.onNodeWithTag("workspace-transfer.submit")
+
+    private fun selectDestination() {
+        compose.onNodeWithTag("workspace-transfer.destination").performScrollTo().performClick()
+        waitText("destination")
+        compose.onNodeWithText("destination").performClick()
+    }
+
+    private fun start(source: TransferServer) {
+        waitText("Estimated size: 2 B")
+        submitButton().performScrollTo().assertIsNotEnabled()
+        selectDestination()
         assertFalse(source.calls.contains("workspace.export.start"))
-        compose.onNodeWithText("Transfer workspace").performScrollTo().performClick()
+        submit(source)
+    }
+
+    private fun submit(source: TransferServer) {
+        submitButton().performScrollTo().performClick()
         compose.waitUntil(10_000) { source.calls.contains("workspace.export.start") }
     }
 
     private fun withTransfer(
         source: TransferServer = TransferServer(),
         sourceState: SessionState = SessionState.READY,
+        destinations: List<SavedConnection> = listOf(
+            SavedConnection(
+                "target",
+                PairingPayload(listOf("destination"), 443, "test"),
+                ConnectionMetadata(name = "destination")
+            )
+        ),
         test: (TransferServer, TransferServer) -> Unit
     ) {
         val target =
@@ -206,21 +286,15 @@ class WorkspaceTransferTest {
             session.connect()
             compose.waitUntil(10_000) { ready.get() }
             compose.setContent {
-                IntentTheme(darkTheme = true) {
-                    Surface(Modifier.fillMaxSize()) {
+                IntentTheme(darkTheme = dark) {
+                    Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                         WorkspaceTransferScreen(
                             session,
                             "ws",
-                            listOf(
-                                SavedConnection(
-                                    "target",
-                                    PairingPayload(listOf("destination"), 443, "test"),
-                                    ConnectionMetadata(name = "destination")
-                                )
-                            ),
+                            destinations,
                             onBusy = {},
+                            onDone = { done = true },
                             workspaceTitle = "Android workspace",
-                            sourceName = "Source Mac",
                             sourceState = sourceState,
                             createTarget = { _, observer ->
                                 RpcSession(
@@ -241,29 +315,47 @@ class WorkspaceTransferTest {
         compose.waitUntil(10_000) { server.pending.containsKey(method) }
     }
 
-    private fun waitText(text: String) {
+    private fun waitText(text: String, substring: Boolean = false) {
         compose.waitUntil(10_000) {
-            compose.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty()
+            compose.onAllNodesWithText(text, substring = substring)
+                .fetchSemanticsNodes().isNotEmpty()
         }
-        compose.onNodeWithText(text).performScrollTo().assertIsDisplayed()
+        compose.onAllNodesWithText(text, substring = substring)[0].assertIsDisplayed()
     }
 
+    /** Captures the current state in dark, then light, then restores dark. */
     private fun screenshot(name: String) {
+        capture("$name-dark")
+        dark = false
+        capture("$name-light")
+        dark = true
         compose.waitForIdle()
+    }
+
+    private fun capture(name: String) {
+        compose.waitForIdle()
+        // Let the window draw and press ripples settle before the device screenshot.
+        SystemClock.sleep(SETTLE_MS)
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val directory = InstrumentationRegistry.getArguments().getString("additionalTestOutputDir")
             ?.let(::File) ?: File(instrumentation.targetContext.cacheDir, "screenshots")
         check(directory.mkdirs() || directory.isDirectory)
         val bitmap = checkNotNull(instrumentation.uiAutomation.takeScreenshot())
-        File(directory, "$name-dark.png").outputStream().use {
+        File(directory, "$name.png").outputStream().use {
             check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, it))
         }
         bitmap.recycle()
     }
 }
 
+private const val SETTLE_MS = 600L
+
+private const val CANCELLED =
+    "Transfer cancelled. The source workspace is still available; " +
+        "stopped agents can be restarted there."
+
 private class TransferServer(
-    private val hold: Set<String> = emptySet(),
+    var hold: Set<String> = emptySet(),
     private val owner: Boolean = true,
     var failPreview: Boolean = false
 ) {
@@ -271,6 +363,7 @@ private class TransferServer(
     val pending = ConcurrentHashMap<String, JsonRpcMessage.Request>()
     private lateinit var listener: WssTransport.Listener
     private var received = 0
+    var archived = false
 
     fun transport(listener: WssTransport.Listener): SessionTransport {
         this.listener = listener
@@ -298,7 +391,7 @@ private class TransferServer(
             "workspace.transfer.plan" -> if (failPreview) {
                 "{}"
             } else {
-                """{"plan":{"manifest":$MANIFEST,"totalSizeBytes":2,"warnings":[]}}"""
+                """{"plan":{"manifest":$MANIFEST,"totalSizeBytes":2,"warnings":$WARNINGS}}"""
             }
             "workspace.export.start" -> """{"exportId":"export"}"""
             "workspace.import.begin" -> """{"importId":"import","maxChunkBytes":1}"""
@@ -311,7 +404,10 @@ private class TransferServer(
                 """{"importId":"import","seq":${received - 1},"receivedBytes":$received}"""
             }
             "workspace.import.commit" -> """{"workspace":{"id":"ws"}}"""
-            "workspace.export.finalize" -> """{"exportId":"export","finalized":true}"""
+            "workspace.export.finalize" -> {
+                archived = (request.params as JsonObject)["archiveSource"].toString() == "true"
+                """{"exportId":"export","finalized":true}"""
+            }
             else -> "{}"
         }
         listener.onMessage(
@@ -339,3 +435,5 @@ private class TransferServer(
 }
 
 private const val MANIFEST = """{"workspaceId":"ws","creatingIntentdVersion":"1"}"""
+private const val WARNINGS =
+    """[{"code":"agents-running","message":"2 agent(s) are running and will be stopped."}]"""
