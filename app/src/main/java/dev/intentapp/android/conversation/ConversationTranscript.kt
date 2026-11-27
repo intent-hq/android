@@ -1,0 +1,198 @@
+package dev.intentapp.android.conversation
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.pullToRefresh
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
+
+/** Reverse layout anchors the latest row at the bottom, including rows taller than the viewport. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Suppress("LongMethod", "LongParameterList") // Shared viewport and content state.
+@Composable
+internal fun ConversationTranscript(
+    state: ConversationState,
+    onLoadOlder: () -> Unit,
+    onHydrate: (String, String) -> Unit,
+    onRefresh: () -> Unit,
+    modifier: Modifier = Modifier,
+    onSuggestedPrompt: (String) -> Boolean = { false },
+    suggestionsEnabled: Boolean = true
+) {
+    val list = rememberLazyListState()
+    val grouping = remember { TranscriptRowGrouping() }
+    val rows = remember(state.messages) { grouping.rows(state.messages) }
+    val currentRows by rememberUpdatedState(rows)
+    var policy by remember { mutableStateOf(TranscriptScrollPolicy()) }
+    val currentState by rememberUpdatedState(state)
+    val loadOlder by rememberUpdatedState(onLoadOlder)
+    val scope = rememberCoroutineScope()
+    val gestures = remember {
+        object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                if (source == NestedScrollSource.UserInput && available.y > 0) {
+                    policy = policy.pause()
+                }
+                return Offset.Zero
+            }
+        }
+    }
+    LaunchedEffect(list) {
+        snapshotFlow {
+            val value = currentState
+            TranscriptViewport(
+                atBottom = !list.canScrollBackward,
+                atTop = list.layoutInfo.visibleItemsInfo.any {
+                    it.key == currentRows.firstOrNull()?.id
+                },
+                scrolling = list.isScrollInProgress,
+                nextToken = value.nextToken,
+                loading = value.isLoading || value.loadingOlder
+            )
+        }.collect { viewport ->
+            policy = policy.observe(viewport)
+            if (policy.shouldLoad(viewport)) {
+                policy = policy.copy(requestedToken = viewport.nextToken)
+                loadOlder()
+            }
+        }
+    }
+    var previousIds by remember { mutableStateOf(emptySet<String>()) }
+    LaunchedEffect(state.messages, state.isStreaming) {
+        val ids = state.messages.map { it.id }.toSet()
+        if (isDisjointReplacement(previousIds, ids)) {
+            policy = policy.resume()
+        }
+        previousIds = ids
+        policy = policy.contentChanged(state.messages.lastOrNull())
+        if (policy.following && state.messages.isNotEmpty()) list.scrollToItem(0)
+    }
+    val refresh = rememberPullToRefreshState()
+    // Downward overscroll at a page boundary means read older, never discard loaded history.
+    val canRefresh = state.nextToken == null && !state.loadingOlder
+    Box(
+        modifier = modifier.nestedScroll(gestures).pullToRefresh(
+            isRefreshing = state.isLoading,
+            state = refresh,
+            enabled = canRefresh,
+            onRefresh = onRefresh
+        )
+    ) {
+        LazyColumn(
+            state = list,
+            reverseLayout = true,
+            modifier = Modifier.fillMaxSize().testTag("transcript"),
+            verticalArrangement = Arrangement.spacedBy(TRANSCRIPT_ROW_SPACING, Alignment.Bottom)
+        ) {
+            if (state.isStreaming) {
+                item(key = "live-thinking-footer") { ConversationThinkingFooter() }
+            }
+            items(rows.asReversed(), key = { it.id }) { row ->
+                TranscriptMessage(
+                    row,
+                    state.hydrating,
+                    onHydrate,
+                    onSuggestedPrompt,
+                    suggestionsEnabled,
+                    state.showsSuggestions(row)
+                )
+            }
+        }
+        if (canRefresh) {
+            PullToRefreshDefaults.Indicator(
+                state = refresh,
+                isRefreshing = state.isLoading,
+                modifier = Modifier.align(Alignment.TopCenter)
+            )
+        }
+        if (state.loadingOlder) {
+            CircularProgressIndicator(Modifier.align(Alignment.TopCenter).size(24.dp))
+        }
+        if (state.showsEmptyTranscript()) {
+            EmptyConversation(Modifier.align(Alignment.Center))
+        }
+        state.error?.let {
+            Text(it, Modifier.align(Alignment.TopCenter), color = MaterialTheme.colorScheme.error)
+        }
+        if (!policy.following && policy.hasNewMessages) {
+            Box(Modifier.align(Alignment.BottomCenter).padding(8.dp)) {
+                FilledTonalButton(onClick = {
+                    scope.launch {
+                        list.scrollToItem(0)
+                        policy = policy.resume()
+                    }
+                }) { Text("New messages ↓") }
+            }
+        }
+    }
+}
+
+@Composable
+private fun EmptyConversation(modifier: Modifier = Modifier) {
+    val agent = dev.intentapp.android.agents.LocalConversationAgent.current
+    Column(
+        modifier.padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        agent?.name?.takeIf { it.isNotBlank() }?.let {
+            Text(it, style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center)
+        }
+        agent?.metadata.string("specialist")?.takeIf { it.isNotBlank() }?.let {
+            Text(
+                "Specialist · $it",
+                style = MaterialTheme.typography.bodySmall,
+                textAlign = TextAlign.Center
+            )
+        }
+        Text("No messages yet", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        agent?.model?.takeIf { it.isNotBlank() }?.let {
+            Text(
+                "Using $it",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center
+            )
+        }
+    }
+}
+
+private fun isDisjointReplacement(previous: Set<String>, current: Set<String>) =
+    previous.isNotEmpty() && current.isNotEmpty() && previous.none { it in current }
+
+private fun ConversationState.showsEmptyTranscript(): Boolean =
+    !isLoading && !isStreaming && messages.isEmpty()
+
+private fun ConversationState.showsSuggestions(row: TranscriptRow): Boolean =
+    !isStreaming && row.messages.last().id == messages.lastOrNull()?.id

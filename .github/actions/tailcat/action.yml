@@ -1,0 +1,54 @@
+name: Tailcat library
+description: Build tailcat/libs/tailcatkit.aar from the intent-hq/ios commit in tailcat/source.ref.
+inputs:
+  cache:
+    description: Reuse a cached AAR built from the same inputs. Release builds pass false.
+    default: 'true'
+  save-cache:
+    description: Save a newly built AAR to the cache.
+    default: 'false'
+runs:
+  using: composite
+  steps:
+    - name: Read pinned TailcatKit commit
+      id: source
+      shell: bash
+      run: echo "ref=$(tr -d '[:space:]' < tailcat/source.ref)" >> "$GITHUB_OUTPUT"
+    - name: Restore Tailcat library
+      id: cache
+      if: inputs.cache == 'true'
+      uses: actions/cache/restore@v4
+      with:
+        path: tailcat/libs
+        key: tailcat-${{ runner.os }}-${{ steps.source.outputs.ref }}-${{ hashFiles('scripts/build-tailcat.sh', 'tailcat/go/**') }}
+    - name: Install the NDK
+      if: steps.cache.outputs.cache-hit != 'true'
+      shell: bash
+      run: sdkmanager "ndk;28.2.13676358"
+    - name: Check out TailcatKit
+      if: steps.cache.outputs.cache-hit != 'true'
+      uses: actions/checkout@v7
+      with:
+        repository: intent-hq/ios
+        ref: ${{ steps.source.outputs.ref }}
+        path: tailcat-source
+        sparse-checkout: TailcatKit
+        persist-credentials: false
+    - name: Set up Go
+      if: steps.cache.outputs.cache-hit != 'true'
+      uses: actions/setup-go@v6
+      with:
+        go-version-file: tailcat-source/TailcatKit/go.mod
+        cache-dependency-path: tailcat-source/TailcatKit/go.sum
+    - name: Build Tailcat library
+      if: steps.cache.outputs.cache-hit != 'true'
+      shell: bash
+      env:
+        TAILCAT_SOURCE_DIR: ${{ github.workspace }}/tailcat-source/TailcatKit
+      run: ./scripts/build-tailcat.sh
+    - name: Save Tailcat library
+      if: inputs.cache == 'true' && inputs.save-cache == 'true' && steps.cache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v4
+      with:
+        path: tailcat/libs
+        key: ${{ steps.cache.outputs.cache-primary-key }}

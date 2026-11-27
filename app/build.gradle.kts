@@ -16,16 +16,18 @@ val (majorVersion, minorVersion, patchVersion) = versionParts.map(String::toInt)
 val releaseVersionCode = majorVersion * 1_000_000 + minorVersion * 1_000 + patchVersion + 1
 
 android {
-    namespace = "dev.intent.app"
+    namespace = "dev.intentapp.android"
     compileSdk = 37
 
     defaultConfig {
-        applicationId = "dev.intent.app"
+        applicationId = "dev.intentapp.android"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         minSdk = 26
         targetSdk = 37
         versionCode = releaseVersionCode
         versionName = releaseVersion
+        // Match the Tailcat library ABIs so no device installs without the tunnel.
+        ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64") }
     }
 
     testOptions {

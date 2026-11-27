@@ -7,9 +7,10 @@ plugins {
 val nativeArchive = file("libs/tailcatkit.aar")
 val nativeEnabled = providers.gradleProperty("tailcat.enabled").orNull?.let {
     requireNotNull(it.toBooleanStrictOrNull()) { "tailcat.enabled must be true or false" }
-} ?: nativeArchive.isFile
+} ?: true
 require(!nativeEnabled || nativeArchive.isFile) {
-    "Tailcat AAR is missing. Run scripts/build-tailcat.sh or use -Ptailcat.enabled=false."
+    "Tailcat AAR is missing. Run scripts/build-tailcat.sh, or pass -Ptailcat.enabled=false " +
+        "for a direct-only development build."
 }
 
 android {

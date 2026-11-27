@@ -1,0 +1,160 @@
+package dev.intentapp.android.smoke
+
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.hasScrollAction
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.performTextInput
+import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
+import dev.intent.core.protocol.models.Note
+import dev.intent.core.protocol.models.Workspace
+import dev.intentapp.android.navigation.WorkspaceDestination
+import dev.intentapp.android.notes.NoteReaderScreen
+import dev.intentapp.android.notes.NoteReaderState
+import dev.intentapp.android.testing.IntentTestTheme
+import dev.intentapp.android.testing.createIntentComposeRule
+import dev.intentapp.android.workspaces.WorkspaceDetailScreen
+import dev.intentapp.android.workspaces.WorkspaceListScreen
+import dev.intentapp.android.workspaces.WorkspaceListState
+import org.junit.Assert.assertEquals
+import org.junit.Rule
+import org.junit.Test
+import org.junit.runner.RunWith
+
+@RunWith(AndroidJUnit4::class)
+class WorkspaceDetailTest {
+    @get:Rule val compose = createIntentComposeRule()
+
+    @Test
+    fun summaryStateAndToolsAreReachable() {
+        var selected: WorkspaceDestination? = null
+        compose.setContent {
+            IntentTestTheme {
+                WorkspaceDetailScreen(
+                    Workspace(
+                        "work",
+                        "Workspace",
+                        statusMessage = "Ready for review",
+                        displayStatus = "pr_ready",
+                        repositoryOwner = "intent-hq",
+                        repositoryName = "android"
+                    )
+                ) { selected = it }
+            }
+        }
+        compose.onNodeWithText("Ready for review").assertIsDisplayed()
+        compose.onNodeWithText("intent-hq/android").assertIsDisplayed()
+        listOf(
+            "Agents" to WorkspaceDestination.Conversations,
+            "Context" to WorkspaceDestination.Notes,
+            "Changes" to WorkspaceDestination.Git
+        ).forEach { (title, destination) ->
+            compose.onNodeWithText(title).performClick()
+            compose.runOnIdle { assertEquals(destination, selected) }
+        }
+        screenshot("workspace-detail-hierarchy")
+    }
+
+    @Test
+    fun headerShowsFullSummary() {
+        val summary =
+            "The repository search and grouping controls are ready. " +
+                "Review the archived-workspace filter, the repository owner labels, " +
+                "and the waiting indicator before approving this change."
+        compose.setContent {
+            IntentTestTheme {
+                WorkspaceDetailScreen(Workspace("work", "Workspace", statusMessage = summary)) {}
+            }
+        }
+        compose.onNodeWithText(summary).assertIsDisplayed()
+        screenshot("workspace-full-summary")
+    }
+
+    @Test
+    fun groupingAndRepositorySearchKeepWorkspaceSelection() {
+        var selected: String? = null
+        compose.setContent {
+            IntentTestTheme {
+                WorkspaceListScreen(
+                    WorkspaceListState(
+                        listOf(
+                            Workspace(
+                                "work",
+                                "Improve search",
+                                repositoryOwner = "intent-hq",
+                                repositoryName = "android",
+                                displayStatus = "in_progress",
+                                activity = "agent_running",
+                                attention = "unread",
+                                prNumber = 42
+                            ),
+                            Workspace("other", "Other work", repositoryName = "ios")
+                        ),
+                        isLoading = false
+                    ),
+                    onRefresh = {},
+                    onWorkspaceSelected = { selected = it }
+                )
+            }
+        }
+        compose.onNodeWithText("Repo").performClick().assertIsSelected()
+        screenshot("workspace-repository-groups")
+        compose.onNodeWithText("Status").performClick().assertIsSelected()
+        screenshot("workspace-status-groups")
+        compose.onNodeWithContentDescription("Search workspaces").performClick()
+        compose.onNodeWithText("Search workspaces").performTextInput("intent-hq/android")
+        compose.onNodeWithText(
+            "Improve search",
+            substring = true
+        ).assertIsDisplayed().performClick()
+        compose.runOnIdle { assertEquals("work", selected) }
+    }
+
+    @Test
+    fun noteHeaderKeepsItsPositionWhileContentScrolls() {
+        compose.setContent {
+            IntentTestTheme {
+                NoteReaderScreen(
+                    NoteReaderState(
+                        note = Note(
+                            "note",
+                            "Same title",
+                            content = (1..60).joinToString("\n\n") { "Paragraph $it" }
+                        ),
+                        loading = false
+                    ),
+                    {}
+                )
+            }
+        }
+        val bounds = compose.onNodeWithText("Same title").fetchSemanticsNode().boundsInRoot.topLeft
+        compose.onNode(hasScrollAction()).performScrollToNode(hasText("Paragraph 60"))
+        compose.onNodeWithText("Paragraph 60").assertIsDisplayed()
+        assertEquals(
+            bounds,
+            compose.onNodeWithText("Same title").fetchSemanticsNode().boundsInRoot.topLeft
+        )
+    }
+
+    private fun screenshot(name: String) {
+        compose.waitForIdle()
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val directory =
+            InstrumentationRegistry
+                .getArguments()
+                .getString("additionalTestOutputDir")
+                ?.let { java.io.File(it) }
+                ?: java.io.File(instrumentation.targetContext.cacheDir, "screenshots")
+        check(directory.mkdirs() || directory.isDirectory)
+        val bitmap = checkNotNull(instrumentation.uiAutomation.takeScreenshot())
+        java.io.File(directory, "$name.png").outputStream().use {
+            bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
+        }
+        bitmap.recycle()
+    }
+}

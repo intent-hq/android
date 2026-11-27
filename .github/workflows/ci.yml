@@ -2,7 +2,7 @@ name: CI
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened, edited, ready_for_review]
+    types: [opened, synchronize, reopened, ready_for_review]
   push:
     branches: [main]
   merge_group:
@@ -24,7 +24,7 @@ jobs:
   build:
     name: Android build, lint, and unit tests
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v7
         with:
@@ -38,13 +38,20 @@ jobs:
         uses: android-actions/setup-android@v4
       - name: Install Android SDK packages
         run: sdkmanager "platform-tools" "platforms;android-37.0" "build-tools;36.0.0"
+      # Main pushes save the archive; pull requests reuse it until tailcat/source.ref changes.
+      - name: Build or restore Tailcat library
+        uses: ./.github/actions/tailcat
+        with:
+          save-cache: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
       - name: Set up Gradle cache
         uses: gradle/actions/setup-gradle@v6
         with:
           cache-provider: basic
           cache-read-only: ${{ github.ref != 'refs/heads/main' }}
       - name: Build, lint, and run unit tests
-        run: ./gradlew build ktlintCheck detekt test
+        run: ./gradlew build ktlintCheck detekt test -Ptailcat.enabled=true
+      - name: Check Play native requirements
+        run: python3 scripts/check-release-bundle.py app/build/outputs/apk/release/app-release-unsigned.apk
 
   instrumentation:
     name: Android emulator UI tests (API ${{ matrix.api }}, shard ${{ matrix.shard }})
@@ -129,25 +136,3 @@ jobs:
           path: ui-shards
       - name: Check screenshot export across all shards
         run: python3 scripts/check-ui-screenshots.py ui-shards
-
-  pr-title:
-    name: Conventional PR title
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    permissions:
-      pull-requests: read
-    steps:
-      - uses: amannn/action-semantic-pull-request@v6
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          types: |
-            feat
-            fix
-            chore
-            docs
-            refactor
-            test
-            ci
-            perf

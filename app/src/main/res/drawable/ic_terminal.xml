@@ -1,0 +1,13 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- iOS Assets.xcassets/Terminal.imageset/Terminal.svg -->
+    <path
+        android:pathData="m3.75 6 4.858 4.318a2.25 2.25 0 0 1 0 3.364L3.75 18m7.5 0h9"
+        android:fillColor="#00000000"
+        android:strokeColor="#080808"
+        android:strokeWidth="1.995"
+        android:strokeLineJoin="round" />
+</vector>

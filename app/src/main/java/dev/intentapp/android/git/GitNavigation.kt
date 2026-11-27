@@ -1,0 +1,5 @@
+package dev.intentapp.android.git
+
+import dev.intent.core.protocol.models.GitCommit
+
+data class GitNavigation(val onRoot: (String?) -> Unit = {}, val onCommit: (GitCommit) -> Unit = {})
