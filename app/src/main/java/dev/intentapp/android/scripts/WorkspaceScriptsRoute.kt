@@ -1,14 +1,14 @@
 package dev.intentapp.android.scripts
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -16,15 +16,21 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import dev.intent.core.protocol.browser.PreviewUrl
-import dev.intent.core.protocol.models.WorkspaceScriptResource
-import dev.intent.core.protocol.models.WorkspaceScriptRuntime
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import dev.intent.core.protocol.session.RpcSession
 import dev.intentapp.android.design.IntentScreen
-import dev.intentapp.android.design.IntentSection
-import dev.intentapp.android.design.IntentTextButton
+import dev.intentapp.android.design.IntentSpacing
+import dev.intentapp.android.lists.RefreshableList
+import dev.intentapp.android.navigation.ChromeAction
+import dev.intentapp.android.navigation.CompactAppBar
 import dev.intentapp.android.navigation.LocalConnectionReady
 
 @Composable
@@ -43,114 +49,139 @@ fun WorkspaceScriptsRoute(
         onDispose { store.close() }
     }
     LaunchedEffect(store, connectionReady) { store.connectionChanged(connectionReady) }
-    val state by store.state.collectAsState()
-    WorkspaceScriptsScreen(
-        state.copy(connected = connectionReady && state.connected),
-        onBack,
-        store::refresh,
-        store::setRunning,
-        onOpenBrowser
-    )
+    val stored by store.state.collectAsState()
+    val state = stored.copy(connected = connectionReady && stored.connected)
+    LaunchedEffect(state.openUrl) {
+        state.openUrl?.let {
+            store.consumeOpenUrl()
+            onOpenBrowser(it)
+        }
+    }
+    BackHandler(onBack = onBack)
+    Column(Modifier.fillMaxSize()) {
+        CompactAppBar(
+            "Scripts",
+            onBack,
+            listOf(ChromeAction("Refresh", enabled = state.connected, run = store::reload))
+        )
+        WorkspaceScriptsScreen(
+            state,
+            WorkspaceScriptsActions(
+                launch = store::launch,
+                stop = store::stop,
+                remove = store::remove,
+                showOutput = store::showOutput,
+                reload = store::reload
+            ),
+            Modifier.weight(1f)
+        )
+    }
+    state.output?.let { output ->
+        val row = state.rows.firstOrNull { it.id == output.scriptId }
+        ScriptOutputSheet(
+            output,
+            row,
+            state,
+            ScriptOutputActions(
+                dismiss = store::hideOutput,
+                refresh = store::refreshOutput,
+                launch = store::launch,
+                stop = store::stop,
+                openBrowser = onOpenBrowser
+            )
+        )
+    }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
+/** iOS WorkspaceScriptsView: an uppercase SCRIPTS eyebrow over 36dp-spaced script rows. */
 @Composable
 fun WorkspaceScriptsScreen(
     state: WorkspaceScriptsState,
-    onBack: () -> Unit,
-    refresh: () -> Unit,
-    setRunning: (String, Boolean) -> Unit,
-    onOpenBrowser: (String) -> Unit
+    actions: WorkspaceScriptsActions,
+    modifier: Modifier = Modifier
 ) {
-    LazyColumn(
-        Modifier.fillMaxSize(),
-        contentPadding = IntentScreen.pageInsets,
-        verticalArrangement = Arrangement.spacedBy(IntentScreen.itemSpacing)
-    ) {
-        item {
-            Column {
-                Text("Scripts", style = MaterialTheme.typography.headlineSmall)
-                Text("Under development", color = IntentScreen.secondaryText)
-                FlowRow {
-                    IntentTextButton(onClick = onBack) { Text("Back") }
-                    IntentTextButton(
-                        onClick = refresh,
-                        enabled = state.connected && !state.loading
-                    ) {
-                        Text("Refresh")
-                    }
-                }
+    var revealed by remember { mutableStateOf<String?>(null) }
+    val rows = state.rows
+    RefreshableList(state.loading, actions.reload, modifier) {
+        LazyColumn(
+            Modifier.fillMaxSize().testTag("scripts.list"),
+            contentPadding = PaddingValues(vertical = IntentSpacing.content),
+            verticalArrangement = Arrangement.spacedBy(ROW_SPACING)
+        ) {
+            item(key = "heading") { ScriptsEyebrow() }
+            if (!state.loaded && state.loading && state.connected) {
+                item(key = "loading") { PageText("Loading scripts…") }
             }
-        }
-        if (state.loading) item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
-        state.error?.let { message -> item { Text(message, color = IntentScreen.error) } }
-        if (!state.loading && state.scripts.isEmpty() && state.error == null) {
-            item {
-                IntentSection("No scripts yet") {
-                    Text("Create a workspace script on the host to run it here.")
-                }
+            state.error?.let { error ->
+                item(key = "error") { ScriptsError(error, state.connected, actions.reload) }
             }
-        }
-        items(state.scripts, key = { it.id }) { script ->
-            ScriptResourceRow(
-                script,
-                enabled = state.connected && !state.loading && script.id !in state.pending,
-                pending = script.id in state.pending,
-                setRunning = { setRunning(script.id, it) },
-                onOpenBrowser = onOpenBrowser
-            )
-        }
-    }
-}
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun ScriptResourceRow(
-    script: WorkspaceScriptResource,
-    enabled: Boolean,
-    pending: Boolean,
-    setRunning: (Boolean) -> Unit,
-    onOpenBrowser: (String) -> Unit
-) {
-    val runtime = script.runtime
-    IntentSection(script.name.ifBlank { script.id }) {
-        Text(script.command, style = MaterialTheme.typography.bodySmall)
-        Text("${script.mode} · ${scriptStatusLabel(runtime)}", color = IntentScreen.secondaryText)
-        runtime?.error?.let { Text(it, color = IntentScreen.error) }
-        if (runtime?.previouslyRunning == true) Text("Stopped when the host restarted.")
-        FlowRow {
-            IntentTextButton(
-                onClick = { setRunning(runtime?.isLive != true) },
-                enabled = enabled && runtime != null
-            ) {
-                Text(
-                    if (pending) {
-                        "Updating…"
-                    } else if (runtime?.isLive == true) {
-                        "Stop"
-                    } else {
-                        "Start"
-                    }
+            if (state.loaded && rows.isEmpty() && state.error == null) {
+                item(key = "empty") { ScriptsEmpty() }
+            }
+            items(rows, key = { it.id }) { row ->
+                ScriptRow(
+                    row,
+                    state,
+                    revealed = revealed == row.id,
+                    onReveal = { revealed = if (it) row.id else null },
+                    actions = actions
                 )
             }
-            val url = runtime?.detectedUrl?.takeIf {
-                runtime.status == "running" && runCatching { PreviewUrl.parse(it) }.isSuccess
-            }
-            if (url != null) {
-                IntentTextButton(onClick = {
-                    onOpenBrowser(url)
-                }, enabled = enabled) { Text("Open preview") }
-            }
         }
     }
 }
 
-internal fun scriptStatusLabel(runtime: WorkspaceScriptRuntime?): String = when (runtime?.status) {
-    null -> "Status unavailable"
-    "idle" -> "Idle"
-    "starting" -> "Starting"
-    "running" -> "Running"
-    "restarting" -> "Restarting"
-    "exited" -> runtime.exitCode?.let { "Exited ($it)" } ?: "Exited"
-    else -> runtime.status
+@Composable
+private fun ScriptsEyebrow() {
+    Text(
+        "SCRIPTS",
+        Modifier.padding(horizontal = IntentSpacing.page).semantics { heading() },
+        style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 0.24.sp),
+        color = IntentScreen.secondaryText
+    )
 }
+
+@Composable
+private fun PageText(text: String) {
+    Text(
+        text,
+        Modifier.padding(horizontal = IntentSpacing.page),
+        style = MaterialTheme.typography.bodyMedium,
+        color = IntentScreen.secondaryText
+    )
+}
+
+/** iOS shows the error in muted bodyXS with a secondary Retry button. */
+@Composable
+private fun ScriptsError(error: String, connected: Boolean, retry: () -> Unit) {
+    Column(
+        Modifier.fillMaxWidth().padding(horizontal = IntentSpacing.page),
+        verticalArrangement = Arrangement.spacedBy(IntentSpacing.medium)
+    ) {
+        Text(
+            error,
+            style = MaterialTheme.typography.bodyMedium,
+            color = IntentScreen.secondaryText
+        )
+        ScriptSecondaryButton("Retry", retry, connected, Modifier.testTag("scripts.retry"))
+    }
+}
+
+@Composable
+private fun ScriptsEmpty() {
+    Column(
+        Modifier.fillMaxWidth().padding(horizontal = IntentSpacing.page),
+        verticalArrangement = Arrangement.spacedBy(IntentSpacing.medium)
+    ) {
+        Text("No scripts", style = MaterialTheme.typography.titleMedium)
+        Text(
+            "Scripts saved in this workspace and scripts in package.json, Makefile, " +
+                "Cargo.toml or pyproject.toml appear here.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = IntentScreen.secondaryText
+        )
+    }
+}
+
+// iOS WorkspaceDetailStyle.rowSpacing.
+private val ROW_SPACING = 36.dp

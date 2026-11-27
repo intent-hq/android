@@ -1,19 +1,73 @@
 package dev.intentapp.android.scripts
 
+import dev.intent.core.protocol.browser.PreviewUrl
 import dev.intent.core.protocol.models.WorkspaceScriptResource
+import dev.intent.core.protocol.models.WorkspaceScriptRuntime
 import java.io.Closeable
+import java.util.concurrent.CompletableFuture
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
-data class WorkspaceScriptsState(
-    val scripts: List<WorkspaceScriptResource> = emptyList(),
+/** One row on the Scripts screen: a saved script, or a manifest script saved on first launch. */
+data class WorkspaceScriptRow(
+    val id: String,
+    val workspaceId: String,
+    val name: String,
+    val command: String,
+    val mode: String,
+    val runtime: WorkspaceScriptRuntime?,
+    val registered: Boolean = true
+) {
+    val active: Boolean get() = runtime?.isLive == true
+    val status: String get() = runtime?.status ?: "idle"
+
+    /** iOS WorkspaceScript.browser: only a running script opens its detected address. */
+    val browserUrl: String?
+        get() = runtime?.detectedUrl?.takeIf {
+            status == "running" && runCatching { PreviewUrl.parse(it) }.isSuccess
+        }
+}
+
+fun WorkspaceScriptResource.toRow() =
+    WorkspaceScriptRow(id, workspaceId, name, command, mode, runtime)
+
+data class ScriptOutputState(
+    val scriptId: String,
+    val text: String? = null,
     val loading: Boolean = true,
-    val connected: Boolean = false,
-    val pending: Set<String> = emptySet(),
     val error: String? = null
 )
 
-/** A route owns one store; reconnect reloads reads but never replays start/stop. */
+data class WorkspaceScriptsState(
+    val scripts: List<WorkspaceScriptResource> = emptyList(),
+    val discovered: List<WorkspaceScriptRow> = emptyList(),
+    val loading: Boolean = true,
+    val loaded: Boolean = false,
+    val connected: Boolean = false,
+    val pending: Set<String> = emptySet(),
+    val launching: String? = null,
+    val launchObserving: Boolean = false,
+    val error: String? = null,
+    val output: ScriptOutputState? = null,
+    val openUrl: String? = null
+) {
+    /** iOS WorkspaceScriptStore.scripts: saved rows, then manifest rows not already saved. */
+    val rows: List<WorkspaceScriptRow>
+        get() {
+            val saved = scripts.map { it.toRow() }
+            val names = saved.map { it.name }.toSet()
+            val commands = saved.map { it.command }.toSet()
+            return saved + discovered.filter { it.name !in names && it.command !in commands }
+        }
+
+    fun isUpdating(id: String) = id in pending
+
+    fun isLaunching(row: WorkspaceScriptRow) = launching == row.id &&
+        (!launchObserving || row.status == "starting" || row.status == "restarting")
+}
+
+/** A route owns one store; reconnect reloads reads but never replays start/stop/remove. */
+@Suppress("TooManyFunctions")
 class WorkspaceScriptsStore(
     private val session: WorkspaceScriptSession,
     private val workspaceId: String
@@ -24,17 +78,24 @@ class WorkspaceScriptsStore(
     private var closed = false
     private var generation = 0L
     private var revision = 0L
+    private var outputRevision = 0L
     private var reading = false
     private var dirty = false
     private var connectionReady = true
     private var admitted = false
+
+    private var value: WorkspaceScriptsState
+        get() = mutableState.value
+        set(next) {
+            mutableState.value = next
+        }
 
     @Synchronized
     fun start(ready: Boolean = true) {
         if (closed || subscription != null) return
         connectionReady = ready
         if (!ready) invalidateConnection()
-        subscription = session.subscribe(::refresh, ::connected, ::disconnected)
+        subscription = session.subscribe(::changed, ::connected, ::disconnected)
     }
 
     /** Ordinary transport loss does not invoke an admitted subscription's error callback. */
@@ -60,13 +121,35 @@ class WorkspaceScriptsStore(
     private fun activate() {
         generation++
         reading = false
-        mutableState.value = state.value.copy(connected = true, pending = emptySet())
+        value = value.copy(connected = true, pending = emptySet(), error = null)
+        reload()
+        value.output?.let { showOutput(it.scriptId) }
+    }
+
+    @Synchronized
+    private fun changed() {
+        refresh()
+        value.output?.let { refreshOutput() }
+    }
+
+    /** Pull-to-refresh and Retry also re-read the workspace manifests. */
+    @Synchronized
+    fun reload() {
+        if (closed || !value.connected) return
+        val token = generation
+        session.discover().whenComplete { rows, _ ->
+            synchronized(this) {
+                if (!closed && token == generation && rows != null) {
+                    value = value.copy(discovered = rows)
+                }
+            }
+        }
         refresh()
     }
 
     @Synchronized
     fun refresh() {
-        if (closed || !state.value.connected) return
+        if (closed || !value.connected) return
         revision++
         if (reading) {
             dirty = true
@@ -76,67 +159,218 @@ class WorkspaceScriptsStore(
         dirty = false
         val token = generation
         val readRevision = revision
-        mutableState.value = state.value.copy(loading = true, error = null)
+        value = value.copy(loading = true)
         session.list().whenComplete { rows, error ->
             synchronized(this) {
-                if (!closed && token == generation) {
-                    reading = false
-                    if (dirty || readRevision != revision) {
-                        refresh()
-                    } else if (error != null) {
-                        mutableState.value = state.value.copy(loading = false, error = LOAD_ERROR)
-                    } else {
-                        mutableState.value = state.value.copy(
-                            scripts = rows.filter {
-                                it.workspaceId == workspaceId &&
-                                    it.id.isNotBlank()
-                            }
-                                .distinctBy { it.id },
+                if (closed || token != generation) return@whenComplete
+                reading = false
+                when {
+                    dirty || readRevision != revision -> refresh()
+                    error != null -> value = value.copy(loading = false, error = LOAD_ERROR)
+                    else -> {
+                        val scripts = rows.filter {
+                            it.workspaceId == workspaceId && it.id.isNotBlank()
+                        }.distinctBy { it.id }
+                        value = value.copy(
+                            scripts = scripts,
                             loading = false,
-                            error = null
+                            loaded = true,
+                            error = value.error.takeUnless { it == LOAD_ERROR }
                         )
+                        reconcileLaunch()
                     }
                 }
             }
+        }
+    }
+
+    /** iOS WorkspaceScriptStore.launch: save a manifest script, start it, then open its address. */
+    @Synchronized
+    fun launch(id: String) {
+        val current = value
+        val row = current.rows.firstOrNull { it.id == id } ?: return
+        if (!canAct(current, id) || current.launching == id) return
+        val token = generation
+        var launchId = id
+        value = current.copy(launching = id, launchObserving = false, error = null, openUrl = null)
+        registered(row).thenCompose { saved ->
+            synchronized(this) {
+                check(token == generation && value.launching == id) { "Launch superseded" }
+                launchId = saved.id
+                adopt(saved)
+            }
+            startIfIdle(saved.id).thenApply { saved.id to it }
+        }.whenComplete { result, error ->
+            synchronized(this) {
+                if (closed || token != generation || value.launching != launchId) {
+                    return@whenComplete
+                }
+                if (error != null || result == null) {
+                    value = value.copy(launching = null, error = "Cannot start ${row.name}.")
+                } else {
+                    apply(result.first, result.second)
+                    value = value.copy(launchObserving = true)
+                    reconcileLaunch()
+                }
+                refresh()
+            }
+        }
+    }
+
+    private fun canAct(current: WorkspaceScriptsState, id: String) =
+        !closed && current.connected && !current.isUpdating(id)
+
+    private fun adopt(saved: WorkspaceScriptResource) {
+        value = value.copy(launching = saved.id)
+        if (value.scripts.none { it.id == saved.id }) {
+            value = value.copy(scripts = value.scripts + saved)
+        }
+    }
+
+    /** A live script is not started again; the confirmed status follows the acknowledgement. */
+    private fun startIfIdle(id: String): CompletableFuture<WorkspaceScriptRuntime> =
+        session.status(id).thenCompose { runtime ->
+            if (runtime.isLive) {
+                CompletableFuture.completedFuture(runtime)
+            } else {
+                session.setRunning(id, true).thenCompose { result ->
+                    check(result.ok && result.scriptId == id)
+                    session.status(id)
+                }
+            }
+        }
+
+    /** iOS WorkspaceScriptRepository.register: reuse a saved script with the same name or command. */
+    private fun registered(row: WorkspaceScriptRow): CompletableFuture<WorkspaceScriptResource> {
+        if (row.registered) {
+            val saved = value.scripts.first { it.id == row.id }
+            return CompletableFuture.completedFuture(saved)
+        }
+        return session.list().thenCompose { scripts ->
+            val mine = scripts.filter { it.workspaceId == workspaceId }
+            val existing = mine.firstOrNull { it.name == row.name }
+                ?: mine.firstOrNull { it.command == row.command }
+            existing?.let { CompletableFuture.completedFuture(it) }
+                ?: session.create(row.name, row.command, row.mode).thenApply {
+                    check(it.workspaceId == workspaceId && it.id.isNotBlank())
+                    it
+                }
+        }
+    }
+
+    private fun reconcileLaunch() {
+        val id = value.launching ?: return
+        if (!value.launchObserving) return
+        val row = value.rows.firstOrNull { it.id == id }
+        when {
+            row == null -> value = value.copy(launching = null)
+            row.browserUrl != null -> value = value.copy(launching = null, openUrl = row.browserUrl)
+            !row.active -> value = value.copy(launching = null, error = row.runtime?.error)
         }
     }
 
     @Synchronized
-    fun setRunning(id: String, running: Boolean) {
-        val current = state.value
-        if (!canSetRunning(current, id, running)) return
-        val token = generation
-        mutableState.value = current.copy(pending = current.pending + id, error = null)
-        // Confirm with a status read; do not claim success from an optimistic local state.
-        session.setRunning(id, running).thenCompose { result ->
-            check(result.ok && result.scriptId == id)
-            session.status(id)
-        }.whenComplete { _, error ->
-            synchronized(this) {
-                if (!closed && token == generation) {
-                    mutableState.value = state.value.copy(pending = state.value.pending - id)
-                    if (error != null) {
-                        mutableState.value = state.value.copy(
-                            error = "Script action was not confirmed. " +
-                                "Refresh its status before trying again."
-                        )
-                    } else {
-                        refresh()
-                    }
+    fun consumeOpenUrl() {
+        value = value.copy(openUrl = null)
+    }
+
+    @Synchronized
+    fun stop(id: String) {
+        val row = value.rows.firstOrNull { it.id == id } ?: return
+        if (!row.active && value.launching != id) return
+        perform(row) {
+            session.setRunning(id, false).thenCompose { result ->
+                check(result.ok && result.scriptId == id)
+                session.status(id)
+            }.thenApply { runtime -> { apply(id, runtime) } }
+        }
+    }
+
+    @Synchronized
+    fun remove(id: String) {
+        val row = value.rows.firstOrNull { it.id == id } ?: return
+        perform(row) {
+            session.remove(id).thenApply { result ->
+                check(result.ok && result.scriptId == id)
+                val update: () -> Unit = {
+                    value = value.copy(
+                        scripts = value.scripts.filterNot { it.id == id },
+                        output = value.output?.takeUnless { it.scriptId == id }
+                    )
                 }
+                update
             }
         }
     }
 
-    private fun canSetRunning(
-        current: WorkspaceScriptsState,
-        id: String,
-        running: Boolean
-    ): Boolean {
-        val runtime = current.scripts.firstOrNull { it.id == id }?.runtime ?: return false
-        val available = !closed && current.connected && !current.loading
-        val actionable = id !in current.pending && running != runtime.isLive
-        return available && actionable
+    private fun perform(row: WorkspaceScriptRow, request: () -> CompletableFuture<() -> Unit>) {
+        val current = value
+        if (!row.registered || !canAct(current, row.id)) return
+        val token = generation
+        value = current.copy(
+            pending = current.pending + row.id,
+            error = null,
+            launching = current.launching.takeUnless { it == row.id }
+        )
+        request().whenComplete { update, error ->
+            synchronized(this) {
+                if (closed || token != generation) return@whenComplete
+                value = value.copy(pending = value.pending - row.id)
+                if (error != null || update == null) {
+                    value = value.copy(error = "Cannot update ${row.name}. Refresh and try again.")
+                } else {
+                    update()
+                }
+                refresh()
+            }
+        }
+    }
+
+    private fun apply(id: String, runtime: WorkspaceScriptRuntime) {
+        value = value.copy(
+            scripts = value.scripts.map { if (it.id == id) it.copy(runtime = runtime) else it }
+        )
+    }
+
+    @Synchronized
+    fun showOutput(id: String) {
+        if (closed) return
+        value = value.copy(output = ScriptOutputState(id))
+        refreshOutput()
+    }
+
+    @Synchronized
+    fun hideOutput() {
+        outputRevision++
+        value = value.copy(output = null)
+    }
+
+    @Synchronized
+    fun refreshOutput() {
+        val output = value.output ?: return
+        if (closed || !value.connected) {
+            value = value.copy(output = output.copy(loading = false, error = OUTPUT_OFFLINE))
+            return
+        }
+        val token = generation
+        val readRevision = ++outputRevision
+        value = value.copy(output = output.copy(loading = true, error = null))
+        session.output(output.scriptId).whenComplete { text, error ->
+            synchronized(this) {
+                val current = value.output
+                if (closed || token != generation || readRevision != outputRevision) {
+                    return@whenComplete
+                }
+                if (current?.scriptId != output.scriptId) return@whenComplete
+                value = value.copy(
+                    output = if (error != null) {
+                        current.copy(loading = false, error = OUTPUT_ERROR)
+                    } else {
+                        current.copy(text = cleanScriptOutput(text), loading = false, error = null)
+                    }
+                )
+            }
+        }
     }
 
     @Synchronized
@@ -150,11 +384,13 @@ class WorkspaceScriptsStore(
         generation++
         reading = false
         dirty = false
-        mutableState.value = state.value.copy(
+        value = value.copy(
             loading = false,
             connected = false,
             pending = emptySet(),
-            error = "Script updates are unavailable. Reconnect to refresh their status."
+            launching = null,
+            output = value.output?.copy(loading = false),
+            error = DISCONNECTED
         )
     }
 
@@ -167,4 +403,20 @@ class WorkspaceScriptsStore(
     }
 }
 
-private const val LOAD_ERROR = "Cannot load scripts. Refresh to try again."
+/** Script logs are PTY output: drop terminal control sequences and carriage-return redraws. */
+internal fun cleanScriptOutput(text: String): String = text
+    .replace(OSC_SEQUENCE, "")
+    .replace(CSI_SEQUENCE, "")
+    .replace("\r\n", "\n")
+    .split("\n")
+    .joinToString("\n") { it.substringAfterLast('\r') }
+    .filter { it == '\n' || it == '\t' || !it.isISOControl() }
+    .trimEnd()
+
+private val OSC_SEQUENCE = Regex("\u001B\\][^\u0007\u001B]*(?:\u0007|\u001B\\\\)")
+private val CSI_SEQUENCE = Regex("\u001B(?:\\[[0-?]*[ -/]*[@-~]|[@-Z\\\\-_])")
+
+private const val LOAD_ERROR = "Cannot load scripts."
+private const val OUTPUT_ERROR = "Cannot load output."
+private const val OUTPUT_OFFLINE = "Reconnect to load output."
+private const val DISCONNECTED = "Scripts are unavailable while disconnected."

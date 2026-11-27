@@ -26,7 +26,10 @@ data class WorkspaceScriptRuntime(
 }
 
 @Serializable
-data class WorkspaceScriptList(val scripts: List<WorkspaceScriptResource>)
+data class WorkspaceScriptList(
+    val scripts: List<WorkspaceScriptResource>,
+    val nextCursor: String? = null
+)
 
 @Serializable
 data class WorkspaceScriptActionResult(val ok: Boolean, val scriptId: String)

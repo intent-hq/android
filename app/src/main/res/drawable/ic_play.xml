@@ -1,0 +1,12 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- iOS Assets.xcassets/Play.imageset/Play.svg -->
+    <path
+        android:pathData="M5.872 5.228a0.998 0.998 0 0 1 1.55 -0.83l10.16 6.772a0.998 0.998 0 0 1 0 1.66l-10.16 6.772a0.998 0.998 0 0 1 -1.55 -0.83z"
+        android:fillColor="#00000000"
+        android:strokeColor="#080808"
+        android:strokeWidth="1.995" />
+</vector>

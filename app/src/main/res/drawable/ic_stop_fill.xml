@@ -1,0 +1,10 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- iOS Assets.xcassets/StopFill.imageset/StopFill.svg -->
+    <path
+        android:pathData="M7.5 1.5h9a6 6 0 0 1 6 6v9a6 6 0 0 1 -6 6h-9a6 6 0 0 1 -6 -6v-9a6 6 0 0 1 6 -6z"
+        android:fillColor="#080808" />
+</vector>
