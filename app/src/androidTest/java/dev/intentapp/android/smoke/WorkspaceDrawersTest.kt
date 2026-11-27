@@ -1,0 +1,446 @@
+package dev.intentapp.android.smoke
+
+import android.content.Context
+import androidx.activity.BackEventCompat
+import androidx.activity.OnBackPressedDispatcher
+import androidx.activity.compose.LocalActivity
+import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipe
+import androidx.compose.ui.test.swipeLeft
+import androidx.compose.ui.test.swipeRight
+import androidx.core.view.WindowCompat
+import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
+import dev.intent.core.protocol.pairing.PairingPayload
+import dev.intentapp.android.connection.ConnectionController
+import dev.intentapp.android.connection.ConnectionRepository
+import dev.intentapp.android.connection.ConnectionRoot
+import dev.intentapp.android.connection.SavedConnection
+import dev.intentapp.android.connection.createConnectionSession
+import dev.intentapp.android.history.AgentHistoryStore
+import dev.intentapp.android.history.AgentVisit
+import dev.intentapp.android.testing.IntentTestTheme
+import dev.intentapp.android.testing.createIntentComposeRule
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Rule
+import org.junit.Test
+import org.junit.runner.RunWith
+
+@RunWith(AndroidJUnit4::class)
+class WorkspaceDrawersTest {
+    @get:Rule val compose = createIntentComposeRule()
+    private lateinit var dispatcher: OnBackPressedDispatcher
+    private val servers = java.util.concurrent.ConcurrentHashMap<String, SmokeServer>()
+
+    private fun openHistory() {
+        compose.onNodeWithContentDescription("More actions").performClick()
+        compose.onNodeWithText("Agent history").performClick()
+    }
+
+    @Test
+    fun nativeEdgeSwipesOpenBothPanelsWithSystemNavigationEnabled() = connected {
+        val bounds = compose.onNodeWithTag("workspace.drawers").fetchSemanticsNode().boundsInRoot
+        val middle = bounds.center.y.toInt()
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        fun swipe(from: Int, to: Int) {
+            compose.waitForIdle()
+            val output = instrumentation.uiAutomation.executeShellCommand(
+                "input swipe $from $middle $to $middle 350"
+            )
+            android.os.ParcelFileDescriptor.AutoCloseInputStream(output).use { it.readBytes() }
+            compose.waitForIdle()
+        }
+        swipe(bounds.left.toInt() + 1, (bounds.left + bounds.width * 0.9f).toInt())
+        compose.onNodeWithTag("drawer.Connections").assertIsDisplayed()
+        compose.runOnIdle { dispatcher.onBackPressed() }
+        compose.onNodeWithTag("drawer.Connections").assertDoesNotExist()
+        swipe(bounds.right.toInt() - 1, (bounds.left + bounds.width * 0.1f).toInt())
+        compose.onNodeWithTag("drawer.Agent history").assertIsDisplayed()
+    }
+
+    @Test
+    fun edgeSwipesOpenAndCloseBothDrawers() = connected {
+        screenshot("workspace-edge-navigation-light")
+        contentSwipe(right = true)
+        compose.onNodeWithTag("drawer.Connections").assertIsDisplayed()
+        screenshot("connections-drawer")
+        compose.onNodeWithTag("drawer.Agent history").assertDoesNotExist()
+        compose.onNodeWithTag("drawer.Connections").performTouchInput { swipeLeft() }
+        compose.onNodeWithTag("drawer.Connections").assertDoesNotExist()
+        contentSwipe(right = false)
+        compose.onNodeWithTag("drawer.Agent history").assertIsDisplayed()
+        compose.onNodeWithTag("drawer.Connections").assertDoesNotExist()
+        compose.onNodeWithTag("drawer.Agent history").performTouchInput { swipeRight() }
+        compose.onNodeWithTag("drawer.Agent history").assertDoesNotExist()
+    }
+
+    @Test
+    fun headerSwipesAwayFromEdgesOpenBothDrawers() = connected {
+        val header = compose.onNodeWithText("Workspaces", substring = false)
+        header.performTouchInput {
+            swipe(Offset(width * 0.2f, centerY), Offset(width * 0.95f, centerY), 300)
+        }
+        compose.onNodeWithTag("drawer.Connections").assertIsDisplayed()
+        compose.runOnIdle { dispatcher.onBackPressed() }
+        compose.onNodeWithTag("drawer.Connections").assertDoesNotExist()
+        header.performTouchInput {
+            swipe(Offset(width * 0.9f, centerY), Offset(width * 0.1f, centerY), 300)
+        }
+        compose.onNodeWithTag("drawer.Agent history").assertIsDisplayed()
+    }
+
+    @Test
+    fun edgeSwipesBackAndPredictiveBackKeepOnlyOneDrawerOpen() = connected {
+        contentSwipe(right = true)
+        compose.onNodeWithTag("drawer.Connections").assertIsDisplayed()
+        compose.runOnIdle { dispatcher.onBackPressed() }
+        compose.onNodeWithTag("drawer.Connections").assertDoesNotExist()
+        contentSwipe(right = false)
+        compose.onNodeWithTag("drawer.Agent history").assertIsDisplayed()
+        compose.onNodeWithTag("drawer.Connections").assertDoesNotExist()
+        compose.runOnIdle {
+            dispatcher.dispatchOnBackStarted(
+                BackEventCompat(0f, 200f, 0f, BackEventCompat.EDGE_LEFT)
+            )
+            dispatcher.dispatchOnBackProgressed(
+                BackEventCompat(80f, 200f, 0.5f, BackEventCompat.EDGE_LEFT)
+            )
+            dispatcher.dispatchOnBackCancelled()
+        }
+        compose.onNodeWithTag("drawer.Agent history").assertIsDisplayed()
+        compose.runOnIdle {
+            dispatcher.dispatchOnBackStarted(
+                BackEventCompat(0f, 200f, 0f, BackEventCompat.EDGE_LEFT)
+            )
+            dispatcher.dispatchOnBackProgressed(
+                BackEventCompat(160f, 200f, 1f, BackEventCompat.EDGE_LEFT)
+            )
+            dispatcher.onBackPressed()
+        }
+        compose.onNodeWithTag("drawer.Agent history").assertDoesNotExist()
+    }
+
+    @Test
+    fun rowSwipeDoesNotOpenDrawerAndVisitedAgentAppearsInHistory() = connected {
+        compose.onNodeWithTag("workspace.row.workspace").performTouchInput { swipeLeft() }
+        compose.onNodeWithContentDescription("Archive workspace").assertIsDisplayed()
+        compose.onNodeWithTag("drawer.Agent history").assertDoesNotExist()
+        compose.onNodeWithTag("workspace.row.workspace").performTouchInput { swipeRight() }
+        compose.onNodeWithTag("workspace.row.workspace").performTouchInput { swipeRight() }
+        waitForConversation()
+        compose.onNodeWithContentDescription("Back").performClick()
+        waitFor("Other agent")
+        compose.onNodeWithContentDescription("Back").performClick()
+        contentSwipe(right = false)
+        waitForHistory("history.first.agent", selected = false)
+        compose.onNodeWithTag("history.first.agent").assertIsDisplayed().performClick()
+        waitForConversation()
+        assertTrue(servers.getValue("first").requests.any { it.method == "agent.getConversation" })
+    }
+
+    @Test
+    fun historySwitchesConnectionAndOpensExactConversation() =
+        connected(seed = true) { controller ->
+            contentSwipe(right = false)
+            waitForHistory("history.second.agent", selected = false)
+            compose.onNodeWithTag("history.second.agent").assertIsDisplayed()
+            val name = compose.onNodeWithText(
+                "Remote agent",
+                substring = true,
+                useUnmergedTree = true
+            ).fetchSemanticsNode().boundsInRoot
+            val context = compose.onNodeWithText(
+                "Remote workspace",
+                substring = true,
+                useUnmergedTree = true
+            ).fetchSemanticsNode().boundsInRoot
+            assertTrue(context.top < name.top)
+            screenshot("agent-history-drawer")
+            waitForHistory("history.second.agent", selected = false)
+            compose.onNodeWithTag("history.second.agent").performClick()
+            waitForConversation()
+            compose.waitUntil(TIMEOUT) { controller.state.value.activeId == "second" }
+            assertTrue(
+                servers.getValue("second").requests.any {
+                    it.method == "agent.getConversation" && it.params.toString().contains("agent")
+                }
+            )
+            assertEquals("second", controller.state.value.activeId)
+            compose.onNodeWithContentDescription("Back").performClick()
+            waitFor("Other agent")
+            compose.onNodeWithContentDescription("Back").performClick()
+            contentSwipe(right = true)
+            compose.onNodeWithTag("drawer.connection.first").performClick()
+            waitFor("Workspaces")
+            compose.waitUntil(TIMEOUT) { controller.state.value.activeId == "first" }
+        }
+
+    @Test
+    fun clearHistoryAndScrimClose() = connected(seed = true) {
+        contentSwipe(right = false)
+        compose.onNodeWithText("Clear").performClick()
+        compose.onNodeWithText("Agents you open on any device appear here.").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Close Agent history").performClick()
+        compose.onNodeWithTag("drawer.Agent history").assertDoesNotExist()
+        contentSwipe(right = true)
+        compose.onNodeWithTag("drawer.connection.first").performClick()
+        compose.onNodeWithTag("drawer.Connections").assertDoesNotExist()
+        assertEquals(1, servers.size)
+    }
+
+    @Test
+    fun swipesStartingInsideTheListDoNotOpenDrawers() = connected {
+        compose.onNodeWithTag("workspace.drawers").performTouchInput {
+            swipe(Offset(width * 0.2f, height * 0.85f), Offset(width * 0.8f, height * 0.85f))
+        }
+        compose.onNodeWithTag("drawer.Connections").assertDoesNotExist()
+        compose.onNodeWithTag("workspace.drawers").performTouchInput {
+            swipe(Offset(width * 0.8f, height * 0.85f), Offset(width * 0.2f, height * 0.85f))
+        }
+        compose.onNodeWithTag("drawer.Agent history").assertDoesNotExist()
+    }
+
+    @Test
+    fun conversationSwipeButtonBackAndCrossConnectionHistory() =
+        connected(seed = true) { controller ->
+            openConversation()
+            compose.onNodeWithTag("transcript").performTouchInput {
+                swipe(Offset(width * 0.8f, height * 0.8f), Offset(width * 0.1f, height * 0.8f))
+            }
+            compose.onNodeWithTag("drawer.Agent history").assertIsDisplayed()
+            waitForHistory("history.first.agent", selected = true)
+            compose.onNodeWithTag("history.first.agent").assertIsSelected()
+            compose.onNodeWithText("Current agent", substring = true).assertIsDisplayed()
+            screenshot("conversation-history-light")
+            compose.runOnIdle { dispatcher.onBackPressed() }
+            compose.onNodeWithTag("drawer.Agent history").assertDoesNotExist()
+            compose.onNodeWithText("Message").assertIsDisplayed()
+            openHistory()
+            waitForHistory("history.second.agent", selected = false)
+            compose.onNodeWithTag("history.second.agent").performClick()
+            waitForConversation()
+            compose.waitUntil(TIMEOUT) { controller.state.value.activeId == "second" }
+            openHistory()
+            waitForHistory("history.second.agent", selected = true)
+            compose.onNodeWithTag("history.second.agent").assertIsSelected()
+            waitForHistory("history.first.agent", selected = false)
+            compose.onNodeWithTag("history.first.agent").performClick()
+            compose.waitUntil(TIMEOUT) { controller.state.value.activeId == "first" }
+            waitForConversation()
+        }
+
+    @Test
+    fun conversationHistoryAndConnectionsDarkAppearance() = connected(seed = true, dark = true) {
+        screenshot("workspace-edge-navigation-dark")
+        contentSwipe(right = true)
+        compose.onNodeWithTag("drawer.connection.first").assertIsSelected()
+        screenshot("connections-drawer-dark")
+        compose.runOnIdle { dispatcher.onBackPressed() }
+        openConversation()
+        openHistory()
+        waitForHistory("history.first.agent", selected = true)
+        screenshot("conversation-history-dark")
+    }
+
+    @Test
+    fun transcriptHorizontalContentAndSystemEdgesKeepDrawerClosed() = connected {
+        openConversation()
+        compose.onNodeWithText(WIDE_CODE, substring = true).performTouchInput { swipeLeft() }
+        compose.onNodeWithTag("drawer.Agent history").assertDoesNotExist()
+        compose.onNodeWithText(WIDE_CODE, substring = true).performTouchInput { swipeRight() }
+        compose.onNodeWithTag("drawer.Agent history").assertDoesNotExist()
+        val transcript = compose.onNodeWithTag("transcript").fetchSemanticsNode().boundsInRoot
+        val root = compose.onRoot().fetchSemanticsNode().boundsInRoot
+        val swipeY = transcript.center.y - root.top
+        // Transcript padding is content, not the system edge. Start at the screen boundary.
+        compose.onRoot().performTouchInput {
+            swipe(Offset(width - 1f, swipeY), Offset(width * 0.1f, swipeY))
+        }
+        compose.onNodeWithTag("drawer.Agent history").assertDoesNotExist()
+        compose.onRoot().performTouchInput {
+            swipe(Offset(0f, swipeY), Offset(width * 0.9f, swipeY))
+        }
+        compose.onNodeWithTag("drawer.Agent history").assertDoesNotExist()
+        compose.onNodeWithTag("drawer.Connections").assertDoesNotExist()
+    }
+
+    @Test
+    fun repeatedHistorySelectionAfterManualNavigationOpensTheAgent() = connected {
+        openConversation()
+        openHistory()
+        waitForHistory("history.first.agent", selected = false)
+        compose.onNodeWithTag("history.first.agent").performClick()
+        compose.onNodeWithContentDescription("Back").performClick()
+        waitFor("Other agent")
+        compose.onNodeWithText("Other agent").performClick()
+        waitFor("Message")
+        openHistory()
+        waitForHistory("history.first.other", selected = true)
+        compose.onNodeWithTag("history.first.other").assertIsSelected()
+        waitForHistory("history.first.agent", selected = false)
+        compose.onNodeWithTag("history.first.agent").performClick()
+        openHistory()
+        waitForHistory("history.first.agent", selected = true)
+        compose.onNodeWithTag("history.first.agent").assertIsSelected()
+    }
+
+    private fun openConversation() {
+        compose.onNodeWithTag("workspace.row.workspace").performTouchInput { swipeRight() }
+        waitForConversation()
+    }
+
+    private fun waitForConversation() {
+        waitFor("Message")
+        compose.waitUntil(TIMEOUT) {
+            runCatching {
+                compose.onNodeWithText(WIDE_CODE, substring = true).assertIsDisplayed()
+            }.isSuccess
+        }
+    }
+
+    private fun waitForHistory(tag: String, selected: Boolean) {
+        compose.waitUntil(TIMEOUT) {
+            runCatching {
+                val row = compose.onNodeWithTag(tag).assertIsDisplayed()
+                if (selected) row.assertIsSelected()
+            }.isSuccess
+        }
+    }
+
+    private fun screenshot(name: String) {
+        compose.waitForIdle()
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        instrumentation.uiAutomation.waitForIdle(500, 5_000)
+        val directory = InstrumentationRegistry.getArguments().getString("additionalTestOutputDir")
+            ?.let { java.io.File(it) }
+            ?: java.io.File(instrumentation.targetContext.cacheDir, "screenshots")
+        directory.mkdirs()
+        val bitmap = checkNotNull(instrumentation.uiAutomation.takeScreenshot())
+        java.io.File(directory, "$name.png").outputStream().use {
+            bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
+        }
+        bitmap.recycle()
+    }
+
+    private fun contentSwipe(right: Boolean) {
+        compose.onNodeWithTag("workspace.drawers").performTouchInput {
+            val from = if (right) 0.001f else 0.999f
+            val to = if (right) 0.9f else 0.1f
+            swipe(Offset(width * from, height * 0.85f), Offset(width * to, height * 0.85f))
+        }
+    }
+
+    private fun waitFor(text: String) = compose.waitUntil(TIMEOUT) {
+        compose.onAllNodes(
+            hasText(text)
+        ).fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty()
+    }
+
+    private fun connected(
+        seed: Boolean = false,
+        dark: Boolean = false,
+        test: (ConnectionController) -> Unit
+    ) {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        context.getSharedPreferences(
+            "workspace-sections",
+            Context.MODE_PRIVATE
+        ).edit().clear().commit()
+        val history = AgentHistoryStore.open(context)
+        history.clear()
+        if (seed) {
+            history.record(
+                AgentVisit("second", "workspace", "agent", "Remote agent", "Remote workspace")
+            )
+        }
+        val repository = DrawerConnections()
+        ConnectionController(repository, { connection, callback ->
+            createConnectionSession(connection, callback, transport = {
+                SmokeServer(it, responses).also { server -> servers[connection.id] = server }
+            })
+        }).use { controller ->
+            controller.restore()
+            compose.setContent {
+                dispatcher = LocalOnBackPressedDispatcherOwner.current!!.onBackPressedDispatcher
+                val activity = checkNotNull(LocalActivity.current)
+                androidx.compose.runtime.SideEffect {
+                    WindowCompat.getInsetsController(
+                        activity.window,
+                        activity.window.decorView
+                    ).apply {
+                        isAppearanceLightStatusBars = !dark
+                        isAppearanceLightNavigationBars = !dark
+                    }
+                }
+                IntentTestTheme(darkTheme = dark) {
+                    ConnectionRoot(controller, {}, Modifier.fillMaxSize().safeDrawingPadding())
+                }
+            }
+            waitFor("Android smoke workspace")
+            test(controller)
+        }
+    }
+
+    private companion object {
+        const val TIMEOUT = 10_000L
+        const val WIDE_CODE = "This is a wide code block with a long line " +
+            "that must scroll horizontally without opening history."
+        val transcript = """[{"id":"message","role":"assistant",
+            "contentBlocks":[{"type":"text","text":"```text\n$WIDE_CODE\n```"}]}]"""
+        val responses = mapOf(
+            "agent.list" to """{"agents":[{"id":"agent","name":"Remote agent"},
+                {"id":"other","name":"Other agent"}]}""",
+            "agent.get" to """{"agent":{"id":"agent","name":"Remote agent"}}""",
+            "agent.getQueue" to """{"success":true,"queue":[]}""",
+            "agent.getConversation" to """{"agentId":"agent","messages":$transcript}""",
+            "chat.subscribe" to """{"subscriptionId":"chat"}""",
+            "chat.snapshot" to """{"subscriptionId":"chat","kind":"snapshot","seq":0,
+                "snapshot":{"agentId":"agent","messages":$transcript}}""",
+            "chat.unsubscribe" to "{}"
+        )
+    }
+}
+
+private class DrawerConnections : ConnectionRepository {
+    private var active: String? = "first"
+    private val connections = listOf("first", "second").mapIndexed { index, id ->
+        SavedConnection(
+            id,
+            PairingPayload(
+                listOf("$id.test"),
+                443,
+                "test",
+                (
+                    if (index ==
+                        0
+                    ) {
+                        "AB"
+                    } else {
+                        "CD"
+                    }
+                    ).repeat(32)
+            )
+        )
+    }
+    override fun list(): List<SavedConnection> = connections
+    override fun activeId(): String? = active
+    override fun select(id: String?) {
+        active = id
+    }
+    override fun add(payload: PairingPayload): SavedConnection = error("Not used")
+    override fun remove(id: String) = Unit
+}

@@ -16,7 +16,7 @@ val (majorVersion, minorVersion, patchVersion) = versionParts.map(String::toInt)
 val releaseVersionCode = majorVersion * 1_000_000 + minorVersion * 1_000 + patchVersion + 1
 
 android {
-    namespace = "dev.intent.app"
+    namespace = "dev.intentapp.android"
     compileSdk = 37
 
     defaultConfig {

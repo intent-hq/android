@@ -1,0 +1,266 @@
+package dev.intentapp.android.drawers
+
+import androidx.activity.compose.PredictiveBackHandler
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.absoluteOffset
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.systemGestures
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.systemGestureExclusion
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.AbsoluteAlignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.paneTitle
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.dp
+import dev.intentapp.android.design.IntentScreen
+import kotlin.math.abs
+import kotlin.math.roundToInt
+import kotlinx.coroutines.CancellationException
+
+class DrawerPanels(
+    val connections: @Composable (() -> Unit) -> Unit,
+    val history: @Composable (() -> Unit) -> Unit
+)
+
+val LocalDrawerPanels = staticCompositionLocalOf<DrawerPanels?> { null }
+val LocalTranscriptDrawerGesture = staticCompositionLocalOf<Modifier> { Modifier }
+
+/** Marks a page header where a horizontal swipe opens either drawer. */
+val LocalHeaderDrawerGesture = staticCompositionLocalOf<Modifier> { Modifier }
+val LocalCurrentHistoryAgent = staticCompositionLocalOf<String?> { null }
+val LocalDrawerButtons = staticCompositionLocalOf<DrawerButtons?> { null }
+class DrawerButtons(val connections: () -> Unit, val history: () -> Unit)
+
+/** Workspace edges and the page header reveal panels; row gestures retain the rest of the page. */
+@Suppress("LongMethod", "CyclomaticComplexMethod")
+@Composable
+fun WorkspaceDrawers(historyOnly: Boolean = false, content: @Composable () -> Unit) {
+    val panels = LocalDrawerPanels.current
+    if (panels == null) {
+        content()
+        return
+    }
+    var transcriptBounds by remember { mutableStateOf<Rect?>(null) }
+    var headerBounds by remember { mutableStateOf<Rect?>(null) }
+    var drawerOrigin by remember { mutableStateOf(Offset.Zero) }
+    var side by rememberSaveable { mutableStateOf<String?>(null) }
+    var drag by remember { mutableFloatStateOf(0f) }
+    var dragging by remember { mutableStateOf(false) }
+    var backProgress by remember { mutableFloatStateOf(0f) }
+    val close = {
+        side = null
+        drag = 0f
+    }
+    val view = LocalView.current
+    var announced by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(side) {
+        if (side != null || announced != null) {
+            view.announceForAccessibility(
+                side?.let { "$it opened" } ?: "${announced.orEmpty()} closed"
+            )
+        }
+        announced = side
+    }
+    PredictiveBackHandler(enabled = side != null) { progress ->
+        try {
+            progress.collect { backProgress = it.progress }
+            close()
+        } catch (_: CancellationException) {
+            // A cancelled system Back gesture leaves the panel open.
+        } finally {
+            backProgress = 0f
+        }
+    }
+    BoxWithConstraints(
+        Modifier.fillMaxSize().clipToBounds().testTag("workspace.drawers")
+            .onGloballyPositioned { drawerOrigin = it.positionInRoot() }
+    ) {
+        val density = LocalDensity.current
+        val reveal = minOf(320.dp, (maxWidth - 82.dp).coerceAtLeast(0.dp))
+        val width = with(density) { reveal.toPx() }
+        val edgeMargin = with(density) { 24.dp.roundToPx() }
+        val leftInset = WindowInsets.systemGestures.getLeft(
+            density,
+            androidx.compose.ui.unit.LayoutDirection.Ltr
+        ).coerceAtLeast(edgeMargin)
+        val rightInset = WindowInsets.systemGestures.getRight(
+            density,
+            androidx.compose.ui.unit.LayoutDirection.Ltr
+        ).coerceAtLeast(edgeMargin)
+        val base = when (side) {
+            "Connections" -> width
+            "Agent history" -> -width
+            else -> 0f
+        }
+        val offset by animateFloatAsState(
+            (base + drag).coerceIn(-width, width) * (1f - backProgress),
+            animationSpec = if (dragging ||
+                backProgress > 0f
+            ) {
+                snap()
+            } else {
+                tween(DRAWER_ANIMATION_MS)
+            },
+            label = "Drawer page offset"
+        )
+        val visible =
+            side
+                ?: when {
+                    offset > 0 -> "Connections"
+                    offset < 0 -> "Agent history"
+                    else -> null
+                }
+        val gesture = Modifier.pointerInput(side, width, leftInset, rightInset, historyOnly) {
+            var fromLeft = false
+            var fromHeader = false
+            drawerGestures(
+                canStart = { position ->
+                    if (!historyOnly) {
+                        fromLeft = position.x <= edgeMargin
+                        fromHeader = headerBounds?.contains(position + drawerOrigin) == true
+                        val fromRight = position.x >= size.width - edgeMargin
+                        side != null || fromLeft || fromHeader || fromRight
+                    } else {
+                        position.x > leftInset &&
+                            position.x < size.width - rightInset &&
+                            (
+                                side != null ||
+                                    transcriptBounds?.contains(position + drawerOrigin) == true
+                                )
+                    }
+                },
+                onCancel = {
+                    drag = 0f
+                    dragging = false
+                },
+                onEnd = {
+                    dragging = false
+                    val end = (base + drag).coerceIn(-width, width)
+                    side = if (abs(end) > width / 2) {
+                        if (end > 0) "Connections" else "Agent history"
+                    } else {
+                        null
+                    }
+                    drag = 0f
+                },
+                onDrag = { amount ->
+                    dragging = true
+                    drag = when (side) {
+                        "Connections" -> (drag + amount).coerceIn(-width, 0f)
+                        "Agent history" -> (drag + amount).coerceIn(0f, width)
+                        else -> when {
+                            !historyOnly && fromHeader -> (drag + amount).coerceIn(-width, width)
+                            !historyOnly && fromLeft -> (drag + amount).coerceIn(0f, width)
+                            else -> (drag + amount).coerceIn(-width, 0f)
+                        }
+                    }
+                }
+            )
+        }
+        Box(
+            Modifier.fillMaxSize().background(IntentScreen.surface)
+                .then(
+                    if (historyOnly) {
+                        Modifier
+                    } else {
+                        Modifier.systemGestureExclusion { coordinates ->
+                            val halfHeight = with(density) { 100.dp.toPx() }
+                            val center = coordinates.size.height / 2f
+                            Rect(
+                                0f,
+                                center - halfHeight,
+                                coordinates.size.width.toFloat(),
+                                center + halfHeight
+                            )
+                        }
+                    }
+                )
+                .then(gesture)
+        ) {
+            if (visible != null) {
+                Box(
+                    Modifier.align(
+                        if (visible ==
+                            "Connections"
+                        ) {
+                            AbsoluteAlignment.CenterLeft
+                        } else {
+                            AbsoluteAlignment.CenterRight
+                        }
+                    )
+                        .width(reveal).semantics { paneTitle = visible }
+                        .testTag("drawer.$visible")
+                ) {
+                    CompositionLocalProvider(LocalContentColor provides IntentScreen.text) {
+                        if (visible == "Connections") {
+                            panels.connections(close)
+                        } else {
+                            panels.history(close)
+                        }
+                    }
+                }
+            }
+            Box(
+                Modifier.fillMaxSize().absoluteOffset { IntOffset(offset.roundToInt(), 0) }
+                    .clip(RoundedCornerShape(if (visible != null) 20.dp else 0.dp))
+                    .background(IntentScreen.canvas)
+            ) {
+                Box(if (visible != null) Modifier.clearAndSetSemantics {} else Modifier) {
+                    CompositionLocalProvider(
+                        LocalContentColor provides IntentScreen.text,
+                        LocalTranscriptDrawerGesture provides
+                            Modifier.onGloballyPositioned { transcriptBounds = it.boundsInRoot() },
+                        LocalHeaderDrawerGesture provides
+                            Modifier.onGloballyPositioned { headerBounds = it.boundsInRoot() },
+                        LocalDrawerButtons provides DrawerButtons(
+                            { side = "Connections" },
+                            { side = "Agent history" }
+                        )
+                    ) { content() }
+                }
+                if (visible != null) {
+                    Box(
+                        Modifier.fillMaxSize().clickable(onClick = close).semantics {
+                            contentDescription = "Close $visible"
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+private const val DRAWER_ANIMATION_MS = 180

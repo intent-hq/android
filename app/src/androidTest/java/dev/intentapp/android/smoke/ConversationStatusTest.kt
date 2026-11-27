@@ -1,0 +1,368 @@
+package dev.intentapp.android.smoke
+
+import android.graphics.Bitmap
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.Surface
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.captureToImage
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.performClick
+import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
+import dev.intent.core.protocol.models.Agent
+import dev.intent.core.protocol.models.WireJson
+import dev.intentapp.android.agents.AgentListScreen
+import dev.intentapp.android.agents.AgentListState
+import dev.intentapp.android.conversation.ConversationComposer
+import dev.intentapp.android.conversation.ConversationScreen
+import dev.intentapp.android.conversation.ConversationSendState
+import dev.intentapp.android.conversation.ConversationState
+import dev.intentapp.android.design.IntentTheme
+import dev.intentapp.android.status.ConversationStatusStrip
+import dev.intentapp.android.status.LocalWatchState
+import dev.intentapp.android.status.ScriptWatchSheet
+import dev.intentapp.android.status.WatchBucket
+import dev.intentapp.android.status.WatchDetail
+import dev.intentapp.android.status.WatchFamily
+import dev.intentapp.android.status.WatchPage
+import dev.intentapp.android.status.WatchState
+import dev.intentapp.android.testing.createIntentComposeRule
+import java.io.File
+import java.time.Instant
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.put
+import org.junit.Rule
+import org.junit.Test
+import org.junit.runner.RunWith
+
+@RunWith(AndroidJUnit4::class)
+class ConversationStatusTest {
+    @get:Rule val compose = createIntentComposeRule()
+    private val agent = Agent("a", "Coordinator")
+
+    @Test fun watchedAgentsNavigateAcrossWorkspacesAndDeletedRowsStayDisabled() {
+        var target: Pair<String, String>? = null
+        compose.setContent {
+            IntentTheme {
+                ConversationStatusStrip(
+                    WatchState(),
+                    agent.copy(workspaceId = "current"),
+                    {},
+                    {},
+                    {},
+                    agentWatches = dev.intentapp.android.status.AgentWatches(
+                        rows = listOf(
+                            dev.intentapp.android.status.WatchedAgent(
+                                Agent("remote", "Other workspace", "other")
+                            ),
+                            dev.intentapp.android.status.WatchedAgent(
+                                Agent("gone", "Deleted", "other"),
+                                deleted = true
+                            )
+                        )
+                    ),
+                    onWatchedAgent = { workspace, id -> target = workspace to id }
+                )
+            }
+        }
+        compose.onNodeWithTag("watched-agent-remote").performClick()
+        compose.runOnIdle { check(target == ("other" to "remote")) }
+        compose.onNodeWithTag("watched-agent-gone").assertIsNotEnabled()
+        screenshot("agent-cross-workspace-watch")
+    }
+
+    @Test fun agentGroupsExpandWithoutLosingDelegatedRows() {
+        val rows = listOf(
+            Agent("root", "Primary agent"),
+            Agent("child", "Delegated task", parentAgentId = "root", isActive = true),
+            Agent(
+                "background",
+                "Background task",
+                metadata = buildJsonObject {
+                    put("isBackground", true)
+                }
+            ),
+            Agent("orphan", "Unlinked task", parentAgentId = "missing")
+        )
+        compose.setContent {
+            IntentTheme {
+                AgentListScreen(
+                    AgentListState(
+                        agents = rows,
+                        isLoading = false,
+                        retiredAgents = listOf(Agent("old", "Previous task", retiredAt = "now"))
+                    ),
+                    {},
+                    {}
+                )
+            }
+        }
+        compose.onNodeWithText("Delegated task").assertDoesNotExist()
+        screenshot("agent-groups-collapsed")
+        compose.onNodeWithText("+1 delegated · 1 running").performClick()
+        compose.onNodeWithText("1 background agents").performClick()
+        compose.onNodeWithText("1 orphaned delegated agents").performClick()
+        compose.onNodeWithText("1 retired agents").performClick()
+        compose.onNodeWithText("Previous task").assertIsDisplayed()
+        compose.onNodeWithText("Delegated task").assertIsDisplayed()
+        screenshot("agent-groups-expanded")
+    }
+
+    @Test fun scriptsHooksAndPrsShowAboveComposerAndOpenDetails() {
+        val selected = mutableStateOf<WatchDetail?>(null)
+        compose.setContent {
+            IntentTheme {
+                Surface(Modifier.fillMaxSize()) {
+                    ConversationScreen(ConversationState(isLoading = false), {}, { _, _ -> }, {}) {
+                        ConversationStatusStrip(fixture(), agent, {
+                            selected.value = WatchDetail(it, it, loading = false)
+                        }, {}, {})
+                        ConversationComposer(ConversationSendState(), {
+                            false
+                        }, {}, { _, _ -> false })
+                    }
+                    selected.value?.let {
+                        ScriptWatchSheet(it, "Coordinator", {}, { selected.value = null })
+                    }
+                }
+            }
+        }
+        compose.onNodeWithText("Watching Build Android").assertIsDisplayed()
+        compose.onNodeWithText("Check deployment").assertIsDisplayed()
+        compose.onNodeWithTag("hook-time-hook").assertIsDisplayed()
+        compose.onNodeWithText("Monitoring PR intent-hq/android: #42").assertIsDisplayed()
+        compose.onNodeWithText("Mergeable").assertIsDisplayed()
+        screenshot("status-strip")
+        compose.onNodeWithTag("watch-watch").performClick()
+        compose.onNodeWithText("Script watch").assertIsDisplayed()
+        compose.onNodeWithText("Owner").assertIsDisplayed()
+        screenshot("script-watch-details")
+        compose.onNodeWithText("Close").performClick()
+        compose.onNodeWithText("Script watch").assertDoesNotExist()
+    }
+
+    @Test fun idleAgentRowShowsWaitingIndicatorAndClearsAfterWatchEnds() {
+        val state = mutableStateOf(fixture())
+        compose.setContent {
+            IntentTheme {
+                CompositionLocalProvider(LocalWatchState provides state.value) {
+                    AgentListScreen(AgentListState(listOf(agent), isLoading = false), {}, {})
+                }
+            }
+        }
+        compose.onNodeWithText("Waiting on watches").assertIsDisplayed()
+        screenshot("agent-waiting-indicator")
+        compose.runOnIdle { state.value = WatchState() }
+        compose.onNodeWithText("Waiting on watches").assertDoesNotExist()
+    }
+
+    @Test fun terminalWatchKeepsSheetOpenWithUnavailableMessage() {
+        val selection = mutableStateOf(WatchDetail(script(), loading = true))
+        compose.setContent {
+            IntentTheme { ScriptWatchSheet(selection.value, "Coordinator", {}, {}) }
+        }
+        compose.onNodeWithText("Script watch").assertIsDisplayed()
+        compose.runOnIdle {
+            selection.value =
+                selection.value.copy(loading = false, unavailable = true)
+        }
+        compose.onNodeWithText("This watch is no longer available").assertIsDisplayed()
+        compose.onNodeWithText("Build Android").assertDoesNotExist()
+    }
+
+    @Test fun childWaitsAndEmptyStripDoNotInventActivity() {
+        val payload = InstrumentationRegistry.getInstrumentation().context.assets
+            .open("agent-watches-live.json").bufferedReader().use { it.readText() }
+        val state = mutableStateOf(dev.intentapp.android.status.parseAgentWatches(json(payload)))
+        var selected: String? = null
+        compose.setContent {
+            IntentTheme {
+                ConversationStatusStrip(
+                    WatchState(),
+                    agent.copy(workspaceId = "port-create"),
+                    {},
+                    {},
+                    {},
+                    onAgent = { selected = it },
+                    agentWatches = state.value
+                )
+            }
+        }
+        compose.onNodeWithText("Waiting for all (0/3)").assertIsDisplayed()
+        compose.onNodeWithTag(
+            "watched-agent-agent-a3ba0aa6-a298-46a5-ab86-8379d2567d4f"
+        ).performClick()
+        compose.runOnIdle {
+            check(selected == "agent-a3ba0aa6-a298-46a5-ab86-8379d2567d4f")
+        }
+        screenshot("agent-delegation-group")
+        compose.runOnIdle { state.value = dev.intentapp.android.status.AgentWatches() }
+        compose.onNodeWithText("Waiting for all (0/3)").assertDoesNotExist()
+        compose.onNodeWithText("Working…").assertDoesNotExist()
+    }
+
+    @Test fun sentMarkAndLiveFooterFollowHeadlessTurnWithoutAvatarActivity() {
+        val state = mutableStateOf(
+            ConversationState(
+                messages = listOf(
+                    dev.intent.core.protocol.models.ConversationMessage(
+                        "sent",
+                        "user",
+                        listOf(
+                            dev.intent.core.protocol.models.ContentBlock(
+                                "text",
+                                text = "Check the build."
+                            )
+                        ),
+                        timestamp = "2026-10-28T02:00:00Z"
+                    )
+                ),
+                isLoading = false,
+                isStreaming = true
+            )
+        )
+        compose.setContent {
+            IntentTheme(darkTheme = true) {
+                Surface(Modifier.fillMaxSize()) {
+                    ConversationScreen(state.value, {}, { _, _ -> }, {}) {
+                        ConversationStatusStrip(WatchState(), agent, {
+                        }, {}, {}, agentWatches = dev.intentapp.android.status.AgentWatches())
+                        ConversationComposer(ConversationSendState(), {
+                            false
+                        }, {}, { _, _ -> false })
+                    }
+                }
+            }
+        }
+        compose.onNodeWithText("Sent ·", substring = true).assertIsDisplayed()
+        compose.onNodeWithTag("conversation-thinking").assertIsDisplayed()
+        compose.onNodeWithTag("conversation-working").assertDoesNotExist()
+        screenshot("conversation-sent-thinking-dark")
+        compose.runOnIdle { state.value = state.value.copy(isStreaming = false) }
+        compose.onNodeWithTag("conversation-thinking").assertDoesNotExist()
+        compose.onNodeWithTag("conversation-working").assertDoesNotExist()
+        compose.onNodeWithText("Sent ·", substring = true).assertIsDisplayed()
+        compose.onNodeWithText("Send").assertIsDisplayed()
+        screenshot("conversation-sent-idle-dark")
+    }
+
+    @Test fun failedSendOffersRetryAndUnconfirmedDeliveryOffersOnlyCheck() {
+        val attempt = dev.intentapp.android.conversation.SendAttempt(
+            "outgoing",
+            "Check the build.",
+            status = dev.intentapp.android.conversation.SendStatus.NOT_SENT
+        )
+        val state = mutableStateOf(ConversationSendState(attempts = listOf(attempt)))
+        var retries = 0
+        var checks = 0
+        compose.setContent {
+            IntentTheme {
+                ConversationComposer(
+                    state.value,
+                    { false },
+                    {},
+                    { _, _ -> false },
+                    onRetry = { retries++ },
+                    onCheckDelivery = { checks++ }
+                )
+            }
+        }
+        compose.onNodeWithText("Not sent").assertIsDisplayed()
+        compose.onNodeWithText("Retry send").performClick()
+        compose.runOnIdle {
+            check(retries == 1)
+            state.value =
+                state.value.copy(
+                    attempts = listOf(
+                        attempt.copy(
+                            status = dev.intentapp.android.conversation.SendStatus.UNCONFIRMED
+                        )
+                    )
+                )
+        }
+        compose.onNodeWithText("Retry send").assertDoesNotExist()
+        compose.onNodeWithText("Check delivery").performClick()
+        compose.runOnIdle { check(checks == 1) }
+    }
+
+    private fun screenshot(name: String) {
+        compose.mainClock.advanceTimeBy(500)
+        compose.waitForIdle()
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val directory =
+            InstrumentationRegistry.getArguments().getString("additionalTestOutputDir")
+                ?.let(::File) ?: File(instrumentation.targetContext.cacheDir, "screenshots")
+        check(directory.mkdirs() || directory.isDirectory)
+        val bitmap = if (name.startsWith("conversation-sent-")) {
+            compose.onRoot().captureToImage().asAndroidBitmap()
+        } else {
+            checkNotNull(instrumentation.uiAutomation.takeScreenshot())
+        }
+        File(directory, "$name.png").outputStream().use {
+            check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, it))
+        }
+        bitmap.recycle()
+    }
+
+    private fun script() = json(
+        """{"monitorId":"watch",
+"workspaceId":"ws",
+"agentId":"a",
+"scriptId":"build",
+"runId":"run",
+"scriptName":"Build Android",
+"mode":"command",
+"state":"active",
+"createdAt":"${Instant.now().minusSeconds(
+            60
+        )}",
+"expiresAt":"${Instant.now().plusSeconds(300)}"}"""
+    )
+    private fun fixture() = WatchState(
+        mapOf(
+            WatchFamily.SCRIPT to WatchBucket(WatchPage(listOf(script()))),
+            WatchFamily.HOOK to
+                WatchBucket(
+                    WatchPage(
+                        listOf(
+                            json(
+                                """{"hookId":"hook",
+"agentId":"a",
+"name":"Check deployment",
+"state":"scheduled",
+"nextRunAt":"${Instant.now().plusSeconds(
+                                    30
+                                )}",
+"delayMs":60000}"""
+                            )
+                        )
+                    )
+                ),
+            WatchFamily.PR to
+                WatchBucket(
+                    WatchPage(
+                        listOf(
+                            json(
+                                """{"monitorId":"pr",
+"agentId":"a",
+"state":"active",
+"repo":"intent-hq/android",
+"prNumber":42,
+"lastSnapshot":{"mergeable":true}}"""
+                            )
+                        )
+                    )
+                )
+        )
+    )
+    private fun json(value: String): JsonObject = WireJson.parseToJsonElement(value).jsonObject
+}
