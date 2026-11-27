@@ -25,7 +25,7 @@ class ConnectionDiagnostics(private val clock: Clock = Clock.systemUTC()) {
 
     @Synchronized
     fun report(): String = buildString {
-        appendLine("Intent Android connection diagnostics (under development)")
+        appendLine("Intent Android connection diagnostics")
         appendLine("Credentials, addresses, identifiers and message content are excluded.")
         events.forEachIndexed { index, (time, event) ->
             appendLine("${index + 1}: $time ${event.name}")
