@@ -26,6 +26,8 @@ android {
         targetSdk = 37
         versionCode = releaseVersionCode
         versionName = releaseVersion
+        // Match the Tailcat library ABIs so no device installs without the tunnel.
+        ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64") }
     }
 
     testOptions {

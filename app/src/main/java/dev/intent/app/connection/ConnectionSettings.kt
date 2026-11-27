@@ -53,6 +53,7 @@ import dev.intent.app.design.intentPageInsets
 import dev.intent.app.notifications.NotificationPermissionFlow
 import dev.intent.app.settings.AppPreferences
 import dev.intent.app.settings.Appearance
+import dev.intent.tailcat.Tailcat
 
 @Suppress("LongParameterList", "LongMethod") // Settings sections and connection callbacks.
 @Composable
@@ -258,11 +259,17 @@ internal fun AppearanceSelector(appearance: Appearance, onSelect: (Appearance) -
 private fun AcknowledgementsDialog(onDismiss: () -> Unit) {
     val context = LocalContext.current
     val licenses = remember(context) {
-        listOf(
+        listOfNotNull(
             "Inter" to context.resources.openRawResource(R.raw.inter_license)
                 .bufferedReader().use { it.readText() },
             "Mermaid renderer" to context.assets.open("mermaid/NOTICE.txt")
-                .bufferedReader().use { it.readText() }
+                .bufferedReader().use { it.readText() },
+            if (Tailcat.available) {
+                "Tailcat" to context.resources.openRawResource(R.raw.tailcat_license)
+                    .bufferedReader().use { it.readText() }
+            } else {
+                null
+            }
         )
     }
     Dialog(onDismissRequest = onDismiss) {

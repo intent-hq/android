@@ -20,6 +20,7 @@ import dev.intent.app.design.IntentTheme
 import dev.intent.app.settings.AppPreferences
 import dev.intent.app.testing.createIntentComposeRule
 import dev.intent.core.protocol.pairing.PairingPayload
+import dev.intent.tailcat.Tailcat
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -95,6 +96,13 @@ class SettingsActionsTest {
         screenshot("settings-acknowledgements-light")
         compose.onNodeWithTag("settings.acknowledgements").performScrollToIndex(2)
         compose.onNodeWithText(mermaidNotice).assertIsDisplayed()
+        if (Tailcat.available) {
+            val tailcatLicense = context.resources.openRawResource(R.raw.tailcat_license)
+                .bufferedReader().use { it.readText() }
+            compose.onNodeWithTag("settings.acknowledgements").performScrollToIndex(3)
+            compose.onNodeWithText(tailcatLicense).assertIsDisplayed()
+            screenshot("settings-acknowledgements-tailcat-light")
+        }
         compose.onNodeWithText("Close acknowledgements").performClick()
         compose.onNodeWithText("Close acknowledgements").assertDoesNotExist()
         compose.onNodeWithText("Acknowledgements").assertIsDisplayed()

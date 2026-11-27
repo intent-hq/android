@@ -43,8 +43,9 @@ jobs:
         with:
           cache-provider: basic
           cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+      # Pull requests use the direct-only stub; release tags build and check the Tailcat library.
       - name: Build, lint, and run unit tests
-        run: ./gradlew build ktlintCheck detekt test
+        run: ./gradlew build ktlintCheck detekt test -Ptailcat.enabled=false
 
   instrumentation:
     name: Android emulator UI tests (API ${{ matrix.api }}, shard ${{ matrix.shard }})

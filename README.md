@@ -1,12 +1,12 @@
 # Intent Android companion
 
-This native Kotlin and Jetpack Compose app is under development. Pair with a desktop through a QR code, an `intent://pair` link, or manual connection details. Review the host and certificate fingerprint before you connect. The app saves encrypted connections and opens the workspace list after authentication. Direct hosts race the optional Tailcat tunnel. All routes use pinned TLS and bearer authentication. Builds without the Tailcat AAR use direct hosts only.
+This native Kotlin and Jetpack Compose app is under development. Pair with a desktop through a QR code, an `intent://pair` link, or manual connection details. Review the host and certificate fingerprint before you connect. The app saves encrypted connections and opens the workspace list after authentication. Direct hosts race the Tailcat tunnel. All routes use pinned TLS and bearer authentication. Tailcat is on by default; development builds with `-Ptailcat.enabled=false` use direct hosts only.
 
 ## Architecture
 
 - `app`: Android application with one Compose activity. Minimum Android API: 26. Compile and target API: 37 (Android 17).
 - `core/protocol`: pure Kotlin/JVM module for protocol models, sessions, and pinned transport.
-- `tailcat`: optional native tunnel adapter with an unavailable implementation for builds without the AAR.
+- `tailcat`: native tunnel adapter, with an unavailable implementation for direct-only development builds.
 - `gradle/libs.versions.toml`: pinned library and plugin versions.
 
 The protocol source of truth is [docs/protocol](https://github.com/intent-hq/intent/tree/main/docs/protocol). The [iOS companion](https://github.com/intent-hq/ios) is the feature reference.
@@ -34,6 +34,9 @@ Run the complete gate from this repository:
 ```sh
 ./gradlew build ktlintCheck detekt test
 ```
+
+Tailcat is on by default, so build the [Tailcat library](#tailcat-library) first.
+Without it, add `-Ptailcat.enabled=false` for a direct-only build.
 
 Run only the protocol tests:
 
@@ -82,8 +85,12 @@ A final job checks the required screenshots across all shard artifacts.
 
 The tag workflow produces unsigned AAB and APK files plus a git-cliff changelog.
 The app is under development. These artifacts do not establish production readiness.
-The workflow uses direct connections only (`-Ptailcat.enabled=false`). It does not include the private Tailcat library.
+The workflow builds the Tailcat library from the `intent-hq/ios` commit in `tailcat/source.ref`.
+`scripts/check-release-bundle.py` then fails the run when the AAB lacks Tailcat for any ABI
+or has a 64-bit native library without 16 KB page alignment, which Google Play requires.
+To update Tailcat, change `tailcat/source.ref` to a reviewed `intent-hq/ios` commit.
 It does not publish a GitHub Release, upload to Play, sign files, or join the desktop alpha release chain.
+Pull request CI uses the direct-only stub (`-Ptailcat.enabled=false`) to stay fast.
 
 Set `appVersion` in `gradle.properties` before each release commit.
 Use `MAJOR.MINOR.PATCH`, with each number between 0 and 999 and no leading zeros.
@@ -100,7 +107,9 @@ The archive contains `app-release.aab`, `app-release-unsigned.apk`, and `release
 For a local build and changelog preview, run:
 
 ```sh
-./gradlew :app:bundleRelease :app:assembleRelease -Ptailcat.enabled=false
+./scripts/build-tailcat.sh
+./gradlew :app:bundleRelease :app:assembleRelease
+python3 scripts/check-release-bundle.py
 git-cliff --config cliff.toml --output /tmp/android-changelog.md
 ```
 
@@ -143,12 +152,33 @@ jarsigner -verify -verbose -certs /tmp/intent-signed.aab
 An AAB needs Play or bundletool to produce installable APKs. Do not use `apksigner` to sign an AAB.
 Do not put passwords in commands, Gradle properties, logs, or Git.
 
-## Tailcat library (under development)
+### Google Play submission
+
+The build covers these Play requirements:
+
+1. Target API 37, above the current Play minimum.
+2. Native libraries for `arm64-v8a`, `armeabi-v7a`, and `x86_64`, with 16 KB aligned 64-bit libraries.
+3. Release builds are not debuggable. Backup and cleartext traffic are off.
+4. Acknowledgements include the Tailcat BSD 3-Clause notice when the library is bundled.
+
+The release owner must still complete these steps in Play Console:
+
+1. Enroll in Play App Signing and register the upload key. Sign the AAB with the upload key as above.
+2. Upload the signed `app-release.aab` to the internal testing track first.
+3. Complete the store listing, content rating, target audience, and Data safety form.
+   The app sends data only to the user's paired desktop. It requests camera (QR pairing),
+   notifications, and local network access.
+4. Publish a privacy policy URL.
+5. Check Tailcat traffic, QR pairing, and notifications on a physical device from the internal track.
+6. Choose the permanent application ID before the first upload. The current ID is `dev.intent.app`.
+
+## Tailcat library
 
 The library builds the shared `packages/ios/TailcatKit` Go wrapper. The connection manager races direct hosts against the tunnel and closes losing routes. Browser traffic uses the winning route with the same pinned TLS and bearer authentication.
 The generated AAR contains `arm64-v8a`, `armeabi-v7a`, and `x86_64` libraries. The AAR and license copy stay in gitignored `tailcat/libs/`.
+Gradle requires the AAR by default. Build it once before the first build:
 
-1. Initialize the private iOS submodule from the monorepo with `make ensure-ios-submodule`.
+1. Initialize the iOS submodule from the monorepo with `make ensure-ios-submodule`.
 2. Install Go and JDK 21. Add `go` and `javac` to `PATH`.
 3. Set `ANDROID_HOME` as described above.
 4. Install the NDK:
@@ -161,7 +191,7 @@ The generated AAR contains `arm64-v8a`, `armeabi-v7a`, and `x86_64` libraries. T
 
 ```sh
 ./scripts/build-tailcat.sh
-./gradlew build ktlintCheck detekt test -Ptailcat.enabled=true
+./gradlew build ktlintCheck detekt test
 ```
 
 The script reads the Go and `golang.org/x/mobile` versions from `TailcatKit/go.mod`.
@@ -172,9 +202,8 @@ For a standalone Android checkout, set `TAILCAT_SOURCE_DIR` to an existing `Tail
 `ANDROID_NDK_HOME` and `GOTOOLCHAIN` can override the defaults.
 The [gomobile documentation](https://pkg.go.dev/golang.org/x/mobile/cmd/gomobile) describes the Android archive and architecture targets.
 
-Gradle selects the native adapter when `tailcat/libs/tailcatkit.aar` exists.
-Without that file, normal builds use the stub. `-Ptailcat.enabled=true` fails early when the file is missing.
-To test the stub with an AAR present, run:
+Builds fail early when `tailcat/libs/tailcatkit.aar` is missing.
+For a direct-only development build without Go or the NDK, or to test the stub with an AAR present, run:
 
 ```sh
 ./gradlew build ktlintCheck detekt test -Ptailcat.enabled=false

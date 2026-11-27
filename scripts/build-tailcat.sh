@@ -38,11 +38,12 @@ GOBIN="$WORK/bin" go install \
   "golang.org/x/mobile/cmd/gomobile@$MOBILE_VERSION" \
   "golang.org/x/mobile/cmd/gobind@$MOBILE_VERSION"
 gomobile init
+# Google Play requires 16 KB ELF segment alignment for 64-bit native libraries.
 gomobile bind \
   -target android/arm64,android/arm,android/amd64 \
   -androidapi 26 \
   -trimpath \
-  -ldflags "-s -w" \
+  -ldflags "-s -w -extldflags=-Wl,-z,max-page-size=16384" \
   -o "$WORK/tailcatkit.aar" \
   .
 
