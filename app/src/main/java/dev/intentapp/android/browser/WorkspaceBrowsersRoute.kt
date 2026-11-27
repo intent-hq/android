@@ -140,7 +140,8 @@ fun WorkspaceBrowsersHost(
             onCreate = { address ->
                 store.create(address).map {
                     creating = false
-                    open(it)
+                    // Storage drops the query and fragment; the first load keeps the typed address.
+                    open(it.copy(url = normalizeBrowserUrl(address) ?: it.url))
                 }
             }
         )

@@ -80,6 +80,7 @@ class WorkspaceScriptsStore(
     private var subscription: Closeable? = null
     private var closed = false
     private var generation = 0L
+    private var launchToken = 0L
     private var revision = 0L
     private var outputRevision = 0L
     private var reading = false
@@ -194,20 +195,23 @@ class WorkspaceScriptsStore(
         val row = current.rows.firstOrNull { it.id == id } ?: return
         if (!canAct(current, id) || current.launching == id) return
         val token = generation
+        val launch = ++launchToken
+        val isCurrent = { !closed && token == generation && launch == launchToken }
         var launchId = id
         value = current.copy(launching = id, launchObserving = false, error = null, openUrl = null)
         registered(row).thenCompose { saved ->
             synchronized(this) {
-                check(token == generation && value.launching == id) { "Launch superseded" }
+                check(isCurrent() && value.launching == id) { "Launch superseded" }
                 launchId = saved.id
                 adopt(saved)
             }
-            startIfIdle(saved.id).thenApply { saved.id to it }
+            startIfIdle(saved.id) {
+                synchronized(this) { isCurrent() && value.launching == saved.id }
+            }
+                .thenApply { saved.id to it }
         }.whenComplete { result, error ->
             synchronized(this) {
-                if (closed || token != generation || value.launching != launchId) {
-                    return@whenComplete
-                }
+                if (!isCurrent() || value.launching != launchId) return@whenComplete
                 if (error != null || result == null) {
                     value = value.copy(launching = null, error = "Cannot start ${row.name}.")
                 } else {
@@ -231,17 +235,21 @@ class WorkspaceScriptsStore(
     }
 
     /** A live script is not started again; the confirmed status follows the acknowledgement. */
-    private fun startIfIdle(id: String): CompletableFuture<WorkspaceScriptRuntime> =
-        session.status(id).thenCompose { runtime ->
-            if (runtime.isLive) {
-                CompletableFuture.completedFuture(runtime)
-            } else {
-                session.setRunning(id, true).thenCompose { result ->
-                    check(result.ok && result.scriptId == id)
-                    session.status(id)
-                }
+    private fun startIfIdle(
+        id: String,
+        stillLaunching: () -> Boolean
+    ): CompletableFuture<WorkspaceScriptRuntime> = session.status(id).thenCompose { runtime ->
+        if (runtime.isLive) {
+            CompletableFuture.completedFuture(runtime)
+        } else {
+            // A newer launch may have superseded this one while the status read was in flight.
+            check(stillLaunching()) { "Launch superseded" }
+            session.setRunning(id, true).thenCompose { result ->
+                check(result.ok && result.scriptId == id)
+                session.status(id)
             }
         }
+    }
 
     /** iOS WorkspaceScriptRepository.register: reuse a saved script with the same name or command. */
     private fun registered(row: WorkspaceScriptRow): CompletableFuture<WorkspaceScriptResource> {

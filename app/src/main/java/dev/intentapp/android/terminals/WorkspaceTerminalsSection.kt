@@ -113,6 +113,18 @@ fun LazyListScope.workspaceTerminalsSection(
             ) { TerminalResourceRow(state.title(terminal), state.connected) }
         }
     }
+    state.actionError?.let { error ->
+        item(key = "terminals.error") {
+            Box(modifier) {
+                Text(
+                    error,
+                    Modifier.padding(horizontal = IntentSpacing.page),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = IntentScreen.error
+                )
+            }
+        }
+    }
 }
 
 /** iOS WorkspaceTerminalRow: terminal icon, title, and a Disconnected status when offline. */
