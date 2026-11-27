@@ -90,7 +90,9 @@ The workflow builds the Tailcat library from the `intent-hq/ios` commit in `tail
 or has a 64-bit native library without 16 KB page alignment, which Google Play requires.
 To update Tailcat, change `tailcat/source.ref` to a reviewed `intent-hq/ios` commit.
 It does not publish a GitHub Release, upload to Play, sign files, or join the desktop alpha release chain.
-Pull request CI uses the direct-only stub (`-Ptailcat.enabled=false`) to stay fast.
+Pull request CI builds with Tailcat and runs the same check on the release APK.
+It caches the AAR by the `tailcat/source.ref` commit and build inputs; only main pushes save the cache.
+Release tags always build Tailcat from source.
 
 Set `appVersion` in `gradle.properties` before each release commit.
 Use `MAJOR.MINOR.PATCH`, with each number between 0 and 999 and no leading zeros.

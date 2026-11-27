@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fail when a release bundle lacks Tailcat or has native code that Google Play rejects."""
+"""Fail when a release AAB or APK lacks Tailcat or has native code that Google Play rejects."""
 from pathlib import Path
 import struct
 import sys
@@ -29,12 +29,14 @@ def load_alignments(elf: bytes) -> list[int]:
 
 errors = []
 with zipfile.ZipFile(bundle) as archive:
-    libraries = [name for name in archive.namelist() if name.startswith("base/lib/") and name.endswith(".so")]
+    names = archive.namelist()
+    prefix = "base/lib/" if any(name.startswith("base/lib/") for name in names) else "lib/"
+    libraries = [name for name in names if name.startswith(prefix) and name.endswith(".so")]
     for abi in REQUIRED_ABIS:
-        if f"base/lib/{abi}/libgojni.so" not in libraries:
+        if f"{prefix}{abi}/libgojni.so" not in libraries:
             errors.append(f"Tailcat library is missing for {abi}")
     for name in sorted(libraries):
-        if name.split("/")[2] not in ("arm64-v8a", "x86_64"):
+        if name[len(prefix):].split("/")[0] not in ("arm64-v8a", "x86_64"):
             continue
         alignments = load_alignments(archive.read(name))
         if not alignments or min(alignments) < PAGE_SIZE:

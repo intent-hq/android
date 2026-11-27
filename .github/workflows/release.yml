@@ -37,27 +37,12 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v4
       - name: Install Android SDK packages
-        run: sdkmanager "platform-tools" "platforms;android-37.0" "build-tools;36.0.0" "ndk;28.2.13676358"
-      - name: Read pinned TailcatKit commit
-        id: tailcat
-        run: echo "ref=$(tr -d '[:space:]' < tailcat/source.ref)" >> "$GITHUB_OUTPUT"
-      - name: Check out TailcatKit
-        uses: actions/checkout@v7
-        with:
-          repository: intent-hq/ios
-          ref: ${{ steps.tailcat.outputs.ref }}
-          path: tailcat-source
-          sparse-checkout: TailcatKit
-          persist-credentials: false
-      - name: Set up Go
-        uses: actions/setup-go@v6
-        with:
-          go-version-file: tailcat-source/TailcatKit/go.mod
-          cache-dependency-path: tailcat-source/TailcatKit/go.sum
+        run: sdkmanager "platform-tools" "platforms;android-37.0" "build-tools;36.0.0"
+      # Releases always build Tailcat from source instead of a cached archive.
       - name: Build Tailcat library
-        env:
-          TAILCAT_SOURCE_DIR: ${{ github.workspace }}/tailcat-source/TailcatKit
-        run: ./scripts/build-tailcat.sh
+        uses: ./.github/actions/tailcat
+        with:
+          cache: 'false'
       - name: Set up Gradle cache
         uses: gradle/actions/setup-gradle@v6
         with:
