@@ -12,6 +12,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 
 /** Apply inside the screen's scroll container; Scaffold owns system-bar insets. */
 object IntentScreen {
@@ -101,3 +104,29 @@ fun IntentWarning(content: @Composable ColumnScope.() -> Unit) {
         )
     }
 }
+
+/** Extends an item past its list's horizontal content padding so it can pad and swipe itself. */
+fun Modifier.horizontalBleed(inset: Dp): Modifier = layout { measurable, constraints ->
+    val extra = (inset * 2).roundToPx()
+    val placeable = measurable.measure(
+        constraints.copy(
+            minWidth = constraints.minWidth + extra,
+            maxWidth = if (constraints.hasBoundedWidth) {
+                constraints.maxWidth + extra
+            } else {
+                constraints.maxWidth
+            }
+        )
+    )
+    layout(placeable.width - extra, placeable.height) { placeable.place(-extra / 2, 0) }
+}
+
+/** Shortens a list item's reported height so the next item sits [amount] closer. */
+fun Modifier.pullNextItem(amount: Dp): Modifier = layout { measurable, constraints ->
+    val placeable = measurable.measure(constraints)
+    val height = (placeable.height - amount.roundToPx()).coerceAtLeast(0)
+    layout(placeable.width, height) { placeable.place(0, 0) }
+}
+
+/** iOS WorkspaceDetailStyle: 24dp from a section heading to its first 36dp-spaced row. */
+val SectionHeadingPull = 12.dp

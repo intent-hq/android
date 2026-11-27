@@ -14,10 +14,12 @@ private val AgentListState.finishedLoading: Boolean
 internal fun LazyListScope.agentListFeedback(
     state: AgentListState,
     noMatches: Boolean,
-    onRefresh: () -> Unit
+    onRefresh: () -> Unit,
+    hasResources: Boolean = false
 ) {
     state.error?.let { item { Text(it, color = MaterialTheme.colorScheme.error) } }
-    if (state.finishedLoading && !state.hasAgents && state.error == null) {
+    val empty = state.finishedLoading && !state.hasAgents && !hasResources
+    if (empty && state.error == null) {
         item { Text("No agents yet") }
     }
     if (noMatches) item { Text("No matching agents. Change the search or select All.") }

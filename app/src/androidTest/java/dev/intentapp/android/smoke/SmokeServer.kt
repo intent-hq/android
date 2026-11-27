@@ -39,6 +39,9 @@ internal class SmokeServer(
             "agent.getSubscriptions" ->
                 """{"subscriptions":[],"delegationGroups":[],"agents":[]}"""
             "agent.list" -> """{"agents":[]}"""
+            // The Agents page lists terminals and scripts, like a real desktop with none open.
+            "terminal.list" -> """{"terminals":[],"daemonBootId":"smoke-boot"}"""
+            "script.list" -> """{"scripts":[]}"""
             "agent.markSeen" -> buildJsonObject {
                 put("success", true)
                 put("lastSeenMessageId", request.params!!.jsonObject.getValue("messageId"))

@@ -68,6 +68,7 @@ fun WorkspaceContent(
         }
     }
     var createTerminal by remember(session, workspaceId) { mutableStateOf(false) }
+    var openTerminal by remember(session, workspaceId) { mutableStateOf<String?>(null) }
     val newTerminal = {
         createTerminal = true
         destination = WorkspaceDestination.Terminals
@@ -123,13 +124,20 @@ fun WorkspaceContent(
                         workspaceId,
                         back,
                         createTerminal,
-                        onCreateHandled = { createTerminal = false }
+                        onCreateHandled = { createTerminal = false },
+                        openTerminal = openTerminal,
+                        onOpenHandled = { openTerminal = null }
                     )
                     WorkspaceDestination.Conversations -> WorkspaceConversations(
                         session,
                         workspaceId,
                         back,
-                        connectionScope = sectionScope
+                        connectionScope = sectionScope,
+                        browserConnectionId = connectionId,
+                        onOpenTerminal = {
+                            openTerminal = it
+                            destination = WorkspaceDestination.Terminals
+                        }
                     )
                     else -> Column(Modifier.fillMaxSize()) {
                         when (current) {

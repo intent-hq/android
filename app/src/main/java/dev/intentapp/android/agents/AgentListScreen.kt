@@ -63,23 +63,37 @@ fun AgentListRoute(
     store: AgentStore,
     onAgentSelected: (String) -> Unit,
     modifier: Modifier = Modifier,
-    onMute: ((Agent) -> Unit)? = null
+    onMute: ((Agent) -> Unit)? = null,
+    resources: AgentListResources = AgentListResources()
 ) {
     val state by store.state.collectAsState()
     DisposableEffect(store) {
         store.start()
         onDispose { store.stop() }
     }
-    AgentListScreen(state, store::refresh, onAgentSelected, modifier, onMute)
+    val refresh = {
+        store.refresh()
+        resources.refresh()
+    }
+    AgentListScreen(state, refresh, onAgentSelected, modifier, onMute, resources)
 }
 
+/** iOS WorkspaceDetailResources: workspace browsers and scripts listed after the agents. */
+class AgentListResources(
+    val visible: Boolean = false,
+    val refresh: () -> Unit = {},
+    val items: LazyListScope.() -> Unit = {}
+)
+
+@Suppress("LongParameterList") // Pure screen inputs allow host-free screenshots.
 @Composable
 fun AgentListScreen(
     state: AgentListState,
     onRefresh: () -> Unit,
     onAgentSelected: (String) -> Unit,
     modifier: Modifier = Modifier,
-    onMute: ((Agent) -> Unit)? = null
+    onMute: ((Agent) -> Unit)? = null,
+    resources: AgentListResources = AgentListResources()
 ) {
     var expanded by rememberSaveable { mutableStateOf(arrayListOf<String>()) }
     val groups = remember(state.agents, state.retiredAgents) {
@@ -92,7 +106,7 @@ fun AgentListScreen(
     Column(modifier) {
         WorkspaceSectionAppBar("Agents")
         RefreshableList(state.isLoading, onRefresh) {
-            if (state.isLoading && !state.hasAgents) {
+            if (state.isLoading && !state.hasAgents && !resources.visible) {
                 Spacer(Modifier.fillMaxSize())
             } else {
                 LazyColumn(
@@ -104,11 +118,12 @@ fun AgentListScreen(
                     ),
                     verticalArrangement = Arrangement.spacedBy(AGENT_ROW_SPACING)
                 ) {
-                    agentListFeedback(state, false, onRefresh)
+                    agentListFeedback(state, false, onRefresh, resources.visible)
                     val display = AgentGroupDisplay(expanded.toSet(), ::toggle)
                     groups.forEach { section ->
                         agentGroupItems(section, display, onAgentSelected, onMute)
                     }
+                    resources.items(this)
                 }
             }
         }

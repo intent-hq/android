@@ -34,13 +34,16 @@ import dev.intentapp.android.design.intentPageInsets
 import dev.intentapp.android.navigation.ChromeAction
 import dev.intentapp.android.navigation.CompactAppBar
 
+@Suppress("LongParameterList", "LongMethod") // Create and open requests from the workspace.
 @Composable
 fun WorkspaceTerminals(
     session: RpcSession,
     workspaceId: String,
     onBack: () -> Unit,
     createOnOpen: Boolean = false,
-    onCreateHandled: () -> Unit = {}
+    onCreateHandled: () -> Unit = {},
+    openTerminal: String? = null,
+    onOpenHandled: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val store = remember(session, workspaceId) {
@@ -55,7 +58,19 @@ fun WorkspaceTerminals(
     }
     val state by store.state.collectAsState()
     TerminalCreationEffect(store, state, createOnOpen, onCreateHandled)
-    val back = { if (state.selected != null) store.select(null) else onBack() }
+    // A terminal opened from the Agents page closes straight back to it.
+    var direct by remember(store) { mutableStateOf(openTerminal != null) }
+    LaunchedEffect(store, openTerminal, state.loading, state.terminals) {
+        val listed = state.terminals.any { it.id == openTerminal }
+        if (openTerminal != null && !state.loading && listed) {
+            store.select(openTerminal)
+            onOpenHandled()
+        }
+    }
+    val back = {
+        if (state.selected != null && !direct) store.select(null) else onBack()
+        direct = false
+    }
     BackHandler(onBack = back)
     Column(Modifier.fillMaxSize()) {
         CompactAppBar(

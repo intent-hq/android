@@ -21,6 +21,9 @@ data class WorkspaceScriptRow(
     val active: Boolean get() = runtime?.isLive == true
     val status: String get() = runtime?.status ?: "idle"
 
+    /** iOS WorkspaceScript.hasRun: the script ran at least once on the desktop. */
+    val hasRun: Boolean get() = runtime?.let { it.status != "idle" || it.previouslyRunning } == true
+
     /** iOS WorkspaceScript.browser: only a running script opens its detected address. */
     val browserUrl: String?
         get() = runtime?.detectedUrl?.takeIf {

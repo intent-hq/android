@@ -15,12 +15,14 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import dev.intent.core.protocol.attachments.AttachmentUploadService
 import dev.intent.core.protocol.attachments.RpcAttachmentClient
 import dev.intent.core.protocol.session.RpcSession
 import dev.intentapp.android.agents.AgentActionDialog
 import dev.intentapp.android.agents.AgentControls
+import dev.intentapp.android.agents.AgentListResources
 import dev.intentapp.android.agents.AgentListRoute
 import dev.intentapp.android.agents.AgentModelDialog
 import dev.intentapp.android.agents.AgentStore
@@ -30,13 +32,20 @@ import dev.intentapp.android.agents.NewAgentScreen
 import dev.intentapp.android.agents.RpcAgentSession
 import dev.intentapp.android.attachments.AndroidAttachmentSource
 import dev.intentapp.android.attachments.PhotoAttachmentStore
+import dev.intentapp.android.browser.LocalWorkspaceBrowserLink
+import dev.intentapp.android.browser.WorkspaceBrowsersHost
+import dev.intentapp.android.browser.workspaceBrowsersSection
 import dev.intentapp.android.design.IntentScreen
+import dev.intentapp.android.design.IntentSpacing
+import dev.intentapp.android.design.horizontalBleed
 import dev.intentapp.android.drawers.LocalCurrentHistoryAgent
 import dev.intentapp.android.drawers.LocalDrawerButtons
 import dev.intentapp.android.drawers.WorkspaceDrawers
 import dev.intentapp.android.navigation.ChromeAction
 import dev.intentapp.android.navigation.LocalChromeActions
 import dev.intentapp.android.navigation.LocalChromeBack
+import dev.intentapp.android.scripts.WorkspaceScriptsHost
+import dev.intentapp.android.scripts.workspaceScriptsSection
 import dev.intentapp.android.status.AgentWatchStore
 import dev.intentapp.android.status.ConversationStatusStrip
 import dev.intentapp.android.status.LocalWatchState
@@ -45,6 +54,8 @@ import dev.intentapp.android.status.RpcWatchSource
 import dev.intentapp.android.status.ScriptWatchSheet
 import dev.intentapp.android.status.WatchFamily
 import dev.intentapp.android.status.WatchStore
+import dev.intentapp.android.terminals.WorkspaceTerminalsHost
+import dev.intentapp.android.terminals.workspaceTerminalsSection
 import dev.intentapp.android.workspaces.RpcWorkspaceOperations
 import dev.intentapp.android.workspaces.recentWorkspaceAgentEntry
 import kotlinx.coroutines.CancellationException
@@ -53,13 +64,20 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 // Route lifetime and RPC error presentation.
-@Suppress("LongMethod", "TooGenericExceptionCaught", "CyclomaticComplexMethod")
+@Suppress(
+    "LongMethod",
+    "TooGenericExceptionCaught",
+    "CyclomaticComplexMethod",
+    "LongParameterList"
+)
 @Composable
 fun WorkspaceConversations(
     session: RpcSession,
     workspaceId: String,
     onBack: () -> Unit,
-    connectionScope: String = ""
+    connectionScope: String = "",
+    browserConnectionId: String = connectionScope,
+    onOpenTerminal: (String) -> Unit = {}
 ) {
     val watches =
         remember(session, workspaceId) { WatchStore(RpcWatchSource(session, workspaceId)) }
@@ -114,26 +132,34 @@ fun WorkspaceConversations(
                         )
             ) {
                 listState.SaveableStateProvider("agents") {
-                    AgentListRoute(agents, { selected = it }, onMute = { agent ->
-                        if (!muting) {
-                            muting = true
-                            muteError = null
-                            scope.launch {
-                                try {
-                                    val updated =
-                                        withContext(Dispatchers.IO) { controls.mute(agent) }
-                                    agents.changed(updated)
-                                } catch (cancelled: CancellationException) {
-                                    throw cancelled
-                                } catch (failure: Exception) {
-                                    muteError =
-                                        failure.message ?: "Notification setting was not saved."
-                                } finally {
-                                    muting = false
+                    WorkspaceAgentResources(
+                        session,
+                        workspaceId,
+                        browserConnectionId,
+                        onOpenTerminal
+                    ) { resources ->
+                        AgentListRoute(agents, { selected = it }, onMute = { agent ->
+                            if (!muting) {
+                                muting = true
+                                muteError = null
+                                scope.launch {
+                                    try {
+                                        val updated =
+                                            withContext(Dispatchers.IO) { controls.mute(agent) }
+                                        agents.changed(updated)
+                                    } catch (cancelled: CancellationException) {
+                                        throw cancelled
+                                    } catch (failure: Exception) {
+                                        muteError =
+                                            failure.message
+                                                ?: "Notification setting was not saved."
+                                    } finally {
+                                        muting = false
+                                    }
                                 }
                             }
-                        }
-                    })
+                        }, resources = resources)
+                    }
                 }
             }
         } else {
@@ -275,6 +301,47 @@ fun WorkspaceConversations(
                 watchState.selected?.let {
                     ScriptWatchSheet(it, agent?.name, watches::loadDetail, watches::dismiss)
                 }
+            }
+        }
+    }
+}
+
+/** iOS WorkspaceDetailResources: terminals, browsers and scripts that have run follow the agents. */
+@Composable
+private fun WorkspaceAgentResources(
+    session: RpcSession,
+    workspaceId: String,
+    connectionId: String,
+    onOpenTerminal: (String) -> Unit,
+    content: @Composable (AgentListResources) -> Unit
+) {
+    val openLink = LocalWorkspaceBrowserLink.current
+    WorkspaceTerminalsHost(session, workspaceId, onOpenTerminal) { terminals ->
+        WorkspaceBrowsersHost(session, connectionId, workspaceId) { browsers ->
+            WorkspaceScriptsHost(session, workspaceId, {
+                openLink?.invoke(it)
+            }) { scripts, actions ->
+                var revealed by remember(session, workspaceId) { mutableStateOf<String?>(null) }
+                val bleed = Modifier.horizontalBleed(IntentSpacing.page)
+                val reveal: (String?) -> Unit = { revealed = it }
+                content(
+                    AgentListResources(
+                        visible = terminals.state.terminals.isNotEmpty() ||
+                            browsers.state.browsers.isNotEmpty() ||
+                            browsers.state.error != null ||
+                            scripts.rows.any { it.hasRun },
+                        refresh = {
+                            terminals.refresh()
+                            actions.reload()
+                            browsers.retry()
+                        },
+                        items = {
+                            workspaceTerminalsSection(terminals, revealed, reveal, bleed)
+                            workspaceBrowsersSection(browsers, revealed, reveal, bleed)
+                            workspaceScriptsSection(scripts, actions, revealed, reveal, bleed)
+                        }
+                    )
+                )
             }
         }
     }

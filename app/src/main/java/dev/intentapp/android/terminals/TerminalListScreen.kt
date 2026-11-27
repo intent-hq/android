@@ -13,7 +13,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -27,13 +26,7 @@ import dev.intentapp.android.design.IntentSection
 import dev.intentapp.android.design.IntentTextButton as TextButton
 import dev.intentapp.android.lists.RefreshableList
 
-private class TerminalDialogState {
-    var renaming by mutableStateOf<String?>(null)
-    var name by mutableStateOf("")
-    var deleting by mutableStateOf<String?>(null)
-}
-
-private val TerminalState.mutationsEnabled: Boolean
+internal val TerminalState.mutationsEnabled: Boolean
     get() = connected && !loading && !creating && deleting == null
 
 @Composable
@@ -126,7 +119,7 @@ private fun TerminalListRow(
 }
 
 @Composable
-private fun TerminalDialogs(
+internal fun TerminalDialogs(
     state: TerminalState,
     dialogs: TerminalDialogState,
     actions: TerminalListActions

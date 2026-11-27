@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -42,19 +43,44 @@ import dev.intent.core.protocol.session.RpcSession
 import dev.intentapp.android.R
 import dev.intentapp.android.design.IntentScreen
 import dev.intentapp.android.design.IntentSpacing
+import dev.intentapp.android.design.SectionHeadingPull
+import dev.intentapp.android.design.pullNextItem
 import dev.intentapp.android.navigation.LocalConnectionReady
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-/** A blank connectionId uses session-local memory; otherwise use the stable saved-connection ID. */
-@Suppress("LongMethod") // List, new-browser sheet and browser page share one saved-browser store.
 @Composable
 fun WorkspaceBrowsersRoute(
     session: RpcSession,
     connectionId: String,
     workspaceId: String,
     onBack: () -> Unit
+) {
+    WorkspaceBrowsersHost(session, connectionId, workspaceId) { browsers ->
+        WorkspaceBrowsersScreen(
+            browsers.state,
+            onBack,
+            onNew = browsers.new,
+            onOpen = browsers.open,
+            onRemove = browsers.remove,
+            onRetry = browsers.retry,
+            connected = browsers.connected
+        )
+    }
+}
+
+/**
+ * Owns one saved-browser store. An open browser page replaces [content] until it closes.
+ * A blank connectionId uses session-local memory; otherwise use the stable saved-connection ID.
+ */
+@Suppress("LongMethod") // List, new-browser sheet and browser page share one saved-browser store.
+@Composable
+fun WorkspaceBrowsersHost(
+    session: RpcSession,
+    connectionId: String,
+    workspaceId: String,
+    content: @Composable (WorkspaceBrowsersHandle) -> Unit
 ) {
     val context = LocalContext.current.applicationContext
     val store = remember(session, connectionId, workspaceId) {
@@ -97,14 +123,15 @@ fun WorkspaceBrowsersRoute(
             }
         )
     } else {
-        WorkspaceBrowsersScreen(
-            state,
-            onBack,
-            onNew = { creating = true },
-            onOpen = open,
-            onRemove = { id -> scope.launch(Dispatchers.IO) { store.remove(id) } },
-            onRetry = { scope.launch(Dispatchers.IO) { store.load() } },
-            connected = connected
+        content(
+            WorkspaceBrowsersHandle(
+                state,
+                connected,
+                open = open,
+                remove = { id -> scope.launch(Dispatchers.IO) { store.remove(id) } },
+                retry = { scope.launch(Dispatchers.IO) { store.load() } },
+                new = { creating = true }
+            )
         )
     }
     if (creating) {
@@ -117,6 +144,65 @@ fun WorkspaceBrowsersRoute(
                 }
             }
         )
+    }
+}
+
+/** iOS WorkspaceDetailResources: saved browsers listed below the workspace agents. */
+fun LazyListScope.workspaceBrowsersSection(
+    browsers: WorkspaceBrowsersHandle,
+    revealed: String?,
+    onReveal: (String?) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val state = browsers.state
+    if (state.browsers.isEmpty() && state.error == null) return
+    item(key = "browsers.heading") {
+        Box(modifier.pullNextItem(SectionHeadingPull)) { BrowsersEyebrow() }
+    }
+    items(state.browsers, key = { "browser.${it.id}" }) { browser ->
+        Box(modifier) {
+            BrowserSwipeRow(
+                browser,
+                revealed = revealed == browser.id,
+                enabled = !state.loading,
+                onReveal = { onReveal(if (it) browser.id else null) },
+                onOpen = { if (revealed != null) onReveal(null) else browsers.open(browser) },
+                onDelete = {
+                    onReveal(null)
+                    browsers.remove(browser.id)
+                }
+            ) { progress -> BrowserRow(browser, browsers.connected, progress) }
+        }
+    }
+    state.error?.let { message ->
+        item(key = "browsers.error") {
+            Box(modifier) { BrowsersError(message, !state.loading, browsers.retry) }
+        }
+    }
+}
+
+@Composable
+private fun BrowsersEyebrow() {
+    Text(
+        "BROWSERS",
+        Modifier.padding(horizontal = IntentSpacing.page).semantics { heading() },
+        style = MaterialTheme.typography.labelSmall,
+        color = IntentScreen.secondaryText
+    )
+}
+
+@Composable
+private fun BrowsersError(message: String, enabled: Boolean, onRetry: () -> Unit) {
+    Column(
+        Modifier.padding(horizontal = IntentSpacing.page),
+        verticalArrangement = Arrangement.spacedBy(IntentSpacing.medium)
+    ) {
+        Text(
+            message,
+            style = MaterialTheme.typography.bodyMedium,
+            color = IntentScreen.secondaryText
+        )
+        BrowserSecondaryButton("Retry", enabled = enabled, onClick = onRetry)
     }
 }
 
@@ -144,14 +230,7 @@ fun WorkspaceBrowsersScreen(
             verticalArrangement = Arrangement.spacedBy(ROW_SPACING)
         ) {
             if (state.browsers.isNotEmpty() || state.error != null) {
-                item {
-                    Text(
-                        "BROWSERS",
-                        Modifier.padding(horizontal = IntentSpacing.page).semantics { heading() },
-                        style = MaterialTheme.typography.labelSmall,
-                        color = IntentScreen.secondaryText
-                    )
-                }
+                item { BrowsersEyebrow() }
             }
             items(state.browsers, key = { it.id }) { browser ->
                 BrowserSwipeRow(
@@ -169,19 +248,7 @@ fun WorkspaceBrowsersScreen(
                 ) { progress -> BrowserRow(browser, connected, progress) }
             }
             state.error?.let { message ->
-                item {
-                    Column(
-                        Modifier.padding(horizontal = IntentSpacing.page),
-                        verticalArrangement = Arrangement.spacedBy(IntentSpacing.medium)
-                    ) {
-                        Text(
-                            message,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = IntentScreen.secondaryText
-                        )
-                        BrowserSecondaryButton("Retry", enabled = !state.loading, onClick = onRetry)
-                    }
-                }
+                item { BrowsersError(message, !state.loading, onRetry) }
             }
             if (!state.loading && state.browsers.isEmpty() && state.error == null) {
                 item { BrowsersEmptyState(onNew) }

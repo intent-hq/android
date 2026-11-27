@@ -2,12 +2,14 @@ package dev.intentapp.android.scripts
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -28,6 +30,8 @@ import androidx.compose.ui.unit.sp
 import dev.intent.core.protocol.session.RpcSession
 import dev.intentapp.android.design.IntentScreen
 import dev.intentapp.android.design.IntentSpacing
+import dev.intentapp.android.design.SectionHeadingPull
+import dev.intentapp.android.design.pullNextItem
 import dev.intentapp.android.lists.RefreshableList
 import dev.intentapp.android.navigation.ChromeAction
 import dev.intentapp.android.navigation.CompactAppBar
@@ -39,6 +43,27 @@ fun WorkspaceScriptsRoute(
     workspaceId: String,
     onBack: () -> Unit,
     onOpenBrowser: (String) -> Unit
+) {
+    BackHandler(onBack = onBack)
+    WorkspaceScriptsHost(session, workspaceId, onOpenBrowser) { state, actions ->
+        Column(Modifier.fillMaxSize()) {
+            CompactAppBar(
+                "Scripts",
+                onBack,
+                listOf(ChromeAction("Refresh", enabled = state.connected, run = actions.reload))
+            )
+            WorkspaceScriptsScreen(state, actions, Modifier.weight(1f))
+        }
+    }
+}
+
+/** Owns one scripts store, opens detected addresses, and shows the output sheet. */
+@Composable
+fun WorkspaceScriptsHost(
+    session: RpcSession,
+    workspaceId: String,
+    onOpenBrowser: (String) -> Unit,
+    content: @Composable (WorkspaceScriptsState, WorkspaceScriptsActions) -> Unit
 ) {
     val connectionReady = LocalConnectionReady.current
     val store = remember(session, workspaceId) {
@@ -57,25 +82,16 @@ fun WorkspaceScriptsRoute(
             onOpenBrowser(it)
         }
     }
-    BackHandler(onBack = onBack)
-    Column(Modifier.fillMaxSize()) {
-        CompactAppBar(
-            "Scripts",
-            onBack,
-            listOf(ChromeAction("Refresh", enabled = state.connected, run = store::reload))
-        )
-        WorkspaceScriptsScreen(
-            state,
-            WorkspaceScriptsActions(
-                launch = store::launch,
-                stop = store::stop,
-                remove = store::remove,
-                showOutput = store::showOutput,
-                reload = store::reload
-            ),
-            Modifier.weight(1f)
+    val actions = remember(store) {
+        WorkspaceScriptsActions(
+            launch = store::launch,
+            stop = store::stop,
+            remove = store::remove,
+            showOutput = store::showOutput,
+            reload = store::reload
         )
     }
+    content(state, actions)
     state.output?.let { output ->
         val row = state.rows.firstOrNull { it.id == output.scriptId }
         ScriptOutputSheet(
@@ -90,6 +106,38 @@ fun WorkspaceScriptsRoute(
                 openBrowser = onOpenBrowser
             )
         )
+    }
+}
+
+/** iOS WorkspaceDetailResources: scripts that have run, listed below the workspace agents. */
+fun LazyListScope.workspaceScriptsSection(
+    state: WorkspaceScriptsState,
+    actions: WorkspaceScriptsActions,
+    revealed: String?,
+    onReveal: (String?) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val rows = state.rows.filter { it.hasRun }
+    // Unlike iOS, a load error alone never adds the section (offline or older desktops).
+    if (rows.isEmpty()) return
+    item(key = "scripts.heading") {
+        Box(modifier.pullNextItem(SectionHeadingPull)) { ScriptsEyebrow() }
+    }
+    state.error?.let { error ->
+        item(key = "scripts.error") {
+            Box(modifier) { ScriptsError(error, state.connected, actions.reload) }
+        }
+    }
+    items(rows, key = { "script.${it.id}" }) { row ->
+        Box(modifier) {
+            ScriptRow(
+                row,
+                state,
+                revealed = revealed == row.id,
+                onReveal = { onReveal(if (it) row.id else null) },
+                actions = actions
+            )
+        }
     }
 }
 
