@@ -170,7 +170,8 @@ The release owner must still complete these steps in Play Console:
    notifications, and local network access.
 4. Publish a privacy policy URL.
 5. Check Tailcat traffic, QR pairing, and notifications on a physical device from the internal track.
-6. Choose the permanent application ID before the first upload. The current ID is `dev.intent.app`.
+6. Upload with the application ID `dev.intentapp.android`. It matches the iOS bundle ID `dev.intentapp.ios`
+   and cannot change after the first upload. The Kotlin namespace stays `dev.intent.app`.
 
 ## Tailcat library
 

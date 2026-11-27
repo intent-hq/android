@@ -1,7 +1,11 @@
 package dev.intent.app.smoke
 
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onNodeWithTag
@@ -11,11 +15,12 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToIndex
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import dev.intent.app.R
+import dev.intent.app.connection.AcknowledgementsPage
 import dev.intent.app.connection.ConnectionDiagnostics
 import dev.intent.app.connection.ConnectionSettings
 import dev.intent.app.connection.ConnectionState
 import dev.intent.app.connection.SavedConnection
+import dev.intent.app.connection.bundledAcknowledgements
 import dev.intent.app.design.IntentTheme
 import dev.intent.app.settings.AppPreferences
 import dev.intent.app.testing.createIntentComposeRule
@@ -74,38 +79,49 @@ class SettingsActionsTest {
     }
 
     @Test
-    fun acknowledgementsReadBundledLicenseAndDismissBackToSettings() {
+    fun acknowledgementsRowOpensPage() {
+        var opened = 0
         val context = InstrumentationRegistry.getInstrumentation().targetContext
-        val mermaidNotice = context.assets.open("mermaid/NOTICE.txt")
-            .bufferedReader().use { it.readText() }
-        val interLicense = context.resources.openRawResource(R.raw.inter_license)
-            .bufferedReader().use { it.readText() }
         compose.setContent {
             IntentTheme(darkTheme = false) {
                 Surface(Modifier.fillMaxSize()) {
                     ConnectionSettings(
                         diagnostics = ConnectionDiagnostics(),
                         preferences = AppPreferences(context),
+                        onAcknowledgements = { opened++ },
                         onConnections = {}
                     )
                 }
             }
         }
         compose.onNodeWithText("Acknowledgements").performScrollTo().performClick()
-        compose.onNodeWithText(interLicense).assertIsDisplayed()
-        screenshot("settings-acknowledgements-light")
-        compose.onNodeWithTag("settings.acknowledgements").performScrollToIndex(2)
-        compose.onNodeWithText(mermaidNotice).assertIsDisplayed()
-        if (Tailcat.available) {
-            val tailcatLicense = context.resources.openRawResource(R.raw.tailcat_license)
-                .bufferedReader().use { it.readText() }
-            compose.onNodeWithTag("settings.acknowledgements").performScrollToIndex(3)
-            compose.onNodeWithText(tailcatLicense).assertIsDisplayed()
-            screenshot("settings-acknowledgements-tailcat-light")
+        compose.runOnIdle { assertEquals(1, opened) }
+    }
+
+    @Test
+    fun acknowledgementsPageShowsEveryBundledLicense() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val entries = bundledAcknowledgements(context)
+        var dark by mutableStateOf(false)
+        compose.setContent {
+            IntentTheme(darkTheme = dark) {
+                Surface(Modifier.fillMaxSize()) {
+                    AcknowledgementsPage(Modifier.systemBarsPadding())
+                }
+            }
         }
-        compose.onNodeWithText("Close acknowledgements").performClick()
-        compose.onNodeWithText("Close acknowledgements").assertDoesNotExist()
-        compose.onNodeWithText("Acknowledgements").assertIsDisplayed()
+        for (theme in listOf("light", "dark")) {
+            dark = theme == "dark"
+            entries.forEachIndexed { index, entry ->
+                compose.onNodeWithTag("settings.acknowledgements").performScrollToIndex(index)
+                compose.onNodeWithText(entry.name.uppercase()).assertIsDisplayed()
+                compose.onNodeWithText(entry.licenseTitle).assertIsDisplayed()
+                if (index == 0 || entry.name == "Tailcat") {
+                    screenshot("settings-acknowledgements-${entry.name.lowercase()}-$theme")
+                }
+            }
+        }
+        assertEquals(Tailcat.available, entries.any { it.name == "Tailcat" })
     }
 
     private fun screenshot(name: String) {

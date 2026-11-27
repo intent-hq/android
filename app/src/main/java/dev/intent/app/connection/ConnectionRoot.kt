@@ -113,6 +113,7 @@ fun ConnectionRoot(
             val utilityTitle = when {
                 launching -> null
                 utility == "Settings" -> "Settings"
+                utility == "Acknowledgements" -> "Acknowledgements"
                 utility == "Pair connection" -> "Pair connection"
                 state.connections.isEmpty() -> null
                 utility == "Connections" || state.session == null -> "Connections"
@@ -139,10 +140,12 @@ fun ConnectionRoot(
                     preferences,
                     state,
                     onDisconnect = controller::disconnect,
-                    onPair = { utilities = utilities.openUtility("Pair connection") }
+                    onPair = { utilities = utilities.openUtility("Pair connection") },
+                    onAcknowledgements = { utilities = utilities.openUtility("Acknowledgements") }
                 ) {
                     utilities = utilities.openUtility("Connections")
                 }
+                utility == "Acknowledgements" -> AcknowledgementsPage(Modifier.weight(1f))
                 utility == "Pair connection" || state.connections.isEmpty() -> PairingScreen(
                     state.busy,
                     onScan,

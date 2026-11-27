@@ -10,19 +10,16 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -30,30 +27,25 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
 import dev.intent.app.BuildConfig
 import dev.intent.app.R
 import dev.intent.app.design.IntentScreen
 import dev.intent.app.design.IntentSpacing
-import dev.intent.app.design.IntentTextButton as TextButton
 import dev.intent.app.design.intentPageInsets
 import dev.intent.app.notifications.NotificationPermissionFlow
 import dev.intent.app.settings.AppPreferences
 import dev.intent.app.settings.Appearance
-import dev.intent.tailcat.Tailcat
 
 @Suppress("LongParameterList", "LongMethod") // Settings sections and connection callbacks.
 @Composable
@@ -64,6 +56,7 @@ fun ConnectionSettings(
     state: ConnectionState = ConnectionState(),
     onDisconnect: (() -> Unit)? = null,
     onPair: (() -> Unit)? = null,
+    onAcknowledgements: () -> Unit = {},
     onConnections: () -> Unit
 ) {
     val context = LocalContext.current
@@ -76,7 +69,6 @@ fun ConnectionSettings(
         rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
             permissionFlow.onPermissionResult(it)
         }
-    var acknowledgements by rememberSaveable { mutableStateOf(false) }
     var report by remember { mutableStateOf<String?>(null) }
     // iOS SettingsView: uppercase section labels over rounded cards of icon rows.
     Column(
@@ -156,9 +148,7 @@ fun ConnectionSettings(
                 })
             }
             SettingsDivider()
-            SettingsRow(R.drawable.ic_file, "Acknowledgements", onClick = {
-                acknowledgements = true
-            })
+            SettingsRow(R.drawable.ic_file, "Acknowledgements", onClick = onAcknowledgements)
         }
         Text(
             "Intent for Android · Version ${BuildConfig.VERSION_NAME} (build ${BuildConfig.VERSION_CODE})",
@@ -166,11 +156,10 @@ fun ConnectionSettings(
             color = IntentScreen.secondaryText
         )
     }
-    if (acknowledgements) AcknowledgementsDialog { acknowledgements = false }
 }
 
 @Composable
-private fun SettingsSection(title: String, content: @Composable () -> Unit) {
+internal fun SettingsSection(title: String, content: @Composable () -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(SettingsHeaderSpacing)) {
         Text(
             title.uppercase(),
@@ -241,7 +230,7 @@ private fun SettingsRow(
 }
 
 // iOS SettingsStyle geometry.
-private val SettingsSpacing = 24.dp
+internal val SettingsSpacing = 24.dp
 private val SettingsHeaderSpacing = 12.dp
 private val SettingsCardRadius = 20.dp
 private val SettingsRowHeight = 56.dp
@@ -253,57 +242,4 @@ internal fun AppearanceSelector(appearance: Appearance, onSelect: (Appearance) -
         selectedIndex = Appearance.entries.indexOf(appearance),
         onSelect = { onSelect(Appearance.entries[it]) }
     )
-}
-
-@Composable
-private fun AcknowledgementsDialog(onDismiss: () -> Unit) {
-    val context = LocalContext.current
-    val licenses = remember(context) {
-        listOfNotNull(
-            "Inter" to context.resources.openRawResource(R.raw.inter_license)
-                .bufferedReader().use { it.readText() },
-            "Mermaid renderer" to context.assets.open("mermaid/NOTICE.txt")
-                .bufferedReader().use { it.readText() },
-            if (Tailcat.available) {
-                "Tailcat" to context.resources.openRawResource(R.raw.tailcat_license)
-                    .bufferedReader().use { it.readText() }
-            } else {
-                null
-            }
-        )
-    }
-    Dialog(onDismissRequest = onDismiss) {
-        Surface(shape = MaterialTheme.shapes.large) {
-            Column(Modifier.padding(16.dp)) {
-                Text(
-                    "Acknowledgements",
-                    Modifier.semantics { heading() },
-                    style = MaterialTheme.typography.titleMedium
-                )
-                TextButton(onClick = onDismiss) { Text("Close acknowledgements") }
-                LazyColumn(
-                    Modifier.fillMaxSize().testTag("settings.acknowledgements"),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    item {
-                        Text(
-                            "License notices bundled with this app.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = IntentScreen.secondaryText
-                        )
-                    }
-                    licenses.forEach { (name, license) ->
-                        item {
-                            Text(
-                                name,
-                                Modifier.semantics { heading() },
-                                style = MaterialTheme.typography.titleSmall
-                            )
-                            Text(license, style = MaterialTheme.typography.bodySmall)
-                        }
-                    }
-                }
-            }
-        }
-    }
 }
