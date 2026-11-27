@@ -1,0 +1,21 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- iOS Assets.xcassets/Logout.imageset/Logout.svg -->
+    <path
+        android:pathData="m15.751 6 4.94 4.94a1.5 1.5 0 0 1 0 2.12L15.75 18m-7.499-6h12.75"
+        android:fillColor="#00000000"
+        android:strokeColor="#080808"
+        android:strokeWidth="1.995"
+        android:strokeLineCap="butt"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M6.751 22h-1.5a3 3 0 0 1-3-3V5a3 3 0 0 1 3-3h1.5"
+        android:fillColor="#00000000"
+        android:strokeColor="#080808"
+        android:strokeWidth="2"
+        android:strokeLineCap="butt"
+        android:strokeLineJoin="miter" />
+</vector>

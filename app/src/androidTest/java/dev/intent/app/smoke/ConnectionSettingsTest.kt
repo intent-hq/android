@@ -73,7 +73,7 @@ class ConnectionSettingsTest {
     }
 
     @Test
-    fun drawerUsesReportedNameAndLivePath() {
+    fun drawerShowsReportedNameOnly() {
         val saved = SavedConnection(
             "one",
             PairingPayload(listOf("192.168.1.20"), 443, "secret"),
@@ -88,13 +88,12 @@ class ConnectionSettingsTest {
                         status = "Connected",
                         activePath = dev.intent.app.connection.directPath("192.168.1.20", 443)
                     ),
-                    {},
                     {}
                 )
             }
         }
         compose.onNodeWithText("Studio Mac").assertExists()
-        compose.onNodeWithText("Direct LAN · 192.168.1.20:443").assertExists()
+        compose.onNodeWithText("Direct LAN · 192.168.1.20:443").assertDoesNotExist()
     }
 
     @Test

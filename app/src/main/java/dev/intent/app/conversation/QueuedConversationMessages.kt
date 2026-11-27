@@ -4,8 +4,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -19,7 +17,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
+import dev.intent.app.R
 import dev.intent.app.design.IntentTextButton as TextButton
 import dev.intent.app.design.IntentTextField
 import dev.intent.core.protocol.models.QueuedMessage
@@ -83,7 +83,10 @@ private fun QueuedMessageRow(
                 )
                 Box {
                     IconButton(onClick = { actions = true }, enabled = enabled) {
-                        Icon(Icons.Default.MoreVert, contentDescription = "Queued message actions")
+                        Icon(
+                            painterResource(R.drawable.ic_more),
+                            contentDescription = "Queued message actions"
+                        )
                     }
                     DropdownMenu(expanded = actions, onDismissRequest = { actions = false }) {
                         DropdownMenuItem(text = { Text("Edit") }, onClick = {

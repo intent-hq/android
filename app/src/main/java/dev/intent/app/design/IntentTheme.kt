@@ -1,5 +1,6 @@
 package dev.intent.app.design
 
+import androidx.compose.foundation.LocalOverscrollFactory
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
@@ -113,7 +114,10 @@ private val IntentShapes = Shapes(
 /** Fixed brand palette; follows system night mode unless a preview supplies an override. */
 @Composable
 fun IntentTheme(darkTheme: Boolean = isSystemInDarkTheme(), content: @Composable () -> Unit) {
-    CompositionLocalProvider(LocalIntentDarkTheme provides darkTheme) {
+    CompositionLocalProvider(
+        LocalIntentDarkTheme provides darkTheme,
+        LocalOverscrollFactory provides BounceOverscrollFactory
+    ) {
         MaterialTheme(
             colorScheme = if (darkTheme) IntentDarkColors else IntentLightColors,
             typography = IntentTypography,

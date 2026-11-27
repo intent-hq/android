@@ -8,6 +8,11 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.pullToRefresh
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -25,6 +30,9 @@ internal fun RefreshableList(
     content: @Composable BoxScope.() -> Unit
 ) {
     val refresh = rememberPullToRefreshState()
+    // Like iOS .refreshable, only a pull shows the spinner; initial and background loads stay quiet.
+    var pulled by remember { mutableStateOf(false) }
+    LaunchedEffect(loading) { if (!loading) pulled = false }
     Box(
         modifier.fillMaxSize().testTag("refreshable-list").semantics {
             customActions = listOf(
@@ -34,16 +42,19 @@ internal fun RefreshableList(
                 }
             )
         }.pullToRefresh(
-            isRefreshing = loading,
+            isRefreshing = loading && pulled,
             state = refresh,
             enabled = !loading,
-            onRefresh = onRefresh
+            onRefresh = {
+                pulled = true
+                onRefresh()
+            }
         )
     ) {
         content()
         PullToRefreshDefaults.Indicator(
             state = refresh,
-            isRefreshing = loading,
+            isRefreshing = loading && pulled,
             modifier = Modifier.align(Alignment.TopCenter).testTag("refresh-indicator")
         )
     }

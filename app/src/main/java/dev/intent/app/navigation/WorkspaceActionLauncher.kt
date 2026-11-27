@@ -18,11 +18,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccountBox
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -44,6 +39,7 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -51,6 +47,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.DialogWindowProvider
+import dev.intent.app.R
 
 @Composable
 internal fun WorkspaceActionLauncher(actions: LauncherActions, modifier: Modifier = Modifier) {
@@ -107,7 +104,7 @@ private fun LauncherOverlay(
         val end = (maxWidth - with(density) { anchor.right.toDp() }).coerceAtLeast(0.dp)
         Box(
             Modifier.matchParentSize().graphicsLayer { alpha = LAUNCHER_SHADE * fraction }
-                .background(Color.Black).clickable(onClick = close)
+                .background(LauncherShade).clickable(onClick = close)
                 .semantics { contentDescription = "Dismiss app launcher" }
         )
         Column(
@@ -153,23 +150,13 @@ private fun LauncherTiles(actions: LauncherActions, enabled: Boolean, close: () 
                     .semantics { contentDescription = tile.label }
             ) {
                 Column(Modifier.fillMaxSize().padding(24.dp)) {
-                    val icon = when (tile.label.substringBefore(':')) {
-                        "Connections" -> Icons.Default.AccountBox
-                        "Appearance" -> Icons.Default.Refresh
-                        "Settings" -> Icons.Default.Settings
-                        else -> Icons.Default.Add
-                    }
-                    if (tile.label == "Assistant") {
-                        Icon(
-                            androidx.compose.ui.res.painterResource(
-                                dev.intent.app.R.drawable.avatar_chief_of_staff
-                            ),
-                            null,
-                            tint = androidx.compose.ui.graphics.Color.Unspecified
-                        )
-                    } else {
-                        Icon(icon, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
+                    // iOS HomeActionTiles: 24dp template icons at 30% of the foreground.
+                    Icon(
+                        painterResource(launcherIcon(tile.label, actions.appearance)),
+                        null,
+                        Modifier.size(24.dp),
+                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = ICON_ALPHA)
+                    )
                     Spacer(Modifier.weight(1f))
                     Text(tile.label, style = MaterialTheme.typography.titleMedium)
                 }
@@ -178,6 +165,25 @@ private fun LauncherTiles(actions: LauncherActions, enabled: Boolean, close: () 
     }
 }
 
+private fun launcherIcon(label: String, appearance: dev.intent.app.settings.Appearance): Int =
+    when (label.substringBefore(':')) {
+        "Assistant" -> R.drawable.intent_dandelion
+        "Connections" -> R.drawable.ic_connection_laptop
+        "Appearance" -> when (appearance) {
+            dev.intent.app.settings.Appearance.Light -> R.drawable.ic_brightness_full
+            dev.intent.app.settings.Appearance.Dark -> R.drawable.ic_night
+            dev.intent.app.settings.Appearance.System -> R.drawable.ic_brightness_rise
+        }
+        "Settings" -> R.drawable.ic_settings
+        else -> R.drawable.ic_add
+    }
+
+private const val ICON_ALPHA = 0.3f
 private const val LAUNCHER_DAMPING = 0.85f
 private const val LAUNCHER_STIFFNESS = 322f
-private const val LAUNCHER_SHADE = 0.32f
+
+// iOS WorkspaceActionLauncher shade: DesignPalette.homeMenuFade at 80%.
+private const val LAUNCHER_SHADE = 0.8f
+
+@Suppress("MagicNumber") // iOS DesignPalette.homeMenuFade.
+private val LauncherShade = Color(0xFF1A1A19)

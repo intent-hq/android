@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- iOS Assets.xcassets/LaunchBackground.imageset (dark). -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <gradient
+        android:angle="270"
+        android:startColor="#515152"
+        android:centerColor="#B5B49F"
+        android:centerY="0.49"
+        android:endColor="#DDEC61" />
+</shape>

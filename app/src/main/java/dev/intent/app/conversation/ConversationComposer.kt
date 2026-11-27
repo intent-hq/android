@@ -84,7 +84,8 @@ fun ConversationComposer(
                 TextField(
                     draft.text,
                     { draft.text = it },
-                    Modifier.weight(1f).semantics { contentDescription = "Message" },
+                    Modifier.weight(1f).padding(start = COMPOSER_EXTRA_INSET)
+                        .semantics { contentDescription = "Message" },
                     placeholder = { Text("Message") },
                     textStyle = MaterialTheme.typography.bodyLarge,
                     maxLines = 4,
@@ -200,3 +201,6 @@ private fun ComposerPreview() {
         )
     }
 }
+
+// TextField adds 16dp; iOS Composer.leadingPadding is 20dp.
+private val COMPOSER_EXTRA_INSET = 4.dp

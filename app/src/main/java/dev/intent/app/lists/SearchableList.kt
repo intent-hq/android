@@ -11,10 +11,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -35,7 +31,9 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import dev.intent.app.R
 
 @OptIn(
     androidx.compose.foundation.layout.ExperimentalLayoutApi::class
@@ -83,11 +81,13 @@ internal fun SearchableList(
                     placeholder = { Text(label) },
                     leadingIcon = {
                         IconButton(onClick = close) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, "Close search")
+                            Icon(painterResource(R.drawable.ic_chevron_left), "Close search")
                         }
                     },
                     trailingIcon = {
-                        IconButton(onClick = close) { Icon(Icons.Default.Close, "Clear search") }
+                        IconButton(onClick = close) {
+                            Icon(painterResource(R.drawable.intent_close), "Clear search")
+                        }
                     },
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
                         .focusRequester(searchFocus)
@@ -116,7 +116,7 @@ internal fun SearchableList(
                     end = 16.dp,
                     bottom = if (launcher == null) 16.dp else 112.dp
                 )
-            ) { Icon(Icons.Default.Search, label) }
+            ) { Icon(painterResource(R.drawable.ic_search), label) }
         }
         if (showFloatingControls && launcher != null) {
             dev.intent.app.navigation.WorkspaceActionLauncher(

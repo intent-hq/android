@@ -1,41 +1,42 @@
 package dev.intent.app.notes
 
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import dev.intent.app.design.IntentScreen
 import dev.intent.app.design.IntentSpacing
-import dev.intent.app.design.IntentTextButton as TextButton
-import dev.intent.app.lists.SearchableList
 import dev.intent.core.protocol.models.Note
 
 private const val MAX_VISIBLE_DEPTH = 4
+
+// iOS WorkspaceDetailStyle note spacing: 48 between root notes, 24 between children.
+private val ROOT_NOTE_SPACING = 48.dp
+private val CHILD_NOTE_SPACING = 24.dp
+private val NOTE_INDENT = 48.dp
+private val ICON_COLUMN = 48.dp
 
 @Composable
 internal fun ContextNoteList(
@@ -44,166 +45,110 @@ internal fun ContextNoteList(
     loading: Boolean = false,
     error: String? = null
 ) {
-    var query by rememberSaveable { mutableStateOf("") }
-    var currentOnly by rememberSaveable { mutableStateOf(false) }
-    var collapsed by remember(query, currentOnly) { mutableStateOf(emptySet<String>()) }
-    val rows = remember(notes, collapsed, query, currentOnly) {
-        contextNoteRows(filterContextNotes(notes, query, currentOnly), collapsed)
+    var collapsed by remember { mutableStateOf(emptySet<String>()) }
+    val rows = remember(notes, collapsed) { contextNoteRows(notes, collapsed) }
+    LazyColumn(
+        Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(
+            horizontal = IntentSpacing.page,
+            vertical = IntentSpacing.medium
+        )
+    ) {
+        contextNoteItems(
+            rows = rows,
+            collapsed = collapsed,
+            loading = loading,
+            error = error,
+            notes = notes,
+            onSelected = onSelected,
+            onToggle = { id ->
+                collapsed = if (id in collapsed) collapsed - id else collapsed + id
+            }
+        )
     }
-    SearchableList(
-        query,
-        { query = it },
-        "Search notes and tasks",
-        notes.isNotEmpty(),
-        currentOnly,
-        { currentOnly = it }
-    ) { contentPadding ->
-        LazyColumn(Modifier.fillMaxSize(), contentPadding = contentPadding) {
-            error?.let { item { Text(it, color = IntentScreen.error) } }
-            if (!loading && error == null && notes.isEmpty()) item { Text("No notes") }
-            if (rows.isEmpty() && notes.isNotEmpty()) {
-                item { Text("No matching notes or tasks. Change the search or select All.") }
-            }
-            items(rows, key = { it.note.id }) { row ->
-                ContextRow(row, row.note.id in collapsed, onSelected) {
-                    collapsed =
-                        if (row.note.id in
-                            collapsed
-                        ) {
-                            collapsed - row.note.id
-                        } else {
-                            collapsed + row.note.id
-                        }
-                }
-            }
+}
+
+@Suppress("LongParameterList")
+internal fun LazyListScope.contextNoteItems(
+    rows: List<ContextNoteRow>,
+    collapsed: Set<String>,
+    loading: Boolean,
+    error: String?,
+    notes: List<Note>,
+    onSelected: (String) -> Unit,
+    onToggle: (String) -> Unit
+) {
+    error?.let { item(key = "notes.error") { Text(it, color = IntentScreen.error) } }
+    if (!loading && error == null && notes.isEmpty()) {
+        item(key = "notes.empty") { Text("No notes", color = IntentScreen.secondaryText) }
+    }
+    items(rows, key = { "note.${it.note.id}" }) { row ->
+        val icon = remember(row.note, notes) { noteIconKind(row.note, notes) }
+        ContextRow(row, icon, row === rows.first(), row.note.id in collapsed, onSelected) {
+            onToggle(row.note.id)
         }
     }
 }
 
+/** iOS NoteRowView: the leading icon is the disclosure, and titles start where child icons do. */
+@Suppress("LongParameterList")
 @Composable
 private fun ContextRow(
     row: ContextNoteRow,
+    icon: NoteIconKind,
+    first: Boolean,
     collapsed: Boolean,
     onSelected: (String) -> Unit,
     onToggle: () -> Unit
 ) {
     val note = row.note
     Row(
-        Modifier.fillMaxWidth().padding(
-            start =
-            IntentSpacing.row * row.depth.coerceAtMost(MAX_VISIBLE_DEPTH)
-        ),
-        verticalAlignment = Alignment.CenterVertically
+        Modifier
+            .fillMaxWidth()
+            .padding(
+                start = NOTE_INDENT * row.depth.coerceAtMost(MAX_VISIBLE_DEPTH),
+                top = noteRowTopSpacing(first, row.depth)
+            )
+            .clickable { onSelected(note.id) },
+        verticalAlignment = Alignment.Top
     ) {
-        Column(
-            Modifier.weight(1f).clickable {
-                onSelected(note.id)
-            }.padding(vertical = IntentSpacing.medium),
-            verticalArrangement = Arrangement.spacedBy(IntentSpacing.small)
+        Box(
+            Modifier
+                .width(ICON_COLUMN)
+                .then(
+                    if (row.hasChildren) {
+                        Modifier
+                            .clickable(onClick = onToggle)
+                            .semantics {
+                                contentDescription =
+                                    "${if (collapsed) "Expand" else "Collapse"} child notes for ${note.title}"
+                                stateDescription = if (collapsed) "Collapsed" else "Expanded"
+                            }
+                    } else {
+                        Modifier
+                    }
+                )
         ) {
-            Row(horizontalArrangement = Arrangement.spacedBy(IntentSpacing.row)) {
-                NoteTypeIcon(note)
-                Text(
-                    note.title,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    style = MaterialTheme.typography.bodyLarge
-                )
-            }
-            Row(
-                Modifier.padding(start = 32.dp),
-                horizontalArrangement = Arrangement.spacedBy(IntentSpacing.medium),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                val type = when {
-                    note.isDefault || note.id == "spec" -> "Spec"
-                    note.metadata?.task != null -> "Task"
-                    else -> "Note"
-                }
-                Text(
-                    type,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.labelMedium
-                )
-                note.metadata?.task?.status?.let { ContextStatus(it) }
-            }
+            NoteRowIcon(icon)
         }
-        if (row.hasChildren) {
-            TextButton(
-                onClick = onToggle,
-                modifier = Modifier.semantics {
-                    contentDescription =
-                        "${if (collapsed) "Expand" else "Collapse"} child notes for ${note.title}"
-                }
-            ) {
-                Text(
-                    if (collapsed) "+" else "−",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
-    }
-    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-}
-
-@Composable
-private fun ContextStatus(status: String) {
-    val colors = MaterialTheme.colorScheme
-    val attention = status == "blocked" || status == "discussion_needed"
-    Surface(
-        color = if (attention) colors.errorContainer else colors.surfaceVariant,
-        contentColor = if (attention) colors.onErrorContainer else colors.onSurfaceVariant,
-        shape = MaterialTheme.shapes.extraSmall
-    ) {
         Text(
-            contextStatusLabel(status),
-            Modifier.padding(horizontal = IntentSpacing.medium, vertical = IntentSpacing.small),
-            style = MaterialTheme.typography.labelSmall
+            note.title,
+            modifier = Modifier
+                .weight(1f)
+                .heightIn(min = 24.dp)
+                .wrapContentHeight(Alignment.CenterVertically),
+            color = MaterialTheme.colorScheme.onSurface,
+            style = if (row.depth == 0) {
+                MaterialTheme.typography.titleMedium
+            } else {
+                MaterialTheme.typography.bodyLarge
+            }
         )
     }
 }
 
-@Suppress("MagicNumber") // Normalized coordinates for the note and checkbox glyphs.
-@Composable
-private fun NoteTypeIcon(note: Note) {
-    val color = MaterialTheme.colorScheme.onSurfaceVariant
-    val task = note.metadata?.task
-    Canvas(Modifier.size(20.dp)) {
-        val stroke = 1.5.dp.toPx()
-        drawRect(
-            color,
-            Offset(stroke, stroke),
-            Size(
-                size.width - stroke * 2,
-                size.height - stroke * 2
-            ),
-            style = Stroke(stroke)
-        )
-        if (task != null) {
-            if (task.status == "complete") {
-                drawLine(
-                    color,
-                    Offset(size.width * .2f, size.height * .5f),
-                    Offset(
-                        size.width * .45f,
-                        size.height * .7f
-                    ),
-                    stroke
-                )
-                drawLine(
-                    color,
-                    Offset(size.width * .45f, size.height * .7f),
-                    Offset(
-                        size.width * .8f,
-                        size.height * .3f
-                    ),
-                    stroke
-                )
-            }
-        } else {
-            for (line in 1..3) {
-                val y = size.height * line / 4
-                drawLine(color, Offset(size.width * .25f, y), Offset(size.width * .75f, y), stroke)
-            }
-        }
-    }
+private fun noteRowTopSpacing(first: Boolean, depth: Int) = when {
+    first -> 0.dp
+    depth == 0 -> ROOT_NOTE_SPACING
+    else -> CHILD_NOTE_SPACING
 }

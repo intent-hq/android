@@ -23,8 +23,10 @@
             android:exported="false" android:screenOrientation="fullUser"
             android:theme="@style/zxing_CaptureTheme"
             android:configChanges="orientation|screenSize" />
-        <!-- Compose applies theme and size changes without discarding navigation or screen stores. -->
+        <!-- Compose applies theme and size changes without discarding navigation or screen stores.
+             fullUser follows all four rotations, including upside down, unless rotation is locked. -->
         <activity android:name=".MainActivity" android:exported="true" android:launchMode="singleTop"
+            android:screenOrientation="fullUser"
             android:configChanges="uiMode|orientation|screenSize|smallestScreenSize|screenLayout">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

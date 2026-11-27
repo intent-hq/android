@@ -64,7 +64,8 @@ fun MarkdownContent(content: String, modifier: Modifier = Modifier) {
 
 @Composable
 private fun MarkdownNodes(nodes: List<Node>) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    // iOS CompactParagraphStyle leaves one line (the 16sp body size) under each block.
+    Column(verticalArrangement = Arrangement.spacedBy(BLOCK_SPACING)) {
         nodes.forEach { MarkdownNode(it) }
     }
 }
@@ -105,7 +106,7 @@ fun MarkdownNode(node: Node) {
 
 @Composable
 private fun MarkdownList(node: Node, start: Int?) {
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(LIST_ITEM_SPACING)) {
         node.children().filterIsInstance<ListItem>().forEachIndexed { index, item ->
             if (LocalMarkdownListItemRenderer.current?.invoke(item) == true) {
                 return@forEachIndexed
@@ -204,3 +205,8 @@ private fun MarkdownCode(code: String, language: String) {
         }
     }
 }
+
+private val BLOCK_SPACING = 16.dp
+
+// iOS Markdown task list spacing: 2 above and 4 below each item.
+private val LIST_ITEM_SPACING = 6.dp

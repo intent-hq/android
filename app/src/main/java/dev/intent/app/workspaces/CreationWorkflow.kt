@@ -49,3 +49,6 @@ class CreationWorkflow(
         return id
     }
 }
+
+/** Next or Create, as reported by the visible step to the shared bottom bar. */
+internal data class CreationNext(val label: String, val enabled: Boolean, val run: () -> Unit)

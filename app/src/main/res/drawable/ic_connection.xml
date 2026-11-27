@@ -1,0 +1,14 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- iOS Assets.xcassets/Connection.imageset/Connection.svg -->
+    <path
+        android:pathData="M6 12H0m24-3h-6m6 6h-6m0-10.5h-7.5A4.5 4.5 0 0 0 6 9v6a4.5 4.5 0 0 0 4.5 4.5H18m0 3v-21"
+        android:fillColor="#00000000"
+        android:strokeColor="#080808"
+        android:strokeWidth="1.995"
+        android:strokeLineCap="butt"
+        android:strokeLineJoin="miter" />
+</vector>

@@ -89,9 +89,6 @@ fun WorkspaceContent(
                 preferences.save(workspaceId, it)
             }
         },
-        LocalWorkspaceResources provides {
-            WorkspaceResources(open = { destination = it }, onCreateTerminal = newTerminal)
-        },
         LocalChromeActions provides (
             listOf(
                 ChromeAction("Browser preview") { destination = WorkspaceDestination.Browser },

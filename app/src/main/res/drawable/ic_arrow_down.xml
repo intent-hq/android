@@ -1,0 +1,21 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- iOS Assets.xcassets/ArrowDown.imageset/ArrowDown.svg -->
+    <path
+        android:pathData="M12 4.5V18"
+        android:fillColor="#00000000"
+        android:strokeColor="#080808"
+        android:strokeWidth="1.995"
+        android:strokeLineCap="square"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="m19.5 12.777-6.174 6.174a1.875 1.875 0 0 1-2.652 0L4.5 12.777"
+        android:fillColor="#00000000"
+        android:strokeColor="#080808"
+        android:strokeWidth="1.995"
+        android:strokeLineCap="butt"
+        android:strokeLineJoin="round" />
+</vector>

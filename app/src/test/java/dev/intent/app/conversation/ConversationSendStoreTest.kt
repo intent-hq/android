@@ -11,6 +11,9 @@ import dev.intent.core.protocol.models.ResourceContents
 import dev.intent.core.protocol.models.SendResult
 import java.io.Closeable
 import java.util.concurrent.CompletableFuture
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import kotlin.concurrent.thread
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -341,6 +344,62 @@ class ConversationSendStoreTest {
         val before = store.state.value
         commands.dismissals.last().complete(CommandResult(true))
         assertEquals(before, store.state.value)
+    }
+
+    @Test
+    fun concurrentQueueMutationsApplyUnderLockWithoutClobberingOtherItems() {
+        commands.queued = listOf(
+            QueuedMessage("q1", "First", "now", 0),
+            QueuedMessage("q2", "Second", "now", 1)
+        )
+        store.refresh()
+        commands.queueReply = CompletableFuture()
+        store.editQueued("q1", "First edited")
+        store.retract("q2")
+
+        val started = CountDownLatch(1)
+        val completer = thread(start = false) {
+            started.countDown()
+            commands.editResult.complete(CommandResult(true))
+        }
+        synchronized(store) {
+            completer.start()
+            assertTrue(started.await(LOCK_WAIT_SECONDS, TimeUnit.SECONDS))
+            val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(LOCK_WAIT_SECONDS)
+            while (completer.state != Thread.State.BLOCKED && System.nanoTime() < deadline) {
+                Thread.yield()
+            }
+            assertEquals(Thread.State.BLOCKED, completer.state)
+            commands.removals.single().complete(CommandResult(true))
+            assertEquals(listOf("q1"), store.state.value.queue.map { it.id })
+        }
+        completer.join(TimeUnit.SECONDS.toMillis(LOCK_WAIT_SECONDS))
+        assertFalse(completer.isAlive)
+        assertEquals(listOf("q1"), store.state.value.queue.map { it.id })
+        assertEquals("First edited", store.state.value.queue.single().content)
+    }
+
+    @Test
+    fun unacknowledgedOrClosedQueueMutationDoesNotOverwriteQueue() {
+        commands.queued = listOf(QueuedMessage("q", "Original", "now", 0))
+        store.refresh()
+        commands.queueReply = CompletableFuture()
+        store.editQueued("q", "Changed")
+        commands.editResult.complete(CommandResult(false))
+        assertEquals("Original", store.state.value.queue.single().content)
+        assertTrue(store.state.value.error!!.contains("queue change"))
+
+        commands.queueReply = null
+        store.refresh()
+        store.retract("q")
+        store.close()
+        val before = store.state.value
+        commands.removals.single().complete(CommandResult(true))
+        assertEquals(before, store.state.value)
+    }
+
+    private companion object {
+        const val LOCK_WAIT_SECONDS = 5L
     }
 
     private fun questionRow() = ConversationMessage(

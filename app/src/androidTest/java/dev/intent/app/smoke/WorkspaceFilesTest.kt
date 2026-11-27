@@ -6,12 +6,13 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performScrollToNode
-import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipe
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -133,19 +134,19 @@ class WorkspaceFilesTest {
     }
 
     @Test
-    fun filesAreDirectAndSearchIsSeparateFromNotes() = connected {
+    fun notesAndFilesCollapseIndependentlyOnContextScreen() = connected {
+        compose.onNodeWithText("NOTES").assertIsDisplayed().performClick()
+        compose.onNodeWithText("Note 1").assertDoesNotExist()
+        scrollTo("files.file.picture.png")
         compose.onNodeWithTag("files.file.picture.png").assertIsDisplayed()
-        compose.onNodeWithContentDescription("Search loaded files").performClick()
-        compose.onNodeWithText("Search loaded files").performTextInput("picture")
-        compose.onNodeWithTag("files.file.picture.png").assertIsDisplayed()
-        compose.onNodeWithTag("files.file.archive.zip").assertDoesNotExist()
-        screenshot("files-direct-search")
-        compose.onNodeWithText("Notes").performClick()
+        compose.onNodeWithText("FILES").performClick()
+        compose.onNodeWithTag("files.file.picture.png").assertDoesNotExist()
+        compose.onNodeWithText("NOTES").performClick()
         compose.onNodeWithText("Note 1").assertIsDisplayed()
-        compose.onNodeWithText("Current").assertIsDisplayed()
-        compose.onNodeWithText("Files").performClick()
+        compose.onNode(hasScrollAction()).performScrollToNode(hasText("FILES"))
+        compose.onNodeWithText("FILES").performClick()
+        scrollTo("files.file.picture.png")
         compose.onNodeWithTag("files.file.picture.png").assertIsDisplayed()
-        compose.onNodeWithTag("files.file.archive.zip").assertDoesNotExist()
     }
 
     private fun screenshot(name: String) {
@@ -182,7 +183,9 @@ class WorkspaceFilesTest {
                 )
                     .fetchSemanticsNodes().isNotEmpty()
             }
-            compose.onNodeWithText("Files").assertIsDisplayed().performClick()
+            compose.onNode(hasScrollAction()).performScrollToNode(hasText("FILES"))
+            compose.onNodeWithText("FILES").assertIsDisplayed()
+            compose.onNode(hasScrollAction()).performScrollToIndex(0)
             test(server)
         }
     }

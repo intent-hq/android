@@ -13,8 +13,6 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
@@ -33,8 +31,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
+import dev.intent.app.R
 import dev.intent.app.attachments.PhotoAttachmentStore
 import dev.intent.app.attachments.PhotoAttachments
 import dev.intent.app.attachments.PhotoPicker
@@ -80,7 +80,10 @@ internal fun QuestionComposer(
                     )
                 }
                 IconButton(onClick = { confirmingDismiss = true }, enabled = enabled) {
-                    Icon(Icons.Default.Close, contentDescription = "Dismiss questions")
+                    Icon(
+                        painterResource(R.drawable.intent_close),
+                        contentDescription = "Dismiss questions"
+                    )
                 }
             }
             if (expanded) {

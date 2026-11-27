@@ -1,5 +1,6 @@
 package dev.intent.app.files
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Paint
@@ -7,6 +8,8 @@ import android.graphics.Typeface
 import android.widget.TextView
 
 /** Draw only visible logical line numbers. The gutter is not part of copied text. */
+// Plain TextView: Lottie brings AppCompat in, but this view uses no AppCompat styling.
+@SuppressLint("AppCompatCustomView")
 internal class NumberedTextView(context: Context) : TextView(context) {
     private val gutterPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private var starts = listOf(0)

@@ -6,18 +6,13 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.heading
@@ -28,7 +23,6 @@ import dev.intent.app.attachments.MediaPreview
 import dev.intent.app.design.IntentScreen
 import dev.intent.app.design.IntentSpacing
 import dev.intent.app.design.IntentTabs
-import dev.intent.app.design.IntentTextButton
 import dev.intent.app.navigation.ChromeAction
 import dev.intent.app.navigation.CompactAppBar
 import dev.intent.app.navigation.LocalWorkspaceTitle
@@ -42,47 +36,45 @@ internal fun WorkspaceDetailScreen(
     actions: List<ChromeAction> = emptyList(),
     open: (WorkspaceDestination) -> Unit
 ) {
-    val sections =
-        listOf(
-            "Agents" to WorkspaceDestination.Conversations,
-            "Context" to WorkspaceDestination.Notes,
-            "Changes" to WorkspaceDestination.Git
-        )
+    val sections = listOf(
+        "Agents" to WorkspaceDestination.Conversations,
+        "Context" to WorkspaceDestination.Notes,
+        "Changes" to WorkspaceDestination.Git
+    )
     val selectedIndex = sections.indexOfFirst { it.second == selected }.coerceAtLeast(0)
-    var showDetails by rememberSaveable(workspace?.id) { mutableStateOf(false) }
     val configuration = LocalConfiguration.current
     val compact = configuration.screenWidthDp > configuration.screenHeightDp
-    val chromeActions = if (compact && workspace != null) {
-        listOf(ChromeAction("Workspace details") { showDetails = true }) + actions
-    } else {
-        actions
-    }
     Column {
         CompactAppBar(
             if (compact) workspace?.title ?: LocalWorkspaceTitle.current else "",
-            actions = chromeActions
+            actions = actions
         )
-        if (!compact) WorkspaceHeading(workspace, onDetails = { showDetails = true })
+        if (!compact) WorkspaceHeading(workspace)
         IntentTabs(
             titles = sections.map { it.first },
             selectedIndex = selectedIndex,
             onSelect = { open(sections[it].second) },
-            modifier =
-            Modifier.padding(
-                horizontal = IntentSpacing.page,
-                vertical = IntentSpacing.small
+            modifier = Modifier.padding(
+                start = IntentSpacing.page,
+                end = IntentSpacing.page,
+                top = TAB_TOP_PADDING,
+                bottom = TAB_BOTTOM_PADDING
             )
         )
     }
-    if (showDetails && workspace != null) WorkspaceSummaryDialog(workspace) { showDetails = false }
 }
 
 @Composable
-private fun WorkspaceHeading(workspace: Workspace?, onDetails: () -> Unit) {
+private fun WorkspaceHeading(workspace: Workspace?) {
     val largeText = LocalDensity.current.fontScale > LARGE_TEXT_SCALE
     Column(
-        Modifier.padding(horizontal = IntentScreen.sectionInsets),
-        verticalArrangement = Arrangement.spacedBy(IntentSpacing.small)
+        Modifier.padding(
+            start = IntentSpacing.page,
+            end = IntentSpacing.page,
+            top = HEADING_TOP_PADDING,
+            bottom = HEADING_BOTTOM_PADDING
+        ),
+        verticalArrangement = Arrangement.spacedBy(HEADING_SPACING)
     ) {
         Text(
             workspace?.title ?: LocalWorkspaceTitle.current,
@@ -91,69 +83,47 @@ private fun WorkspaceHeading(workspace: Workspace?, onDetails: () -> Unit) {
             maxLines = if (largeText) 2 else 3,
             overflow = TextOverflow.Ellipsis
         )
-        if (!largeText) {
-            workspace?.let(::workspaceRepository)?.let {
-                Text(
-                    it,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = IntentScreen.secondaryText
-                )
-            }
+        workspace?.let(::workspaceRepository)?.let {
+            Text(
+                it,
+                style = MaterialTheme.typography.bodySmall,
+                color = IntentScreen.secondaryText
+            )
         }
-        Text(
-            workspace?.let(::workspaceStateLabel) ?: "Workspace state unavailable",
-            style = MaterialTheme.typography.labelMedium,
-            color = IntentScreen.secondaryText
-        )
-        if (!largeText && workspace != null) WorkspaceSummaryPreview(workspace)
-        if (workspace != null) {
-            IntentTextButton(onClick = onDetails) { Text("Workspace details") }
-        }
+        if (workspace != null) WorkspaceSummaryPreview(workspace)
     }
 }
 
 @Composable
 private fun WorkspaceSummaryPreview(workspace: Workspace) {
-    Row(horizontalArrangement = Arrangement.spacedBy(IntentSpacing.medium)) {
-        workspace.statusMessage?.takeIf { it.isNotBlank() }?.let {
-            Text(it, Modifier.weight(1f), maxLines = 2, overflow = TextOverflow.Ellipsis)
-        }
-        workspaceStatusImage(workspace)?.let {
-            Box(Modifier.size(64.dp).clipToBounds()) {
+    val summary = workspace.statusMessage?.trim()?.takeIf { it.isNotEmpty() }
+    val image = workspaceStatusImage(workspace)
+    if (summary == null && image == null) return
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(HEADING_SPACING),
+        verticalAlignment = Alignment.Top
+    ) {
+        image?.let {
+            Box(Modifier.size(64.dp).clip(RoundedCornerShape(12.dp))) {
                 MediaPreview(it, actions = false, showName = false)
             }
+        }
+        summary?.let {
+            Text(
+                it,
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.bodyLarge,
+                color = IntentScreen.secondaryText
+            )
         }
     }
 }
 
-@Composable
-private fun WorkspaceSummaryDialog(workspace: Workspace, onDismiss: () -> Unit) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Workspace details") },
-        text = {
-            Column(
-                Modifier.verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(IntentSpacing.medium)
-            ) {
-                Text(
-                    workspace.title,
-                    style = MaterialTheme.typography.headlineSmall,
-                    modifier = Modifier.semantics { heading() }
-                )
-                workspaceRepository(workspace)?.let { Text(it) }
-                Text(workspaceStateLabel(workspace))
-                workspacePrLabel(workspace)?.let { Text(it) }
-                workspaceSignals(workspace).forEach { Text(it) }
-                workspace.statusMessage?.takeIf { it.isNotBlank() }?.let { Text(it) }
-                workspaceStatusImage(workspace)?.let { MediaPreview(it, showName = false) }
-                workspaceActivityLabel(workspace)?.let {
-                    Text(it, style = MaterialTheme.typography.bodySmall)
-                }
-            }
-        },
-        confirmButton = { IntentTextButton(onClick = onDismiss) { Text("Done") } }
-    )
-}
-
 private const val LARGE_TEXT_SCALE = 1.3f
+
+// iOS WorkspaceDetailStyle heading and tab spacing.
+private val HEADING_TOP_PADDING = 64.dp
+private val HEADING_BOTTOM_PADDING = 32.dp
+private val HEADING_SPACING = 20.dp
+private val TAB_TOP_PADDING = 8.dp
+private val TAB_BOTTOM_PADDING = 40.dp

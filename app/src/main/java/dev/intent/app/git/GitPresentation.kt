@@ -56,8 +56,18 @@ internal fun commitDateTime(
 /** Missing push metadata must never be presented as a local/unpushed commit. */
 internal fun commitPushLabel(isPushed: Boolean?): String? = when (isPushed) {
     true -> "Pushed"
-    false -> "Not pushed"
+    false -> "Local"
     null -> null
+}
+
+internal fun gitStatusLabel(status: String): String? = when (status.trim().firstOrNull()) {
+    'A' -> "Added"
+    'D' -> "Deleted"
+    'R' -> "Renamed"
+    'C' -> "Copied"
+    'U' -> "Conflicted"
+    '?' -> "Untracked"
+    else -> null
 }
 
 internal fun filterCommitFiles(files: List<GitCommitFile>, query: String): List<GitCommitFile> {

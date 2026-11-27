@@ -103,7 +103,7 @@ class AgentControlsTest {
     @Test fun longPressMutesAndUnmutesAgent() = connected {
         compose.onNodeWithText("Test agent").performTouchInput { longClick() }
         compose.onNodeWithText("Mute notifications").performClick()
-        waitFor("Idle · Notifications muted")
+        waitFor("Muted")
         assertEquals(
             "true",
             request(
@@ -112,7 +112,9 @@ class AgentControlsTest {
         )
         compose.onNodeWithText("Test agent").performTouchInput { longClick() }
         compose.onNodeWithText("Unmute notifications").performClick()
-        waitFor("Idle")
+        compose.waitUntil(TIMEOUT) {
+            compose.onAllNodes(hasText("Muted")).fetchSemanticsNodes().isEmpty()
+        }
         assertEquals(
             "false",
             request(

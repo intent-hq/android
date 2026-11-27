@@ -2,10 +2,8 @@ package dev.intent.app.smoke
 
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
-import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasText
-import androidx.compose.ui.test.isDialog
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -50,7 +48,6 @@ class WorkspaceDetailTest {
             }
         }
         compose.onNodeWithText("Ready for review").assertIsDisplayed()
-        compose.onNodeWithText("Active · PR mergeable").assertIsDisplayed()
         compose.onNodeWithText("intent-hq/android").assertIsDisplayed()
         listOf(
             "Agents" to WorkspaceDestination.Conversations,
@@ -64,34 +61,18 @@ class WorkspaceDetailTest {
     }
 
     @Test
-    fun detailsExposeFullSummaryAndIndependentStatusSignals() {
+    fun headerShowsFullSummary() {
         val summary =
             "The repository search and grouping controls are ready. " +
                 "Review the archived-workspace filter, the repository owner labels, " +
                 "and the waiting indicator before approving this change."
         compose.setContent {
             IntentTestTheme {
-                WorkspaceDetailScreen(
-                    Workspace(
-                        "work",
-                        "Workspace",
-                        statusMessage = summary,
-                        displayStatus = "pr_queued",
-                        prNumber = 42,
-                        prStatus = "Open",
-                        attention = "unread",
-                        waiting = true
-                    )
-                ) {}
+                WorkspaceDetailScreen(Workspace("work", "Workspace", statusMessage = summary)) {}
             }
         }
-        compose.onNodeWithText("Workspace details").performClick()
-        listOf(summary, "PR #42 · Open", "Unread updates", "Waiting").forEach {
-            compose.onNode(hasText(it) and hasAnyAncestor(isDialog())).assertIsDisplayed()
-        }
+        compose.onNodeWithText(summary).assertIsDisplayed()
         screenshot("workspace-full-summary")
-        compose.onNodeWithText("Done").performClick()
-        compose.onNodeWithText("Agents").assertIsDisplayed()
     }
 
     @Test

@@ -45,7 +45,7 @@ class UtilityBackNavigationTest {
             compose.onNodeWithText("Settings").performClick()
             compose.onNodeWithText("Manage connections").performScrollTo().performClick()
             compose.onNodeWithText("Add connection").performClick()
-            compose.onNodeWithText("Scan QR code").assertIsDisplayed()
+            compose.onNodeWithText("Scan QR Code").assertIsDisplayed()
             compose.onNodeWithContentDescription("Back").performClick()
             compose.onNodeWithText("Add connection").assertIsDisplayed()
             compose.onNodeWithContentDescription("Back").performClick()

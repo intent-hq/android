@@ -7,7 +7,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -21,7 +23,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import dev.intent.app.R
 import dev.intent.app.design.IntentScreen
 import dev.intent.app.design.IntentTextButton as TextButton
 import dev.intent.app.design.intentPageInsets
@@ -160,8 +165,17 @@ internal fun TerminalSurface(store: TerminalStore, state: TerminalState, modifie
 
 @Composable
 private fun TerminalSymbolKeys(canvas: TerminalCanvas, enabled: Boolean) {
-    listOf("←" to 'D', "↑" to 'A', "↓" to 'B', "→" to 'C').forEach { (label, code) ->
-        TerminalKey(label, enabled) { canvas.arrow(code) }
+    listOf(
+        Triple(R.drawable.ic_arrow_left, "Left", 'D'),
+        Triple(R.drawable.ic_arrow_up, "Up", 'A'),
+        Triple(R.drawable.ic_arrow_down, "Down", 'B'),
+        Triple(R.drawable.ic_arrow_right, "Right", 'C')
+    ).forEach { (icon, label, code) ->
+        TextButton(
+            enabled = enabled,
+            onClick = { canvas.arrow(code) },
+            modifier = Modifier.focusProperties { canFocus = false }
+        ) { Icon(painterResource(icon), label, Modifier.size(18.dp)) }
     }
     listOf("~", "|", "/", "-", "_", "$", "Enter").forEach { key ->
         TerminalKey(key, enabled) {

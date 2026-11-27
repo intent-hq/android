@@ -10,9 +10,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -22,6 +19,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
@@ -29,6 +27,7 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import dev.intent.app.R
 import dev.intent.app.design.IntentButton as Button
 import dev.intent.app.design.IntentScreen
 import dev.intent.app.design.IntentTextButton as TextButton
@@ -124,10 +123,10 @@ private fun AssistantHistoryRow(
                     )
                 }
             }
-            if (current) Icon(Icons.Default.Check, null)
+            if (current) Icon(painterResource(R.drawable.ic_check), null)
         }
         IconButton(onClick = { onDelete(thread.id) }, enabled = !state.busy) {
-            Icon(Icons.Default.Delete, "Delete ${thread.name}")
+            Icon(painterResource(R.drawable.ic_delete), "Delete ${thread.name}")
         }
     }
 }

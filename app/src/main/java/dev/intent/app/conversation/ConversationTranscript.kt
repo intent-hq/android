@@ -113,7 +113,7 @@ internal fun ConversationTranscript(
             state = list,
             reverseLayout = true,
             modifier = Modifier.fillMaxSize().testTag("transcript"),
-            verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.Bottom)
+            verticalArrangement = Arrangement.spacedBy(TRANSCRIPT_ROW_SPACING, Alignment.Bottom)
         ) {
             if (state.isStreaming) {
                 item(key = "live-thinking-footer") { ConversationThinkingFooter() }

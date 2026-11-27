@@ -1,0 +1,35 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- iOS Assets.xcassets/QRCode.imageset/QRCode.svg -->
+    <path
+        android:pathData="M14.25 14.25v2.7m0 4.05h2.55a1.5 1.5 0 0 0 1.5-1.5v-5.25m0 1.8H21"
+        android:fillColor="#00000000"
+        android:strokeColor="#080808"
+        android:strokeWidth="1.995"
+        android:strokeLineCap="square"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M4.5,3h3.75a1.5,1.5 0,0 1,1.5,1.5v3.75a1.5,1.5 0,0 1,-1.5,1.5h-3.75a1.5,1.5 0,0 1,-1.5,-1.5v-3.75a1.5,1.5 0,0 1,1.5,-1.5z"
+        android:fillColor="#00000000"
+        android:strokeColor="#080808"
+        android:strokeWidth="1.995"
+        android:strokeLineCap="butt"
+        android:strokeLineJoin="miter" />
+    <path
+        android:pathData="M15.75,3h3.75a1.5,1.5 0,0 1,1.5,1.5v3.75a1.5,1.5 0,0 1,-1.5,1.5h-3.75a1.5,1.5 0,0 1,-1.5,-1.5v-3.75a1.5,1.5 0,0 1,1.5,-1.5z"
+        android:fillColor="#00000000"
+        android:strokeColor="#080808"
+        android:strokeWidth="1.995"
+        android:strokeLineCap="butt"
+        android:strokeLineJoin="miter" />
+    <path
+        android:pathData="M4.5,14.25h3.75a1.5,1.5 0,0 1,1.5,1.5v3.75a1.5,1.5 0,0 1,-1.5,1.5h-3.75a1.5,1.5 0,0 1,-1.5,-1.5v-3.75a1.5,1.5 0,0 1,1.5,-1.5z"
+        android:fillColor="#00000000"
+        android:strokeColor="#080808"
+        android:strokeWidth="1.995"
+        android:strokeLineCap="butt"
+        android:strokeLineJoin="miter" />
+</vector>

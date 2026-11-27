@@ -9,9 +9,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -26,10 +23,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import dev.intent.app.R
 
 val LocalChromeActions = staticCompositionLocalOf { emptyList<ChromeAction>() }
 val LocalChromeBack = staticCompositionLocalOf<(() -> Unit)?> { null }
@@ -58,7 +57,7 @@ fun CompactAppBar(
                     contentDescription = "Back"
                 }
             ) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
+                Icon(painterResource(R.drawable.ic_chevron_left), contentDescription = null)
             }
         } else {
             Spacer(Modifier.size(48.dp))
@@ -76,7 +75,7 @@ fun CompactAppBar(
 }
 
 @Composable
-internal fun ChromeActionsMenu(actions: List<ChromeAction>) {
+internal fun ChromeActionsMenu(actions: List<ChromeAction>, surface: Boolean = true) {
     var expanded by remember { mutableStateOf(false) }
     if (actions.isNotEmpty()) {
         Box {
@@ -85,8 +84,14 @@ internal fun ChromeActionsMenu(actions: List<ChromeAction>) {
                 modifier = Modifier.size(48.dp).semantics {
                     contentDescription = "More actions"
                 }
-                    .background(MaterialTheme.colorScheme.surface, CircleShape)
-            ) { Icon(Icons.Default.MoreVert, contentDescription = null) }
+                    .then(
+                        if (surface) {
+                            Modifier.background(MaterialTheme.colorScheme.surface, CircleShape)
+                        } else {
+                            Modifier
+                        }
+                    )
+            ) { Icon(painterResource(R.drawable.ic_more), contentDescription = null) }
             DropdownMenu(expanded, onDismissRequest = { expanded = false }) {
                 actions.forEach { action ->
                     DropdownMenuItem(

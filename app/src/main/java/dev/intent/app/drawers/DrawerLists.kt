@@ -1,90 +1,125 @@
 package dev.intent.app.drawers
 
-import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import dev.intent.app.connection.ConnectionPathBadge
+import dev.intent.app.R
 import dev.intent.app.connection.ConnectionState
-import dev.intent.app.connection.connectionStatus
-import dev.intent.app.connection.displayAddress
 import dev.intent.app.connection.displayName
 import dev.intent.app.design.IntentScreen
+import dev.intent.app.design.IntentSpacing
 import dev.intent.app.design.IntentTextButton as TextButton
+import dev.intent.app.design.LocalIntentDarkTheme
 import dev.intent.app.history.AgentHistoryStore
 import dev.intent.app.history.AgentVisit
 import dev.intent.app.history.historyIdentity
 
 @Composable
-fun ConnectionsDrawer(state: ConnectionState, onSelect: (String) -> Unit, onManage: () -> Unit) {
-    LazyColumn(
-        Modifier.fillMaxSize(),
-        contentPadding = IntentScreen.pageInsets,
-        verticalArrangement = Arrangement.spacedBy(IntentScreen.itemSpacing)
+fun ConnectionsDrawer(state: ConnectionState, onSelect: (String) -> Unit) {
+    // iOS ConnectionSwitcherList: an eyebrow and plain rows, centered in the drawer.
+    Column(
+        Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(
+                start = IntentSpacing.page,
+                end = SWITCHER_TRAILING_INSET,
+                top = IntentSpacing.page,
+                bottom = IntentSpacing.page
+            ),
+        verticalArrangement = Arrangement.spacedBy(IntentSpacing.page, Alignment.CenterVertically)
     ) {
-        item { Text("Connections", style = MaterialTheme.typography.titleMedium) }
-        items(state.connections, key = { it.id }) { connection ->
-            val active = connection.id == state.activeId
-            Surface(
-                onClick = { onSelect(connection.id) },
-                modifier = Modifier.fillMaxWidth().testTag("drawer.connection.${connection.id}")
-                    .semantics { selected = active },
-                shape = MaterialTheme.shapes.large,
-                color = if (active) {
-                    MaterialTheme.colorScheme.surfaceContainerHigh
-                } else {
-                    IntentScreen.surface
-                },
-                border = BorderStroke(
-                    1.dp,
-                    if (active) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        MaterialTheme.colorScheme.outlineVariant
-                    }
-                )
-            ) {
-                Column(
-                    Modifier.padding(IntentScreen.sectionInsets),
-                    verticalArrangement = Arrangement.spacedBy(IntentScreen.itemSpacing)
-                ) {
-                    Text(connection.displayName)
-                    if (connection.displayName != connection.displayAddress) {
-                        Text(connection.displayAddress, style = MaterialTheme.typography.bodySmall)
-                    }
-                    Text(connectionStatus(connection.id, state), color = IntentScreen.secondaryText)
-                    ConnectionPathBadge(state, connection.id)
-                    if (active) {
-                        Text(
-                            "Active connection",
-                            style = MaterialTheme.typography.labelSmall
-                        )
-                    }
+        Text(
+            "CONNECTIONS",
+            Modifier.semantics { heading() },
+            style = MaterialTheme.typography.labelSmall,
+            color = IntentScreen.secondaryText
+        )
+        if (state.connections.isEmpty()) {
+            Text("No saved connections.")
+        } else {
+            Column(verticalArrangement = Arrangement.spacedBy(IntentSpacing.small)) {
+                state.connections.forEach { connection ->
+                    ConnectionSwitcherRow(
+                        connection.displayName,
+                        connection.id == state.activeId,
+                        Modifier.testTag("drawer.connection.${connection.id}")
+                    ) { onSelect(connection.id) }
                 }
             }
         }
-        item { TextButton(onClick = onManage) { Text("Manage connections") } }
     }
 }
+
+@Composable
+private fun ConnectionSwitcherRow(
+    name: String,
+    active: Boolean,
+    modifier: Modifier,
+    onClick: () -> Unit
+) {
+    val shape = RoundedCornerShape(SWITCHER_ROW_RADIUS)
+    Row(
+        modifier
+            .fillMaxWidth()
+            .heightIn(min = SWITCHER_ROW_HEIGHT)
+            .clip(shape)
+            .background(if (active) switcherSelection() else Color.Transparent, shape)
+            .semantics { selected = active }
+            .clickable(onClick = onClick)
+            .padding(IntentSpacing.content),
+        horizontalArrangement = Arrangement.spacedBy(IntentSpacing.content),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            painterResource(R.drawable.ic_connection_laptop),
+            contentDescription = null,
+            modifier = Modifier.size(24.dp)
+        )
+        Text(
+            name,
+            Modifier.weight(1f),
+            style = MaterialTheme.typography.titleSmall,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+// iOS ConnectionSwitcherStyle.selection: charcoal in dark mode, white in light mode.
+@Composable
+private fun switcherSelection(): Color =
+    if (LocalIntentDarkTheme.current) CharcoalGrey else Color.White
 
 @Composable
 @Suppress("LongMethod") // History header and connection-scoped selectable rows.
@@ -151,3 +186,11 @@ fun AgentHistoryDrawer(
         }
     }
 }
+
+// iOS ConnectionSwitcherStyle geometry.
+private val SWITCHER_TRAILING_INSET = 32.dp
+private val SWITCHER_ROW_HEIGHT = 56.dp
+private val SWITCHER_ROW_RADIUS = 20.dp
+
+@Suppress("MagicNumber") // iOS DesignPalette.charcoalGrey.
+private val CharcoalGrey = Color(0xFF3D3D3C)

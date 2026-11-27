@@ -1,18 +1,21 @@
 package dev.intent.app.agents
 
-import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
@@ -30,18 +33,30 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.FirstBaseline
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import dev.intent.app.design.AgentAvatarState
+import dev.intent.app.design.DisclosureChevron
+import dev.intent.app.design.DisclosureLabel
+import dev.intent.app.design.IntentColors
+import dev.intent.app.design.IntentScreen
+import dev.intent.app.design.IntentSpacing
 import dev.intent.app.design.IntentTextButton as TextButton
+import dev.intent.app.design.IntentTheme
 import dev.intent.app.lists.RefreshableList
-import dev.intent.app.lists.SearchableList
-import dev.intent.app.navigation.LocalWorkspaceResources
 import dev.intent.app.navigation.WorkspaceSectionAppBar
 import dev.intent.core.protocol.models.Agent
 
 private const val MAX_VISIBLE_DEPTH = 5
+private val DELEGATED_TEXT_INDENT = 56.dp
+
+// iOS WorkspaceDetailStyle: 36 between agent rows, 24 from avatar to text.
+private val AGENT_ROW_SPACING = 36.dp
+private val AVATAR_SPACING = 24.dp
 
 @Composable
 fun AgentListRoute(
@@ -58,7 +73,6 @@ fun AgentListRoute(
     AgentListScreen(state, store::refresh, onAgentSelected, modifier, onMute)
 }
 
-@Suppress("LongMethod") // Declarative agent tree, filters, and workspace resource footer.
 @Composable
 fun AgentListScreen(
     state: AgentListState,
@@ -67,44 +81,33 @@ fun AgentListScreen(
     modifier: Modifier = Modifier,
     onMute: ((Agent) -> Unit)? = null
 ) {
-    var query by rememberSaveable { mutableStateOf("") }
-    var currentOnly by rememberSaveable { mutableStateOf(false) }
-    var expanded by rememberSaveable(query, currentOnly) { mutableStateOf(arrayListOf<String>()) }
-    val groups = remember(state.agents, state.retiredAgents, query, currentOnly) {
-        agentGroups(state.agents + state.retiredAgents).map { section ->
-            section.copy(agents = filterAgents(section.agents, query, currentOnly))
-        }.filter { it.agents.isNotEmpty() }
+    var expanded by rememberSaveable { mutableStateOf(arrayListOf<String>()) }
+    val groups = remember(state.agents, state.retiredAgents) {
+        agentGroups(state.agents + state.retiredAgents).filter { it.agents.isNotEmpty() }
     }
-    val searching = query.isNotBlank() || currentOnly
     fun toggle(id: String) {
         expanded = ArrayList(if (id in expanded) expanded - id else expanded + id)
     }
-    val resources = LocalWorkspaceResources.current
+    val listState = rememberLazyListState()
     Column(modifier) {
         WorkspaceSectionAppBar("Agents")
-        SearchableList(
-            query,
-            { query = it },
-            "Search agents",
-            state.hasAgents,
-            currentOnly,
-            { currentOnly = it }
-        ) { contentPadding ->
-            RefreshableList(state.isLoading, onRefresh) {
-                if (state.isLoading && !state.hasAgents) {
-                    Spacer(Modifier.fillMaxSize())
-                } else {
-                    LazyColumn(
-                        Modifier.fillMaxSize(),
-                        contentPadding = contentPadding,
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        agentListFeedback(state, groups.isEmpty() && searching, onRefresh)
-                        val display = AgentGroupDisplay(expanded.toSet(), searching, ::toggle)
-                        groups.forEach { section ->
-                            agentGroupItems(section, display, onAgentSelected, onMute)
-                        }
-                        if (resources != null) item { resources() }
+        RefreshableList(state.isLoading, onRefresh) {
+            if (state.isLoading && !state.hasAgents) {
+                Spacer(Modifier.fillMaxSize())
+            } else {
+                LazyColumn(
+                    Modifier.fillMaxSize(),
+                    state = listState,
+                    contentPadding = PaddingValues(
+                        horizontal = IntentSpacing.page,
+                        vertical = IntentSpacing.medium
+                    ),
+                    verticalArrangement = Arrangement.spacedBy(AGENT_ROW_SPACING)
+                ) {
+                    agentListFeedback(state, false, onRefresh)
+                    val display = AgentGroupDisplay(expanded.toSet(), ::toggle)
+                    groups.forEach { section ->
+                        agentGroupItems(section, display, onAgentSelected, onMute)
                     }
                 }
             }
@@ -112,11 +115,7 @@ fun AgentListScreen(
     }
 }
 
-private data class AgentGroupDisplay(
-    val expanded: Set<String>,
-    val searching: Boolean,
-    val toggle: (String) -> Unit
-)
+private data class AgentGroupDisplay(val expanded: Set<String>, val toggle: (String) -> Unit)
 
 private fun LazyListScope.agentGroupItems(
     section: AgentGroupSection,
@@ -125,34 +124,47 @@ private fun LazyListScope.agentGroupItems(
     onMute: ((Agent) -> Unit)?
 ) {
     val groupKey = "group-${section.group.name}"
-    val open = display.searching ||
-        section.group == AgentGroup.FOREGROUND ||
-        groupKey in display.expanded
+    val open = section.group == AgentGroup.FOREGROUND || groupKey in display.expanded
     if (section.group != AgentGroup.FOREGROUND) {
         item(key = groupKey) {
-            TextButton(onClick = { display.toggle(groupKey) }) {
-                Text(
-                    "${if (open) "▾" else "▸"} ${section.group.title}" +
-                        " · ${section.agents.size} · ${section.running} running"
-                )
-            }
+            AgentGroupHeader(section, open) { display.toggle(groupKey) }
         }
     }
     if (open) {
-        val collapsed = if (display.searching) {
-            emptySet()
-        } else {
-            section.agents.map { it.id }.toSet() - display.expanded
-        }
+        val collapsed = section.agents.map { it.id }.toSet() - display.expanded
         items(AgentTree(section.agents).rows(collapsed), key = { it.agent.id }) { row ->
             AgentTreeItem(
                 row,
-                display.searching || row.agent.id in display.expanded,
+                row.agent.id in display.expanded,
                 onToggle = { display.toggle(row.agent.id) },
                 onClick = { onAgentSelected(row.agent.id) },
                 onMute = onMute
             )
         }
+    }
+}
+
+@Composable
+private fun AgentGroupHeader(section: AgentGroupSection, open: Boolean, onToggle: () -> Unit) {
+    val label = buildString {
+        append("${section.agents.size} ${section.group.title.lowercase()}")
+        if (section.running > 0) append(" · ${section.running} running")
+    }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 44.dp)
+            .clickable(onClick = onToggle)
+            .padding(vertical = IntentSpacing.medium),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            label,
+            modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.labelSmall,
+            color = IntentScreen.secondaryText
+        )
+        DisclosureChevron(open)
     }
 }
 
@@ -164,34 +176,29 @@ private fun AgentTreeItem(
     onClick: () -> Unit,
     onMute: ((Agent) -> Unit)?
 ) {
-    val primary = row.agent.isCoordinator()
-    val color = if (primary) {
-        MaterialTheme.colorScheme.surfaceContainerLow
-    } else {
-        MaterialTheme.colorScheme.surface
-    }
-    Column(
-        Modifier.padding(
-            start = (row.depth.coerceAtMost(MAX_VISIBLE_DEPTH) * 16).dp
-        ).background(color)
-    ) {
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (primary) {
-                Text(
-                    "Coordinator",
-                    Modifier.padding(12.dp),
-                    style = MaterialTheme.typography.labelLarge
+    Column(Modifier.padding(start = (row.depth.coerceAtMost(MAX_VISIBLE_DEPTH) * 16).dp)) {
+        AgentRowMenu(row.agent, onClick, onMute)
+        if (row.childCount > 0) {
+            val label = buildString {
+                append("+${row.childCount} delegated")
+                if (row.runningChildCount > 0) append(" · ${row.runningChildCount} running")
+            }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 44.dp)
+                    .clickable(onClick = onToggle)
+                    .padding(start = DELEGATED_TEXT_INDENT, top = IntentSpacing.small),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                DisclosureLabel(
+                    label,
+                    expanded,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = IntentScreen.secondaryText
                 )
             }
-            if (row.childCount > 0) {
-                TextButton(onClick = onToggle) {
-                    Text(
-                        "${if (expanded) "▾" else "▸"} ${row.childCount} delegated · ${row.runningChildCount} running"
-                    )
-                }
-            }
         }
-        AgentRowMenu(row.agent, onClick, onMute)
     }
 }
 
@@ -211,14 +218,10 @@ private fun AgentRowMenu(agent: Agent, onClick: () -> Unit, onMute: ((Agent) -> 
             )
             if (onMute != null) {
                 DropdownMenuItem(
-                    text = {
-                        Text(
-                            agent.muteActionLabel()
-                        )
-                    },
+                    text = { Text(agent.muteActionLabel()) },
                     onClick = {
                         expanded = false
-                        onMute?.invoke(agent)
+                        onMute.invoke(agent)
                     }
                 )
             }
@@ -236,71 +239,99 @@ private fun AgentRowMenu(agent: Agent, onClick: () -> Unit, onMute: ((Agent) -> 
 
 @Composable
 private fun AgentRow(agent: Agent, onClick: () -> Unit, onLongClick: () -> Unit) {
+    val avatarState = agent.avatarState()
     Row(
-        Modifier.fillMaxWidth().combinedClickable(
-            onLongClick = onLongClick,
-            onLongClickLabel = "Agent actions",
-            onClick = onClick
-        ).padding(horizontal = 12.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        Modifier
+            .fillMaxWidth()
+            .heightIn(min = 44.dp)
+            .combinedClickable(
+                onLongClick = onLongClick,
+                onLongClickLabel = "Agent actions",
+                onClick = onClick
+            ),
+        horizontalArrangement = Arrangement.spacedBy(AVATAR_SPACING),
         verticalAlignment = Alignment.Top
     ) {
         AgentIdentityAvatar(agent)
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(
-                agent.name,
-                style = MaterialTheme.typography.titleSmall,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
-            Text(
-                agent.rowStatus() + if (agent.notificationsMuted) " · Notifications muted" else "",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            if (agent.avatarState() == AgentAvatarState.Idle &&
-                dev.intent.app.status.LocalWatchState.current.isWaiting(agent.id)
+        Column(
+            Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(IntentSpacing.medium)
+        ) {
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(IntentSpacing.medium)
             ) {
                 Text(
-                    "Waiting on watches",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            agent.rowPreview()?.let {
-                Text(
-                    it,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    agent.name,
+                    modifier = Modifier.weight(1f).alignBy(FirstBaseline),
+                    style = MaterialTheme.typography.titleMedium,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
+                if (agent.notificationsMuted) {
+                    Text(
+                        "Muted",
+                        modifier = Modifier.alignBy(FirstBaseline),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = IntentScreen.secondaryText
+                    )
+                }
+                agentRelativeTime(agent)?.let { relative ->
+                    Text(
+                        relative,
+                        modifier = Modifier
+                            .alignBy(FirstBaseline)
+                            .semantics { contentDescription = "Updated $relative" },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = IntentScreen.secondaryText,
+                        maxLines = 1,
+                        softWrap = false
+                    )
+                }
             }
+            AgentRowSubtitle(agent, avatarState)
         }
     }
 }
 
-internal fun Agent.rowStatus(): String = when (val state = avatarState()) {
-    AgentAvatarState.Waiting -> "Waiting for agents"
-    else -> state.label
+@Composable
+private fun AgentRowSubtitle(agent: Agent, avatarState: AgentAvatarState) {
+    val waitingOnWatches = avatarState == AgentAvatarState.Idle &&
+        dev.intent.app.status.LocalWatchState.current.isWaiting(agent.id)
+    val (text, color) = when {
+        avatarState == AgentAvatarState.AttentionBlocker ||
+            avatarState == AgentAvatarState.Failed ->
+            agent.rowStatus() to MaterialTheme.colorScheme.error
+        avatarState == AgentAvatarState.Question ||
+            avatarState == AgentAvatarState.AttentionDiscussion ->
+            agent.rowStatus() to IntentColors.statusAttention
+        avatarState == AgentAvatarState.Waiting ->
+            agent.rowStatus() to IntentScreen.secondaryText
+        waitingOnWatches ->
+            "Waiting on watches" to IntentScreen.secondaryText
+        else -> (agent.rowPreview() ?: return) to IntentScreen.secondaryText
+    }
+    Text(
+        text,
+        style = MaterialTheme.typography.bodyLarge,
+        color = color,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis
+    )
 }
-
-internal fun Agent.rowPreview(): String? = (
-    if (lastMessageRole == "user") lastUserMessage else digest ?: lastAgentResponse
-    )?.let(::agentPreviewText)?.takeIf { it.isNotEmpty() }
 
 @Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun AgentListPreview() {
-    MaterialTheme {
+    IntentTheme {
         AgentListScreen(
             AgentListState(
                 listOf(
                     Agent(
                         "active",
                         "Android companion",
-                        lastAgentResponse = "The agent list is under development."
+                        lastAgentResponse = "Updated workspace detail rows."
                     ),
                     Agent("archived", "Previous work", status = "idle")
                 ),
@@ -311,6 +342,3 @@ private fun AgentListPreview() {
         )
     }
 }
-
-private fun Agent.muteActionLabel(): String =
-    if (notificationsMuted) "Unmute notifications" else "Mute notifications"

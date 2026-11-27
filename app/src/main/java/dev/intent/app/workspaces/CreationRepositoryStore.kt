@@ -22,7 +22,11 @@ class CreationRepositoryStore(private val operations: WorkspaceOperations) {
                 if (query.isNotBlank()) put("query", repositoryQuery(query))
             }
         ).rows("repos")
-        return (recent + result).mapNotNull { row ->
+        return (
+            recent.map {
+                it to true
+            } + result.map { it to false }
+            ).mapNotNull { (row, isRecent) ->
             val owner = (row["owner"] as? JsonPrimitive)?.contentOrNull
             val name = (row["name"] as? JsonPrimitive)?.contentOrNull
             if (owner.isNullOrBlank() || name.isNullOrBlank()) {
@@ -31,7 +35,8 @@ class CreationRepositoryStore(private val operations: WorkspaceOperations) {
                 CreationRepository(
                     owner,
                     name,
-                    (row["defaultBranch"] as? JsonPrimitive)?.contentOrNull.orEmpty()
+                    (row["defaultBranch"] as? JsonPrimitive)?.contentOrNull.orEmpty(),
+                    recent = isRecent
                 )
             }
         }.distinctBy { it.fullName }

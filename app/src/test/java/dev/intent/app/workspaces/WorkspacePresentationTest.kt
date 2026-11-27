@@ -2,6 +2,9 @@ package dev.intent.app.workspaces
 
 import dev.intent.core.protocol.models.Workspace
 import java.time.Instant
+import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -89,6 +92,29 @@ class WorkspacePresentationTest {
             )
         )
         assertNull(workspaceActivityLabel(Workspace("id", "No timestamp")))
+    }
+
+    @Test fun relativeTimeFormatsNowMinutesHoursDaysAndShortDate() {
+        val now = Instant.parse("2026-11-24T12:00:00Z")
+        fun format(iso: String?) = workspaceRelativeTime(
+            Workspace("id", "Workspace", lastActivity = iso),
+            now = now,
+            zone = ZoneOffset.UTC
+        )
+        assertNull(format(null))
+        assertEquals("now", format("2026-11-24T12:01:00Z"))
+        assertEquals("now", format("2026-11-24T11:59:01Z"))
+        assertEquals("1m", format("2026-11-24T11:59:00Z"))
+        assertEquals("52m", format("2026-11-24T11:08:00Z"))
+        assertEquals("1h", format("2026-11-24T11:00:00Z"))
+        assertEquals("23h", format("2026-11-23T13:00:00Z"))
+        assertEquals("1d", format("2026-11-23T12:00:00Z"))
+        assertEquals("6d", format("2026-11-18T12:00:00Z"))
+        val older = Instant.parse("2026-11-17T12:00:00Z")
+        val expected = DateTimeFormatter.ofLocalizedDate(FormatStyle.SHORT)
+            .withZone(ZoneOffset.UTC)
+            .format(older)
+        assertEquals(expected, format(older.toString()))
     }
 
     @Test fun repoGroupsFollowMostRecentMemberAndKeepDifferentOwnersSeparate() {

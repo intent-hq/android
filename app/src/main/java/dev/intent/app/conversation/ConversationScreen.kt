@@ -19,12 +19,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import dev.intent.app.attachments.MediaPreview
 import dev.intent.app.attachments.MediaReference
 import dev.intent.app.attachments.PhotoAttachmentStore
+import dev.intent.app.design.DisclosureLabel
 import dev.intent.app.design.IntentTextButton as TextButton
 import dev.intent.app.markdown.MarkdownContent
 import dev.intent.core.protocol.attachments.messageBlock
@@ -262,7 +262,7 @@ private fun TranscriptMessageContents(
     } else {
         Modifier
     }
-    Column(highlight, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    Column(highlight, verticalArrangement = Arrangement.spacedBy(MESSAGE_BLOCK_SPACING)) {
         TranscriptMetadata(message)
         val sections = remember(presentation.blocks, message.isStreaming) {
             if (message.role == "assistant") {
@@ -294,7 +294,11 @@ private fun TranscriptMessageContents(
             }
         }
         if (showSuggestions && !promptSent) {
-            PromptChips(presentation.prompts, suggestionsEnabled) { prompt ->
+            PromptChips(
+                presentation.prompts,
+                suggestionsEnabled,
+                Modifier.padding(top = TRANSCRIPT_ROW_SPACING - MESSAGE_BLOCK_SPACING)
+            ) { prompt ->
                 if (!promptSent) promptSent = onSuggestedPrompt(prompt)
             }
         }
@@ -403,13 +407,12 @@ private fun ContentBlock.needsHydration(): Boolean =
 
 @Composable
 internal fun CompactDisclosure(label: String, expanded: Boolean, onClick: () -> Unit) {
-    Text(
-        "${if (expanded) "▾" else "▸"} $label",
-        Modifier.clickable(onClick = onClick).padding(vertical = 6.dp),
+    DisclosureLabel(
+        label,
+        expanded,
         style = MaterialTheme.typography.labelSmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
-        maxLines = 1,
-        overflow = TextOverflow.Ellipsis
+        modifier = Modifier.clickable(onClick = onClick).padding(vertical = 6.dp)
     )
 }
 
@@ -434,3 +437,7 @@ private fun TranscriptText(text: String) {
         }
     }
 }
+
+// iOS Conversation.Design: 12 between blocks in a message, 32 between transcript rows.
+internal val MESSAGE_BLOCK_SPACING = 12.dp
+internal val TRANSCRIPT_ROW_SPACING = 32.dp

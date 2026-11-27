@@ -4,9 +4,12 @@ import androidx.room.Room
 import dev.intent.core.protocol.models.Note
 import dev.intent.core.protocol.models.NoteTaskRow
 import dev.intent.core.protocol.models.Workspace
+import java.util.concurrent.CompletionException
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -64,5 +67,49 @@ class RoomOfflineCacheTest {
         assertEquals(value, second.note("ws", "spec").join())
         first.close()
         second.close()
+    }
+
+    @Test
+    fun `open reuses one database instance and closing one handle keeps shared database usable`() {
+        val context = RuntimeEnvironment.getApplication()
+        val first = RoomOfflineCache.open(context, "scope-a")
+        val second = RoomOfflineCache.open(context, "scope-b")
+        assertSame(first.database, second.database)
+
+        first.replaceWorkspaces(listOf(Workspace("ws-a", "Scope A"))).join()
+        first.close()
+        first.close()
+
+        second.replaceWorkspaces(listOf(Workspace("ws-b", "Scope B"))).join()
+        assertEquals("Scope B", second.workspaces().join().single().title)
+
+        val reopened = RoomOfflineCache.open(context, "scope-a")
+        assertSame(first.database, reopened.database)
+        assertEquals("Scope A", reopened.workspaces().join().single().title)
+        second.close()
+        reopened.close()
+    }
+
+    @Test
+    fun `operations submitted after close return failed futures without throwing synchronously`() {
+        val context = RuntimeEnvironment.getApplication()
+        val cache = RoomOfflineCache.open(context, "closed-scope")
+        cache.replaceWorkspaces(listOf(Workspace("ws", "Before close"))).join()
+        cache.close()
+
+        val readFuture = cache.workspaces()
+        val writeFuture = cache.replaceWorkspaces(emptyList())
+        assertTrue(readFuture.isCompletedExceptionally)
+        assertTrue(writeFuture.isCompletedExceptionally)
+        try {
+            readFuture.join()
+            fail("Expected closed cache future to fail")
+        } catch (error: CompletionException) {
+            assertTrue(error.cause is IllegalStateException)
+        }
+
+        val fresh = RoomOfflineCache.open(context, "closed-scope")
+        assertEquals("Before close", fresh.workspaces().join().single().title)
+        fresh.close()
     }
 }

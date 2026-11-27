@@ -2,13 +2,17 @@ package dev.intent.app.workspaces
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -16,12 +20,8 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -34,16 +34,22 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.FirstBaseline
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import dev.intent.app.R
 import dev.intent.app.design.IntentColors
 import dev.intent.app.design.IntentLightDarkPreview
 import dev.intent.app.design.IntentScreen
@@ -104,7 +110,12 @@ fun WorkspaceListScreen(
         Row(
             Modifier.fillMaxWidth()
                 .then(dev.intent.app.drawers.LocalHeaderDrawerGesture.current)
-                .padding(IntentScreen.pageInsets),
+                .padding(
+                    start = IntentSpacing.page,
+                    end = IntentSpacing.page,
+                    top = TITLE_TOP_SPACING,
+                    bottom = TITLE_BOTTOM_SPACING
+                ),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
@@ -146,8 +157,8 @@ fun WorkspaceListScreen(
             launcher = dev.intent.app.navigation.LocalLauncherActions.current,
             controls = { searching, toggleSearch ->
                 Row(
-                    Modifier.fillMaxWidth().padding(IntentScreen.pageInsets),
-                    horizontalArrangement = Arrangement.spacedBy(IntentSpacing.row),
+                    Modifier.fillMaxWidth().padding(horizontal = IntentSpacing.page),
+                    horizontalArrangement = Arrangement.spacedBy(IntentSpacing.medium),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     IntentTabs(
@@ -167,10 +178,16 @@ fun WorkspaceListScreen(
                 LazyColumn(
                     Modifier.fillMaxSize().workspaceTopFade(listState, canvas),
                     state = listState,
-                    contentPadding = contentPadding,
+                    contentPadding = PaddingValues(
+                        top = contentPadding.calculateTopPadding(),
+                        bottom = contentPadding.calculateBottomPadding()
+                    ),
                     verticalArrangement = Arrangement.spacedBy(0.dp)
                 ) {
-                    state.error?.let { item { Text(it, color = MaterialTheme.colorScheme.error) } }
+                    state.error?.let {
+                        item { Text(it, PageInset, color = MaterialTheme.colorScheme.error) }
+                    }
+                    workspaceLoadingItem(state)
                     if (!state.isLoading && state.error == null && groups.isEmpty()) {
                         item {
                             Text(
@@ -178,20 +195,27 @@ fun WorkspaceListScreen(
                                     "No workspaces yet"
                                 } else {
                                     "No matching workspaces"
-                                }
+                                },
+                                PageInset
                             )
                         }
+                    }
+                    if (grouping == WorkspaceGrouping.Recent && groups.isNotEmpty()) {
+                        item(key = "recent:spacing") { Spacer(Modifier.height(RECENT_TOP_SPACING)) }
                     }
                     groups.forEach { group ->
                         group.title?.let { title ->
                             item(key = "group:$title") {
                                 Text(
-                                    title,
-                                    style = MaterialTheme.typography.titleSmall,
+                                    title.uppercase(),
+                                    style = MaterialTheme.typography.labelSmall,
                                     color = IntentScreen.secondaryText,
                                     modifier =
-                                    Modifier
-                                        .padding(vertical = IntentSpacing.medium)
+                                    PageInset
+                                        .padding(
+                                            top = GROUP_TOP_SPACING,
+                                            bottom = GROUP_BOTTOM_SPACING
+                                        )
                                         .semantics { heading() }
                                 )
                             }
@@ -237,7 +261,7 @@ private fun WorkspaceRow(workspace: Workspace) {
         Column {
             Row(
                 Modifier.padding(vertical = IntentSpacing.page),
-                horizontalArrangement = Arrangement.spacedBy(IntentSpacing.page)
+                horizontalArrangement = Arrangement.spacedBy(ROW_ICON_SPACING)
             ) {
                 Box(
                     Modifier
@@ -250,14 +274,9 @@ private fun WorkspaceRow(workspace: Workspace) {
                 )
                 Column(
                     Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(IntentSpacing.row)
+                    verticalArrangement = Arrangement.spacedBy(ROW_TITLE_SPACING)
                 ) {
-                    Text(
-                        workspace.title,
-                        style = MaterialTheme.typography.titleMedium,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                    WorkspaceRowTitle(workspace)
                     workspaceRepository(workspace)?.let {
                         Text(
                             it,
@@ -266,16 +285,36 @@ private fun WorkspaceRow(workspace: Workspace) {
                         )
                     }
                     WorkspaceRowBadges(workspace)
-                    workspaceActivityLabel(workspace)?.let {
-                        Text(
-                            it,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = IntentScreen.secondaryText
-                        )
-                    }
                 }
             }
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        }
+    }
+}
+
+@Composable
+private fun WorkspaceRowTitle(workspace: Workspace) {
+    Row(
+        Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(IntentSpacing.row)
+    ) {
+        Text(
+            workspace.title,
+            modifier = Modifier.weight(1f).alignBy(FirstBaseline),
+            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis
+        )
+        workspaceRelativeTime(workspace)?.let { relative ->
+            Text(
+                relative,
+                modifier = Modifier
+                    .alignBy(FirstBaseline)
+                    .semantics { contentDescription = "Updated $relative" },
+                style = MaterialTheme.typography.bodySmall,
+                color = IntentScreen.secondaryText,
+                maxLines = 1,
+                softWrap = false
+            )
         }
     }
 }
@@ -367,10 +406,39 @@ private fun WorkspaceSearchButton(
     onToggle: () -> Unit
 ) {
     if (!searching && !hasWorkspaces) return
-    IconButton(onClick = onToggle) {
+    Box(
+        Modifier
+            .size(SEARCH_BUTTON_SIZE)
+            .clip(RoundedCornerShape(SEARCH_BUTTON_RADIUS))
+            .background(MaterialTheme.colorScheme.surface)
+            .clickable(onClick = onToggle),
+        contentAlignment = Alignment.Center
+    ) {
         Icon(
-            if (searching) Icons.Default.Close else Icons.Default.Search,
-            if (searching) "Close workspace search" else "Search workspaces"
+            if (searching) {
+                painterResource(
+                    R.drawable.intent_close
+                )
+            } else {
+                painterResource(R.drawable.ic_search)
+            },
+            if (searching) "Close workspace search" else "Search workspaces",
+            Modifier.size(24.dp)
         )
     }
 }
+
+// iOS Constants.WorkspaceList, WorkspaceSearch and spacious WorkspaceRow spacing.
+// The title paddings subtract Inter's space above the cap height and below the baseline.
+private val TITLE_TOP_SPACING = 56.dp
+private val TITLE_BOTTOM_SPACING = 56.dp
+internal val RECENT_TOP_SPACING = 12.dp
+private val SEARCH_BUTTON_SIZE = 56.dp
+private val SEARCH_BUTTON_RADIUS = 20.dp
+private val GROUP_TOP_SPACING = 32.dp
+private val GROUP_BOTTOM_SPACING = 12.dp
+private val ROW_ICON_SPACING = 20.dp
+private val ROW_TITLE_SPACING = 10.dp
+
+// The list runs edge to edge so swiped rows reach the screen edge; other items keep the page inset.
+internal val PageInset = Modifier.padding(horizontal = IntentSpacing.page)

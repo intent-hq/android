@@ -8,13 +8,28 @@ import dev.intent.core.protocol.models.WireJson
 import dev.intent.core.protocol.models.Workspace
 import java.io.Closeable
 import java.util.concurrent.CompletableFuture
+import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
 /** The connection owner closes this cache after its stores. No database work runs on a session callback. */
-class RoomOfflineCache(private val database: CacheDatabase, private val scope: String) :
-    OfflineCache,
+class RoomOfflineCache internal constructor(
+    internal val database: CacheDatabase,
+    private val scope: String,
+    private val executor: ExecutorService,
+    private val ownsDatabase: Boolean,
+    private val ownsExecutor: Boolean
+) : OfflineCache,
     Closeable {
-    private val executor = Executors.newSingleThreadExecutor()
+    constructor(database: CacheDatabase, scope: String) : this(
+        database = database,
+        scope = scope,
+        executor = Executors.newSingleThreadExecutor(),
+        ownsDatabase = true,
+        ownsExecutor = true
+    )
+
+    private val lock = Any()
+    private var closed = false
     private val dao = database.cacheDao()
 
     init {
@@ -78,23 +93,51 @@ class RoomOfflineCache(private val database: CacheDatabase, private val scope: S
         dao.deleteNote(scope, workspaceId, noteId)
     }
 
-    private fun <T> submit(action: () -> T): CompletableFuture<T> =
-        CompletableFuture.supplyAsync(action, executor)
+    private fun <T> submit(action: () -> T): CompletableFuture<T> = synchronized(lock) {
+        if (closed) {
+            CompletableFuture<T>().apply {
+                completeExceptionally(IllegalStateException("Offline cache is closed"))
+            }
+        } else {
+            CompletableFuture.supplyAsync(action, executor)
+        }
+    }
 
     override fun close() {
-        executor.execute { database.close() }
-        executor.shutdown()
+        synchronized(lock) {
+            if (closed) return
+            closed = true
+            if (ownsDatabase) executor.execute { database.close() }
+            if (ownsExecutor) executor.shutdown()
+        }
     }
 
     companion object {
+        private const val DATABASE_NAME = "offline-cache.db"
+        private var sharedApp: Context? = null
+        private var sharedDatabase: CacheDatabase? = null
+        private val sharedExecutor: ExecutorService = Executors.newSingleThreadExecutor()
+
         /** Use a stable pairing ID, including the principal identity; never use a bearer token. */
         fun open(context: Context, scope: String): RoomOfflineCache = RoomOfflineCache(
-            Room.databaseBuilder(
-                context.applicationContext,
-                CacheDatabase::class.java,
-                "offline-cache.db"
-            ).build(),
-            scope
+            database = sharedDatabase(context),
+            scope = scope,
+            executor = sharedExecutor,
+            ownsDatabase = false,
+            ownsExecutor = false
         )
+
+        @Synchronized
+        private fun sharedDatabase(context: Context): CacheDatabase {
+            val app = context.applicationContext
+            val existing = sharedDatabase
+            if (existing != null && sharedApp === app) return existing
+            val created = Room.databaseBuilder(app, CacheDatabase::class.java, DATABASE_NAME)
+                .build()
+            sharedApp = app
+            sharedDatabase = created
+            existing?.let { old -> sharedExecutor.execute { old.close() } }
+            return created
+        }
     }
 }

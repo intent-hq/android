@@ -9,11 +9,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -30,11 +25,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import dev.intent.app.R
 import dev.intent.app.design.IntentScreen
 
 @Suppress("LongParameterList", "LongMethod") // One compact browser toolbar.
@@ -66,12 +63,14 @@ internal fun BrowserAddressBar(
             Modifier.fillMaxWidth().background(IntentScreen.surface),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IconButton(onClick = close) { Icon(Icons.Default.Close, "Close preview") }
+            IconButton(onClick = close) {
+                Icon(painterResource(R.drawable.intent_close), "Close preview")
+            }
             IconButton(onClick = back, enabled = state.canGoBack && state.error == null) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, "Page back")
+                Icon(painterResource(R.drawable.ic_chevron_left), "Page back")
             }
             IconButton(onClick = forward, enabled = state.canGoForward && state.error == null) {
-                Icon(Icons.AutoMirrored.Filled.ArrowForward, "Page forward")
+                Icon(painterResource(R.drawable.ic_chevron_right), "Page forward")
             }
             BasicTextField(
                 value = address,
@@ -98,7 +97,7 @@ internal fun BrowserAddressBar(
                 enabled = address.isNotBlank()
             ) {
                 Icon(
-                    Icons.Default.Refresh,
+                    painterResource(R.drawable.ic_clockwise_arrow),
                     if (state.error ==
                         null
                     ) {

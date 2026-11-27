@@ -1,0 +1,41 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- iOS Assets.xcassets/ConnectionClipboard.imageset/ConnectionClipboard.svg -->
+    <path
+        android:pathData="M11,14H20"
+        android:fillColor="#00000000"
+        android:strokeColor="#080808"
+        android:strokeWidth="2"
+        android:strokeLineCap="square"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M16,4H18C18.5304,4 19.0391,4.21071 19.4142,4.58579C19.7893,4.96086 20,5.46957 20,6V7.344"
+        android:fillColor="#00000000"
+        android:strokeColor="#080808"
+        android:strokeWidth="2"
+        android:strokeLineCap="square"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M17,18L21,14L17,10"
+        android:fillColor="#00000000"
+        android:strokeColor="#080808"
+        android:strokeWidth="2"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M8,4H6C5.46957,4 4.96086,4.21071 4.58579,4.58579C4.21071,4.96086 4,5.46957 4,6V20C4,20.5304 4.21071,21.0391 4.58579,21.4142C4.96086,21.7893 5.46957,22 6,22H18C18.3729,22.0001 18.7384,21.8959 19.0552,21.6992C19.3721,21.5026 19.6276,21.2212 19.793,20.887"
+        android:fillColor="#00000000"
+        android:strokeColor="#080808"
+        android:strokeWidth="2"
+        android:strokeLineCap="square"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M15,2H9C8.44772,2 8,2.44772 8,3V5C8,5.55228 8.44772,6 9,6H15C15.5523,6 16,5.55228 16,5V3C16,2.44772 15.5523,2 15,2Z"
+        android:fillColor="#00000000"
+        android:strokeColor="#080808"
+        android:strokeWidth="2"
+        android:strokeLineCap="square"
+        android:strokeLineJoin="round" />
+</vector>

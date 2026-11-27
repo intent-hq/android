@@ -57,13 +57,13 @@ class ToolActivityTest {
             }
         }
         compose.onNodeWithText("Answer 0").assertIsDisplayed()
-        compose.onNodeWithText("▸ tool_use").assertDoesNotExist()
+        compose.onNodeWithText("tool_use").assertDoesNotExist()
         compose.onNodeWithText("Partial result").assertDoesNotExist()
-        compose.onNodeWithText("▸ Tool activity · 2 items").performClick()
-        compose.onNodeWithText("▸ tool result").performClick()
+        compose.onNodeWithText("Tool activity · 2 items").performClick()
+        compose.onNodeWithText("tool result").performClick()
         compose.runOnIdle { assertEquals("result" to "result:block", hydrated) }
         compose.onNodeWithText("Partial result").assertIsDisplayed()
-        compose.onNodeWithText("▾ Tool activity · 2 items").performClick()
+        compose.onNodeWithText("Tool activity · 2 items").performClick()
         compose.onNodeWithText("Partial result").assertDoesNotExist()
         compose.onNodeWithText("Answer 0").assertIsDisplayed()
     }
@@ -88,7 +88,7 @@ class ToolActivityTest {
         }
         compose.onNodeWithTag("transcript").performTouchInput { swipeDown() }
         compose.onNodeWithTag("transcript").performScrollToIndex(31)
-        val before = compose.onNodeWithText("▸ Tool activity · 2 items")
+        val before = compose.onNodeWithText("Tool activity · 2 items")
             .assertIsDisplayed().fetchSemanticsNode().boundsInRoot
         compose.runOnIdle {
             state.value = state.value.copy(
@@ -99,7 +99,7 @@ class ToolActivityTest {
         compose.waitForIdle()
         assertEquals(
             before,
-            compose.onNodeWithText("▸ Tool activity · 3 items")
+            compose.onNodeWithText("Tool activity · 3 items")
                 .assertIsDisplayed().fetchSemanticsNode().boundsInRoot
         )
     }

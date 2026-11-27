@@ -77,7 +77,7 @@ class WorkspaceActionsTest {
         compose.onNodeWithTag("workspace.row.workspace").performTouchInput { swipeLeft() }
         compose.onNodeWithText(TITLE).assertIsDisplayed()
         screenshot("workspace-swipe-actions")
-        compose.onNodeWithText("Delete").performClick()
+        compose.onNodeWithContentDescription("Delete workspace").performClick()
         assertTrue(server.requests.none { it.method == "workspace.delete" })
         fixtureResponses["workspace.list"] = """{"workspaces":[]}"""
         compose.onNodeWithText("Delete", substring = false).performClick()
