@@ -2,14 +2,20 @@ package dev.intentapp.android.browser
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -21,18 +27,28 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
 import dev.intent.core.protocol.session.RpcSession
+import dev.intentapp.android.R
 import dev.intentapp.android.design.IntentScreen
-import dev.intentapp.android.design.IntentSection
-import dev.intentapp.android.design.IntentTextButton
+import dev.intentapp.android.design.IntentSpacing
+import dev.intentapp.android.navigation.LocalConnectionReady
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /** A blank connectionId uses session-local memory; otherwise use the stable saved-connection ID. */
+@Suppress("LongMethod") // List, new-browser sheet and browser page share one saved-browser store.
 @Composable
 fun WorkspaceBrowsersRoute(
     session: RpcSession,
@@ -50,20 +66,27 @@ fun WorkspaceBrowsersRoute(
     }
     val scope = rememberCoroutineScope()
     val state by store.state.collectAsState()
+    val connected = LocalConnectionReady.current
     var target by rememberSaveable(session, connectionId, workspaceId) {
         mutableStateOf<String?>(null)
     }
     var selectedId by rememberSaveable(session, connectionId, workspaceId) {
         mutableStateOf<String?>(null)
     }
+    var creating by rememberSaveable(session, connectionId, workspaceId) { mutableStateOf(false) }
     LaunchedEffect(store) { withContext(Dispatchers.IO) { store.load() } }
     BackHandler(target != null) { target = null }
+    val open = { browser: SavedBrowser ->
+        selectedId = browser.id
+        target = browser.url
+    }
     if (target != null && !state.loading) {
         WorkspaceBrowser(
             session,
             workspaceId,
             onBack = { target = null },
-            initialUrl = target?.takeIf { it.isNotEmpty() },
+            initialUrl = target,
+            connected = connected,
             onPageChanged = { url, title ->
                 val pageTarget = target
                 val pageId = selectedId
@@ -77,22 +100,28 @@ fun WorkspaceBrowsersRoute(
         WorkspaceBrowsersScreen(
             state,
             onBack,
-            onNew = {
-                selectedId = null
-                target = ""
-            },
-            onOpen = {
-                selectedId = it.id
-                target = it.url
-            },
+            onNew = { creating = true },
+            onOpen = open,
             onRemove = { id -> scope.launch(Dispatchers.IO) { store.remove(id) } },
-            onRetry = { scope.launch(Dispatchers.IO) { store.load() } }
+            onRetry = { scope.launch(Dispatchers.IO) { store.load() } },
+            connected = connected
+        )
+    }
+    if (creating) {
+        NewBrowserSheet(
+            onDismiss = { creating = false },
+            onCreate = { address ->
+                store.create(address).map {
+                    creating = false
+                    open(it)
+                }
+            }
         )
     }
 }
 
-@Suppress("LongParameterList") // Pure screen callbacks allow host-free screenshots.
-@OptIn(ExperimentalLayoutApi::class)
+/** iOS WorkspaceBrowsersView: an uppercase BROWSERS eyebrow over globe rows that swipe to delete. */
+@Suppress("LongParameterList", "LongMethod") // Pure screen callbacks allow host-free screenshots.
 @Composable
 fun WorkspaceBrowsersScreen(
     state: SavedBrowsersState,
@@ -100,55 +129,177 @@ fun WorkspaceBrowsersScreen(
     onNew: () -> Unit,
     onOpen: (SavedBrowser) -> Unit,
     onRemove: (String) -> Unit,
-    onRetry: () -> Unit
+    onRetry: () -> Unit,
+    connected: Boolean = true
 ) {
-    LazyColumn(
-        Modifier.fillMaxSize(),
-        contentPadding = IntentScreen.pageInsets,
-        verticalArrangement = Arrangement.spacedBy(IntentScreen.itemSpacing)
-    ) {
-        item {
-            Column {
-                Text("Browsers", style = MaterialTheme.typography.headlineSmall)
-                Text("Under development", color = IntentScreen.secondaryText)
-                FlowRow {
-                    IntentTextButton(onClick = onBack) { Text("Back") }
-                    IntentTextButton(
-                        onClick = onNew,
-                        enabled =
-                        !state.loading && state.error == null
+    var revealed by remember { mutableStateOf<String?>(null) }
+    Column(Modifier.fillMaxSize()) {
+        BrowsersHeader(onBack, onNew, enabled = !state.loading && state.error == null)
+        LazyColumn(
+            Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(
+                top = IntentSpacing.page,
+                bottom = IntentSpacing.page
+            ),
+            verticalArrangement = Arrangement.spacedBy(ROW_SPACING)
+        ) {
+            if (state.browsers.isNotEmpty() || state.error != null) {
+                item {
+                    Text(
+                        "BROWSERS",
+                        Modifier.padding(horizontal = IntentSpacing.page).semantics { heading() },
+                        style = MaterialTheme.typography.labelSmall,
+                        color = IntentScreen.secondaryText
+                    )
+                }
+            }
+            items(state.browsers, key = { it.id }) { browser ->
+                BrowserSwipeRow(
+                    browser,
+                    revealed = revealed == browser.id,
+                    enabled = !state.loading,
+                    onReveal = { revealed = if (it) browser.id else null },
+                    onOpen = {
+                        if (revealed != null) revealed = null else onOpen(browser)
+                    },
+                    onDelete = {
+                        revealed = null
+                        onRemove(browser.id)
+                    }
+                ) { progress -> BrowserRow(browser, connected, progress) }
+            }
+            state.error?.let { message ->
+                item {
+                    Column(
+                        Modifier.padding(horizontal = IntentSpacing.page),
+                        verticalArrangement = Arrangement.spacedBy(IntentSpacing.medium)
                     ) {
-                        Text("New browser")
+                        Text(
+                            message,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = IntentScreen.secondaryText
+                        )
+                        BrowserSecondaryButton("Retry", enabled = !state.loading, onClick = onRetry)
                     }
                 }
             }
-        }
-        if (state.loading) item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
-        state.error?.let { message ->
-            item {
-                Text(message, color = IntentScreen.error)
-                IntentTextButton(onClick = onRetry, enabled = !state.loading) { Text("Retry") }
-            }
-        }
-        if (!state.loading && state.browsers.isEmpty() && state.error == null) {
-            item {
-                IntentSection("No saved browsers") {
-                    Text("Open a workspace preview to save its title and URL here.")
-                }
-            }
-        }
-        items(state.browsers, key = { it.id }) { browser ->
-            IntentSection(browser.title, onClick = { onOpen(browser) }) {
-                Text(
-                    browser.url,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    color = IntentScreen.secondaryText
-                )
-                IntentTextButton(onClick = { onRemove(browser.id) }, enabled = !state.loading) {
-                    Text("Remove saved browser")
-                }
+            if (!state.loading && state.browsers.isEmpty() && state.error == null) {
+                item { BrowsersEmptyState(onNew) }
             }
         }
     }
 }
+
+@Composable
+private fun BrowsersHeader(onBack: () -> Unit, onNew: () -> Unit, enabled: Boolean) {
+    Row(
+        Modifier.fillMaxWidth().padding(
+            horizontal = IntentSpacing.page,
+            vertical = IntentSpacing.medium
+        ),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        IconButton(onClick = onBack, modifier = Modifier.size(CONTROL_SIZE)) {
+            Icon(painterResource(R.drawable.ic_chevron_left), "Back")
+        }
+        Text(
+            "Browsers",
+            Modifier.weight(1f).padding(horizontal = IntentSpacing.small).semantics { heading() },
+            style = MaterialTheme.typography.labelMedium,
+            textAlign = TextAlign.Center,
+            maxLines = 1
+        )
+        IconButton(onClick = onNew, enabled = enabled, modifier = Modifier.size(CONTROL_SIZE)) {
+            Icon(painterResource(R.drawable.ic_add), "New browser")
+        }
+    }
+}
+
+/** iOS WorkspaceBrowserRow: 32dp globe tile, 24dp gap, title, address, and a fading chevron. */
+@Composable
+private fun BrowserRow(browser: SavedBrowser, connected: Boolean, swipeProgress: Float) {
+    Row(
+        Modifier.fillMaxWidth().heightIn(min = 44.dp),
+        horizontalArrangement = Arrangement.spacedBy(IntentSpacing.page)
+    ) {
+        Box(Modifier.size(AVATAR_SIZE), contentAlignment = Alignment.Center) {
+            Icon(
+                painterResource(R.drawable.ic_globe),
+                null,
+                Modifier.size(ICON_SIZE),
+                tint = IntentScreen.secondaryText
+            )
+        }
+        Column(
+            Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(IntentSpacing.medium)
+        ) {
+            Text(
+                browser.title,
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight(BODY)),
+                color = IntentScreen.text
+            )
+            Text(
+                browser.url,
+                style = MaterialTheme.typography.bodyMedium,
+                color = IntentScreen.secondaryText,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            if (!connected) {
+                Text(
+                    "Disconnected",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = IntentScreen.secondaryText
+                )
+            }
+        }
+        Box(
+            Modifier.size(height = AVATAR_SIZE, width = 12.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                painterResource(R.drawable.ic_chevron_right),
+                null,
+                Modifier.size(12.dp).alpha(1f - swipeProgress),
+                tint = IntentScreen.secondaryText
+            )
+        }
+    }
+}
+
+/** Android-only empty state; iOS hides the section and opens New browser from the workspace menu. */
+@Composable
+private fun BrowsersEmptyState(onNew: () -> Unit) {
+    Column(
+        Modifier.fillMaxWidth().padding(horizontal = IntentSpacing.page, vertical = 48.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(IntentSpacing.row)
+    ) {
+        Icon(
+            painterResource(R.drawable.ic_globe),
+            null,
+            Modifier.size(48.dp),
+            tint = IntentScreen.secondaryText
+        )
+        Text(
+            "No browsers",
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.semantics { heading() }
+        )
+        Text(
+            "Use localhost and the server port to open a server running on your connected machine.",
+            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight(BODY)),
+            color = IntentScreen.secondaryText,
+            textAlign = TextAlign.Center
+        )
+        Spacer(Modifier.size(IntentSpacing.small))
+        BrowserSecondaryButton("New browser", onClick = onNew)
+    }
+}
+
+private val ROW_SPACING = 36.dp
+private val AVATAR_SIZE = 32.dp
+private val ICON_SIZE = 24.dp
+private val CONTROL_SIZE = 48.dp
+private const val BODY = 450

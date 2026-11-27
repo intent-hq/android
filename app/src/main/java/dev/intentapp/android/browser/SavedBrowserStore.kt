@@ -97,6 +97,20 @@ class SavedBrowserStore(private val persistence: SavedBrowserPersistence) {
         }
     }
 
+    /** iOS WorkspaceBrowserStore.create: a new saved row titled with its normalized address. */
+    @Synchronized
+    fun create(address: String): Result<SavedBrowser> = runCatching {
+        check(loaded && !state.value.loading) { "Saved browsers are still loading. Try again." }
+        val url = requireNotNull(normalizeBrowserUrl(address)) { INVALID_BROWSER_URL }
+        val browser = SavedBrowser("browser:${UUID.randomUUID()}", url, url).withoutUrlSecrets()
+        val browsers = state.value.browsers + browser
+        runCatching { persistence.save(browsers) }.getOrElse {
+            error("Cannot save this browser. Try again.")
+        }
+        mutableState.value = SavedBrowsersState(browsers, loading = false)
+        browser
+    }
+
     @Synchronized
     fun remove(id: String) {
         if (!loaded || state.value.loading) return

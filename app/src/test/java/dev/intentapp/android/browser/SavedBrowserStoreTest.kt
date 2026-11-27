@@ -120,6 +120,50 @@ class SavedBrowserStoreTest {
         assertEquals(browserStorageKey("host-a", "one"), browserStorageKey("host-a", "one"))
     }
 
+    @Test
+    fun `new browser normalizes the typed address and persists a fresh row`() {
+        val persistence = MemoryBrowsers()
+        val store = SavedBrowserStore(persistence).apply { load() }
+        val created = store.create("  LOCALHOST:3000/app?token=secret ").getOrThrow()
+        assertTrue(created.id.startsWith("browser:"))
+        assertEquals("http://localhost:3000/app", created.url)
+        assertEquals(created.url, created.title)
+        assertEquals(listOf(created), persistence.rows)
+        val second = store.create("localhost:3000/app").getOrThrow()
+        assertNotEquals(created.id, second.id)
+    }
+
+    @Test
+    fun `new browser rejects invalid addresses with the iOS message`() {
+        val store = SavedBrowserStore(MemoryBrowsers()).apply { load() }
+        listOf("", "ftp://host", "user:pw@host", "local host", "host:", "host:70000", "a\\b")
+            .forEach {
+                assertEquals(it, INVALID_BROWSER_URL, store.create(it).exceptionOrNull()?.message)
+            }
+        assertTrue(store.state.value.browsers.isEmpty())
+    }
+
+    @Test
+    fun `new browser reports a save failure without adding a row`() {
+        val persistence = MemoryBrowsers()
+        val store = SavedBrowserStore(persistence).apply { load() }
+        persistence.failSave = true
+        assertTrue(store.create("localhost:3000").isFailure)
+        assertTrue(store.state.value.browsers.isEmpty())
+    }
+
+    @Test
+    fun `browser URL normalization matches iOS WorkspaceBrowserURL`() {
+        assertEquals("http://localhost:3000", normalizeBrowserUrl("localhost:3000"))
+        assertEquals(
+            "https://example.test/a%20b#x",
+            normalizeBrowserUrl("HTTPS://Example.TEST/a%20b#x")
+        )
+        assertEquals("http://[::1]:8080/", normalizeBrowserUrl("http://[::1]:8080/"))
+        assertNull(normalizeBrowserUrl("javascript:alert(1)"))
+        assertNull(normalizeBrowserUrl("http://host:0"))
+    }
+
     private class MemoryBrowsers : SavedBrowserPersistence {
         var rows: List<SavedBrowser> = emptyList()
         var failSave = false

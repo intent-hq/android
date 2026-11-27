@@ -12,6 +12,9 @@ import androidx.compose.ui.platform.UriHandler
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.click
+import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -52,13 +55,13 @@ class HostLocalLinksTest {
         }
         assertPreview(tunnel, 4322, "/next")
         compose.waitUntil(TIMEOUT) { pageReady() }
-        compose.onNodeWithContentDescription("Page back").performClick()
+        barButton("Back").performClick()
         compose.waitUntil(TIMEOUT) {
             runCatching {
                 compose.onNodeWithContentDescription("Browser URL").assertTextContains(LOCAL_URL)
             }.isSuccess
         }
-        compose.onNodeWithContentDescription("Page forward").performClick()
+        barButton("Forward").performClick()
         compose.waitUntil(TIMEOUT) {
             runCatching {
                 compose.onNodeWithContentDescription(
@@ -67,11 +70,11 @@ class HostLocalLinksTest {
             }.isSuccess
         }
         val beforeReload = tunnel.requests.size
-        compose.onNodeWithContentDescription("Reload page").performClick()
+        barButton("Reload").performClick()
         compose.waitUntil(TIMEOUT) { tunnel.requests.size > beforeReload }
         screenshot("host-link-browser")
         assertTrue(external.isEmpty())
-        compose.onNodeWithContentDescription("Close preview").performClick()
+        compose.onNodeWithContentDescription("Close browser").performClick()
         compose.onNodeWithContentDescription("Message").assertIsDisplayed()
         openLink("Public site")
         assertEquals(listOf("https://example.com/docs"), external.toList())
@@ -84,7 +87,7 @@ class HostLocalLinksTest {
         compose.onNodeWithText("Link note").performClick()
         openLink("Local preview")
         assertPreview(tunnel, 4321, "/preview?q=%2F")
-        compose.onNodeWithContentDescription("Close preview").performClick()
+        compose.onNodeWithContentDescription("Close browser").performClick()
         compose.onNodeWithText("Link note").assertIsDisplayed()
         openLink("Public site")
         assertEquals(listOf("https://example.com/docs"), external.toList())
@@ -99,10 +102,15 @@ class HostLocalLinksTest {
             waitText(
                 "The browser tunnel is unavailable. Reconnect and update Intent on the host, then retry."
             )
-            compose.onNodeWithContentDescription("Retry preview").assertIsDisplayed()
+            compose.onNodeWithText("Page unavailable").assertIsDisplayed()
+            compose.onNodeWithText("Retry").assertIsDisplayed()
             screenshot("host-link-tunnel-error")
             assertTrue(external.isEmpty())
         }
+
+    private fun barButton(label: String) = compose.onNode(
+        hasContentDescription(label) and hasAnyAncestor(hasTestTag("browser.addressBar"))
+    )
 
     private fun openLink(label: String) {
         waitText(label)
