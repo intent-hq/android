@@ -56,11 +56,6 @@ class PageSearchTest {
         screenshot("workspace-search")
         compose.onNodeWithContentDescription("Clear search").performClick()
         compose.onNodeWithText("Beta").assertIsDisplayed()
-        compose.waitUntil(5_000) {
-            compose.onAllNodes(androidx.compose.ui.test.hasContentDescription("Search workspaces"))
-                .fetchSemanticsNodes().isNotEmpty()
-        }
-        compose.onNodeWithContentDescription("Search workspaces").performClick()
         compose.onNodeWithText("Search workspaces").performTextInput("missing")
         compose.onNodeWithText("No matching workspaces").assertIsDisplayed()
         compose.onNodeWithContentDescription("Close search").performClick()
