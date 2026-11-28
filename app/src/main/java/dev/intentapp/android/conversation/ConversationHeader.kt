@@ -67,7 +67,7 @@ internal fun ConversationHeader(
         if (actions.isEmpty()) {
             Spacer(Modifier.size(CONTROL_SIZE))
         } else {
-            ChromeActionsMenu(actions, surface = false)
+            ChromeActionsMenu(actions)
         }
     }
 }
