@@ -84,6 +84,36 @@ class WorkspaceStoreTest {
     }
 
     @Test
+    fun pagedSnapshotKeepsNewerRowsAndReadsEveryPage() {
+        val session = FakeWorkspaceSession()
+        val store = WorkspaceStore(session)
+        store.start()
+        session.admit()
+        session.reads.last().complete(listOf(Workspace("old", "Old"), Workspace("new", "New")))
+        session.push(
+            SubscriptionPush(
+                "lease",
+                "workspace",
+                0,
+                snapshot = listOf(Workspace("old", "Old v2")),
+                nextToken = "page-2"
+            )
+        )
+        assertEquals(
+            setOf("old" to "Old v2", "new" to "New"),
+            store.state.value.workspaces.map { it.id to it.title }.toSet()
+        )
+        assertEquals(2, session.reads.size)
+        session.reads.last().complete(
+            listOf(Workspace("old", "Old v2"), Workspace("newest", "Newest"))
+        )
+        assertEquals(
+            setOf("old", "newest"),
+            store.state.value.workspaces.map { it.id }.toSet()
+        )
+    }
+
+    @Test
     fun reconnectRefreshFencesPreviousRead() {
         val session = FakeWorkspaceSession()
         val store = WorkspaceStore(session)

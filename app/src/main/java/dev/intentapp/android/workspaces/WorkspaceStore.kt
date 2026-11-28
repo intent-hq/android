@@ -94,6 +94,8 @@ class WorkspaceStore(
         pushesDuringRead?.add(push)
         val rows = merge(state.value.workspaces, push) ?: return fail(MalformedPush())
         publish(rows, keepLoading = pushesDuringRead != null)
+        // A paged snapshot holds only the oldest rows; read every page for the full list.
+        if (push.snapshot != null && push.nextToken != null && pushesDuringRead == null) refresh()
     }
 
     private fun publish(
@@ -167,8 +169,11 @@ class WorkspaceStore(
 
 private fun merge(rows: List<Workspace>, push: SubscriptionPush<Workspace>): List<Workspace>? {
     val delta = push.delta
+    val snapshot = push.snapshot
     return when {
-        push.snapshot != null -> push.snapshot
+        snapshot != null && push.nextToken != null ->
+            (rows.associateBy { it.id } + snapshot.associateBy { it.id }).values.toList()
+        snapshot != null -> snapshot
         delta == null -> null
         else -> {
             val byId = rows.associateBy { it.id }.toMutableMap()

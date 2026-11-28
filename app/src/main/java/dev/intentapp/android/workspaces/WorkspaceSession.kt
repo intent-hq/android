@@ -28,11 +28,29 @@ class RpcWorkspaceSession(private val session: RpcSession) : WorkspaceSession {
         session.recoverNow()
     }
 
-    override fun list(): CompletableFuture<List<Workspace>> = session.request(
+    /** Reads every page; the daemon returns 100 rows per page, oldest first. */
+    override fun list(): CompletableFuture<List<Workspace>> = page(null, emptyList(), emptySet())
+
+    private fun page(
+        token: String?,
+        rows: List<Workspace>,
+        seen: Set<String>
+    ): CompletableFuture<List<Workspace>> = session.request(
         "workspace.list",
-        buildJsonObject { put("includeArchived", true) },
+        buildJsonObject {
+            put("includeArchived", true)
+            token?.let { put("nextToken", it) }
+        },
         WorkspaceListResult.serializer()
-    ).thenApply { it.workspaces }
+    ).thenCompose { result ->
+        val next = result.nextToken
+        val all = rows + result.workspaces
+        if (next == null || next in seen || result.workspaces.isEmpty()) {
+            CompletableFuture.completedFuture(all)
+        } else {
+            page(next, all, seen + next)
+        }
+    }
 
     override fun subscribe(
         onPush: (SubscriptionPush<Workspace>) -> Unit,

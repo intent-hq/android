@@ -36,7 +36,9 @@ data class SubscriptionPush<T>(
     val kind: String,
     val seq: Long,
     val snapshot: List<T>? = null,
-    val delta: EntityDelta<T>? = null
+    val delta: EntityDelta<T>? = null,
+    /** Set when [snapshot] is only the first page of a larger list. */
+    val nextToken: String? = null
 )
 
 @Serializable
