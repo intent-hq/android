@@ -18,6 +18,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import dev.intentapp.android.R
@@ -25,7 +26,7 @@ import dev.intentapp.android.design.IntentTextButton
 
 /** Shared input for composers and question sets. Clipboard access requires an explicit tap. */
 @Composable
-fun PhotoPicker(store: PhotoAttachmentStore) {
+fun PhotoPicker(store: PhotoAttachmentStore, modifier: Modifier = Modifier) {
     val state by store.state.collectAsState()
     val context = LocalContext.current
     var expanded by remember { mutableStateOf(false) }
@@ -37,7 +38,7 @@ fun PhotoPicker(store: PhotoAttachmentStore) {
         rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
             store.addFiles(uris.map { it.toString() })
         }
-    Box {
+    Box(modifier) {
         IconButton(onClick = { expanded = true }) {
             Icon(
                 painterResource(R.drawable.ic_attach),

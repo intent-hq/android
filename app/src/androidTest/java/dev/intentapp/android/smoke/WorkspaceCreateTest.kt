@@ -1,9 +1,13 @@
 package dev.intentapp.android.smoke
 
 import android.graphics.Bitmap
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -16,6 +20,7 @@ import dev.intentapp.android.attachments.PhotoAttachmentStore
 import dev.intentapp.android.design.IntentTheme
 import dev.intentapp.android.testing.createIntentComposeRule
 import dev.intentapp.android.workspaces.CreationDraftStore
+import dev.intentapp.android.workspaces.CreationRepository
 import dev.intentapp.android.workspaces.CreationStep
 import dev.intentapp.android.workspaces.CreationWorkflow
 import dev.intentapp.android.workspaces.WorkspaceCreateScreen
@@ -48,11 +53,10 @@ class WorkspaceCreateTest {
         screenshot("creation-branches")
         tap("Next")
         waitText("Provider A")
-        tap("Model A")
-        tap("high")
-        compose.onNodeWithText(
-            "Initial prompt"
-        ).performScrollTo().performTextInput("Build a feature")
+        choose("Model", "Model A")
+        choose("Reasoning", "high")
+        compose.onNodeWithContentDescription("Initial prompt").performTextInput("Build a feature")
+        screenshot("creation-agent-form")
         tap("Create")
         compose.waitUntil { created == "created" }
         assertEquals(
@@ -91,7 +95,7 @@ class WorkspaceCreateTest {
         waitText("Agent choices could not load. Check provider sign-in on the host, then retry.")
         compose.onNodeWithText("Create").assertIsNotEnabled()
         fake.failProviders = false
-        tap("Retry agent choices")
+        tap("Retry")
         waitText("Provider A")
         compose.waitUntil { workflow.draft.value.provider == "a" }
         compose.onNodeWithText("Create").assertIsEnabled()
@@ -105,8 +109,8 @@ class WorkspaceCreateTest {
         val workflow = CreationWorkflow(fake, WorkspaceDraft(step = CreationStep.AGENT))
         compose.setContent { IntentTheme { WorkspaceCreateScreen(workflow, {}, {}) } }
         waitText("Provider A")
-        tap("Specialist B")
-        tap("None")
+        choose("Specialist", "Specialist B")
+        choose("Specialist", "None")
         compose.onNodeWithContentDescription("Back").performClick()
         compose.onNodeWithContentDescription("Back").performClick()
         compose.onNodeWithContentDescription("New repository").performClick()
@@ -116,7 +120,7 @@ class WorkspaceCreateTest {
         assertEquals("", workflow.draft.value.specialist)
         assertEquals(
             0,
-            compose.onAllNodesWithText("Retry agent choices").fetchSemanticsNodes().size
+            compose.onAllNodesWithText("Retry").fetchSemanticsNodes().size
         )
         screenshot("creation-no-specialist")
         tap("Create")
@@ -192,6 +196,42 @@ class WorkspaceCreateTest {
         assertEquals(null, (fake.created!!["initialAgent"] as JsonObject)["prompt"])
         assertEquals("Read this", fake.sent!!["content"].toString().trim('"'))
         assertEquals(0, workflow.draft.value.media.size)
+    }
+
+    @Test fun agentFormMatchesIosInBothThemes() {
+        var dark by mutableStateOf(false)
+        val workflow = CreationWorkflow(
+            CreateChoices(),
+            WorkspaceDraft(
+                step = CreationStep.AGENT,
+                repository = CreationRepository("intent-hq", "android", "main"),
+                baseRef = "main"
+            )
+        )
+        compose.setContent { IntentTheme(dark) { WorkspaceCreateScreen(workflow, {}, {}) } }
+        waitText("Provider A")
+        screenshot("creation-agent-empty-light")
+        compose.onNodeWithContentDescription("Initial prompt")
+            .performTextInput("Fix the second page of the form.\nUse select menus.\nMatch iOS.")
+        compose.onNodeWithContentDescription("Model").performClick()
+        waitText("Model A")
+        screenshot("creation-agent-menu-light")
+        compose.onNodeWithText("Model A").performClick()
+        compose.runOnIdle { dark = true }
+        compose.waitForIdle()
+        screenshot("creation-agent-filled-dark")
+        compose.onNodeWithContentDescription("Specialist").performClick()
+        waitText("Specialist B")
+        screenshot("creation-agent-menu-dark")
+        compose.onNodeWithText("Specialist B").performClick()
+        compose.onNodeWithText("intent-hq/android").performClick()
+        compose.waitUntil { workflow.draft.value.step == CreationStep.BRANCH }
+    }
+
+    private fun choose(field: String, option: String) {
+        compose.onNodeWithContentDescription(field).performScrollTo().performClick()
+        waitText(option)
+        compose.onAllNodesWithText(option).onLast().performClick()
     }
 
     private fun tap(text: String) {

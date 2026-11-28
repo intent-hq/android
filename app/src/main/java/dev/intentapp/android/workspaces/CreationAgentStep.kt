@@ -2,8 +2,16 @@
 
 package dev.intentapp.android.workspaces
 
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.material3.FilterChip
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -12,15 +20,19 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import dev.intentapp.android.R
 import dev.intentapp.android.agents.AgentModelChoice
 import dev.intentapp.android.agents.NewAgentOptions
 import dev.intentapp.android.attachments.PhotoAttachmentStore
 import dev.intentapp.android.attachments.PhotoAttachments
 import dev.intentapp.android.attachments.PhotoPicker
-import dev.intentapp.android.design.IntentSection
+import dev.intentapp.android.design.IntentScreen
 import dev.intentapp.android.design.IntentTextButton
-import dev.intentapp.android.design.IntentTextField
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -116,26 +128,6 @@ internal fun CreationAgent(
             description.image
         )
     }
-    CreationSourceSummary(draft)
-    IntentTextField(draft.title, {
-        workflow.update(draft.copy(title = it))
-    }, label = { Text("Title (optional)") }, enabled = enabled)
-    IntentTextField(draft.prompt, {
-        workflow.update(draft.copy(prompt = it))
-    }, label = { Text("Initial prompt") }, modifier = Modifier.fillMaxWidth(), enabled = enabled)
-    draft.media.filter { saved -> newMedia.none { it.key == saved.key } }.forEach { media ->
-        Text(media.name)
-        if (enabled) {
-            IntentTextButton(onClick = {
-                workflow.update(draft.copy(media = draft.media.filterNot { it.key == media.key }))
-                File(media.path).delete()
-            }) { Text("Remove ${media.name}") }
-        }
-    }
-    if (photos != null && enabled) {
-        PhotoPicker(photos)
-        PhotoAttachments(photos)
-    }
     var liveKeys by remember(photos) { mutableStateOf(emptySet<String>()) }
     LaunchedEffect(additions) {
         if (workflow.draft.value.submitted == null) {
@@ -151,56 +143,103 @@ internal fun CreationAgent(
             liveKeys = activeKeys
         }
     }
-    if (loading || modelsLoading) Text("Loading agent choices…")
-    (error ?: modelError)?.let {
-        Text(it)
-        IntentTextButton(onClick = {
-            retry++
-        }, enabled = enabled && !loading && !modelsLoading) { Text("Retry agent choices") }
-    }
-    IntentSection("Specialist") {
-        FilterChip(draft.specialist.isEmpty(), {
-            workflow.update(draft.copy(specialist = ""))
-        }, label = { Text("None") }, enabled = enabled)
-        options?.specialists.orEmpty().forEach { choice ->
-            FilterChip(draft.specialist == choice.id, {
-                workflow.update(draft.copy(specialist = choice.id))
-            }, label = { Text(choice.name) }, enabled = enabled)
-        }
-    }
-    IntentSection("Provider") {
-        if (!loading && error == null && options?.providers.orEmpty().none { it.selectable }) {
-            Text("No providers are ready. Enable a provider and sign in on the host.")
-        }
-        options?.providers.orEmpty().forEach { choice ->
-            FilterChip(
-                draft.provider == choice.id,
-                {
-                    workflow.update(draft.copy(provider = choice.id, model = "", reasoning = ""))
-                },
-                label = { Text(choice.name) },
-                enabled =
-                enabled && choice.selectable
-            )
-        }
-    }
-    IntentSection("Model") {
-        FilterChip(draft.model.isEmpty(), {
-            workflow.update(draft.copy(model = "", reasoning = ""))
-        }, label = { Text("Host default") }, enabled = enabled)
-        models.forEach { model ->
-            FilterChip(draft.model == model.id, {
-                workflow.update(draft.copy(model = model.id, reasoning = ""))
-            }, label = { Text(model.name) }, enabled = enabled)
-        }
-    }
     val efforts = models.firstOrNull { it.id == draft.model }?.effortLevels.orEmpty()
-    if (efforts.isNotEmpty()) {
-        IntentSection("Reasoning") {
-            (listOf("") + efforts).forEach { effort ->
-                FilterChip(draft.reasoning == effort, {
-                    workflow.update(draft.copy(reasoning = effort))
-                }, label = { Text(effort.ifBlank { "Default reasoning" }) }, enabled = enabled)
+    val providers = options?.providers.orEmpty()
+    val saved = draft.media.filter { item -> newMedia.none { it.key == item.key } }
+    Column {
+        CreationPromptCard(draft.prompt, { workflow.update(draft.copy(prompt = it)) }, enabled) {
+            saved.forEach { media ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        media.name,
+                        Modifier.weight(1f),
+                        style = MaterialTheme.typography.bodyMedium,
+                        maxLines = 1,
+                        overflow = TextOverflow.MiddleEllipsis
+                    )
+                    if (enabled) {
+                        IconButton(onClick = {
+                            workflow.update(
+                                draft.copy(media = draft.media.filterNot { it.key == media.key })
+                            )
+                            File(media.path).delete()
+                        }) {
+                            Icon(
+                                painterResource(R.drawable.intent_close),
+                                "Remove ${media.name}",
+                                Modifier.size(16.dp)
+                            )
+                        }
+                    }
+                }
+            }
+            if (photos != null && enabled) {
+                PhotoAttachments(photos)
+                PhotoPicker(photos, Modifier.offset(x = (-12).dp))
+            }
+        }
+        CreationSourceCard(draft, enabled, Modifier.padding(top = 8.dp)) {
+            workflow.update(draft.back())
+        }
+        Column(
+            Modifier.padding(top = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Box(Modifier.padding(bottom = 12.dp)) { CreationSectionLabel("Agent") }
+            CreationOptionField(
+                "Specialist",
+                listOf(CreationMenuChoice("", "None")) +
+                    options?.specialists.orEmpty().map { CreationMenuChoice(it.id, it.name) },
+                draft.specialist,
+                enabled && !loading
+            ) { workflow.update(draft.copy(specialist = it)) }
+            if (!loading && error == null && providers.none { it.selectable }) {
+                Text("No providers are signed in", style = MaterialTheme.typography.labelMedium)
+                Text(
+                    "Set up a provider in the Intent desktop app, then come back and try again.",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            } else if (providers.isNotEmpty()) {
+                CreationOptionField(
+                    "Provider",
+                    providers.map { CreationMenuChoice(it.id, it.name, it.selectable) },
+                    draft.provider,
+                    enabled
+                ) { workflow.update(draft.copy(provider = it, model = "", reasoning = "")) }
+                CreationOptionField(
+                    "Model",
+                    listOf(CreationMenuChoice("", "Default")) +
+                        models.map { CreationMenuChoice(it.id, it.name) },
+                    draft.model,
+                    enabled && !modelsLoading
+                ) { workflow.update(draft.copy(model = it, reasoning = "")) }
+                CreationOptionField(
+                    "Reasoning",
+                    listOf(CreationMenuChoice("", "Auto")) +
+                        efforts.map { CreationMenuChoice(it, it) },
+                    draft.reasoning,
+                    enabled && !modelsLoading
+                ) { workflow.update(draft.copy(reasoning = it)) }
+                if (efforts.isEmpty()) {
+                    Text(
+                        "Choose a model with reasoning options to override Auto.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = IntentScreen.secondaryText
+                    )
+                }
+            }
+            if (loading || modelsLoading) {
+                Text(
+                    "Loading agent choices…",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = IntentScreen.secondaryText
+                )
+            }
+            (error ?: modelError)?.let {
+                Text(it, style = MaterialTheme.typography.bodyMedium)
+                IntentTextButton(onClick = {
+                    retry++
+                }, enabled = enabled && !loading && !modelsLoading) { Text("Retry") }
             }
         }
     }

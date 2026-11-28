@@ -96,7 +96,7 @@ fun WorkspaceCreateScreen(
                 CreationStep.BRANCH -> CreationBranches(workflow, !busy) { next = it }
                 CreationStep.NEW_REPOSITORY -> CreationNewRepository(workflow, !busy) { next = it }
                 CreationStep.AGENT -> {
-                    CreationHeading("New Workspace")
+                    CreationHeading("Create Workspace")
                     CreationAgent(
                         workflow,
                         photos,
