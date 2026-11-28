@@ -62,6 +62,7 @@ fun ConnectionSettings(
     val context = LocalContext.current
     val appearance by preferences.appearance.collectAsState()
     val notifications by preferences.notifications.collectAsState()
+    val lockOrientation by preferences.lockOrientation.collectAsState()
     val permissionFlow = remember(context, preferences) {
         NotificationPermissionFlow(context, preferences)
     }
@@ -98,7 +99,23 @@ fun ConnectionSettings(
                 SettingsRow(R.drawable.ic_qr_code, "Pair computer", onClick = pair)
             }
         }
-        SettingsSection("Appearance") { AppearanceSelector(appearance, preferences::setAppearance) }
+        SettingsSection("Appearance") {
+            AppearanceSelector(appearance, preferences::setAppearance)
+            SettingsCard {
+                SettingsRow(
+                    R.drawable.ic_clockwise_arrow,
+                    "Lock orientation",
+                    onClick = { preferences.setLockOrientation(!lockOrientation) },
+                    trailing = {
+                        Switch(
+                            checked = lockOrientation,
+                            onCheckedChange = null,
+                            modifier = Modifier.clearAndSetSemantics {}
+                        )
+                    }
+                )
+            }
+        }
         SettingsGroup("Notifications") {
             SettingsRow(
                 R.drawable.ic_bell,
@@ -173,15 +190,18 @@ internal fun SettingsSection(title: String, content: @Composable () -> Unit) {
 
 @Composable
 private fun SettingsGroup(title: String, rows: @Composable ColumnScope.() -> Unit) {
-    SettingsSection(title) {
-        Column(
-            Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(SettingsCardRadius))
-                .background(IntentScreen.surface),
-            content = rows
-        )
-    }
+    SettingsSection(title) { SettingsCard(rows) }
+}
+
+@Composable
+private fun SettingsCard(rows: @Composable ColumnScope.() -> Unit) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(SettingsCardRadius))
+            .background(IntentScreen.surface),
+        content = rows
+    )
 }
 
 @Composable

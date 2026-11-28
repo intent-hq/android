@@ -1,0 +1,17 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- iOS Assets.xcassets/Copy.imageset/Copy.svg -->
+    <path
+        android:pathData="M15 15h3.75A2.25 2.25 0 0 0 21 12.75v-7.5A2.25 2.25 0 0 0 18.75 3h-7.5A2.25 2.25 0 0 0 9 5.25V9"
+        android:fillColor="#00000000"
+        android:strokeColor="#080808"
+        android:strokeWidth="1.995" />
+    <path
+        android:pathData="M12.75 9h-7.5A2.25 2.25 0 0 0 3 11.25v7.5A2.25 2.25 0 0 0 5.25 21h7.5A2.25 2.25 0 0 0 15 18.75v-7.5A2.25 2.25 0 0 0 12.75 9Z"
+        android:fillColor="#00000000"
+        android:strokeColor="#080808"
+        android:strokeWidth="1.995" />
+</vector>

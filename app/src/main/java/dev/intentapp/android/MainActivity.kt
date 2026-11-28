@@ -1,6 +1,7 @@
 package dev.intentapp.android
 
 import android.content.Intent
+import android.content.pm.ActivityInfo
 import android.graphics.Color
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -25,6 +26,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.lifecycleScope
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
 import dev.intentapp.android.connection.ConnectionController
@@ -37,6 +39,7 @@ import dev.intentapp.android.design.IntentTheme
 import dev.intentapp.android.settings.AppPreferences
 import dev.intentapp.android.settings.Appearance
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     private val model by lazy { ViewModelProvider(this)[ConnectionViewModel::class.java] }
@@ -51,6 +54,15 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         if (savedInstanceState == null) pendingIntent = intent
+        lifecycleScope.launch {
+            preferences.lockOrientation.collect { locked ->
+                requestedOrientation = if (locked) {
+                    ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+                } else {
+                    ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+                }
+            }
+        }
         setContent {
             val appearance by preferences.appearance.collectAsState()
             val darkTheme = when (appearance) {
@@ -91,6 +103,11 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        model.controller.recoverNow()
     }
 
     override fun onNewIntent(intent: Intent) {

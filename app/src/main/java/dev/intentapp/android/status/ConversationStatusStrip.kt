@@ -1,5 +1,7 @@
 package dev.intentapp.android.status
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -7,12 +9,15 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -24,13 +29,20 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
 import dev.intent.core.protocol.models.Agent
+import dev.intentapp.android.R
 import dev.intentapp.android.design.IntentTextButton as TextButton
 import java.time.Instant
 import kotlinx.coroutines.delay
@@ -124,21 +136,11 @@ private fun WatchRow(
         }
         rows.forEach { row ->
             if (family == WatchFamily.SCRIPT) {
-                AssistChip(onClick = {
-                    onSelect(row)
-                }, modifier = Modifier.testTag("watch-${row.text("monitorId")}"), label = {
-                    Column(Modifier.widthIn(max = 280.dp)) {
-                        Text("Watching ${row.text("scriptName")}")
-                        Text(
-                            WatchTime.elapsed(row.text("createdAt"), now),
-                            style = MaterialTheme.typography.labelSmall
-                        )
-                        Text(
-                            WatchTime.expiry(row.text("expiresAt"), now),
-                            style = MaterialTheme.typography.labelSmall
-                        )
-                    }
-                })
+                WatchPill(
+                    "Watching ${row.text("scriptName")}",
+                    WatchTime.expiry(row.text("expiresAt"), now),
+                    Modifier.testTag("watch-${row.text("monitorId")}")
+                ) { onSelect(row) }
             } else {
                 Column(Modifier.widthIn(max = 280.dp).padding(vertical = 6.dp)) {
                     if (family == WatchFamily.HOOK) {
@@ -156,6 +158,34 @@ private fun WatchRow(
                 Text("Load more script watches")
             }
         }
+    }
+}
+
+/** iOS WorkspaceStatusPill: one capsule line; the expiry is spoken, not shown. */
+@Composable
+private fun WatchPill(
+    text: String,
+    expiry: String,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier.heightIn(min = 32.dp).widthIn(max = 280.dp)
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.surface)
+            .clickable(onClick = onClick)
+            .semantics(mergeDescendants = true) { stateDescription = expiry }
+            .padding(start = 16.dp, end = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(painterResource(R.drawable.ic_eye), null, Modifier.size(16.dp))
+        Text(
+            text,
+            style = MaterialTheme.typography.labelMedium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
     }
 }
 

@@ -1,6 +1,8 @@
 package dev.intentapp.android.markdown
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -9,27 +11,43 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.selection.DisableSelection
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import dev.intentapp.android.R
 import dev.intentapp.android.mermaid.MermaidFence
+import kotlinx.coroutines.delay
 import org.commonmark.ext.gfm.tables.TableBlock
 import org.commonmark.ext.gfm.tables.TableCell
 import org.commonmark.ext.task.list.items.TaskListItemMarker
@@ -176,35 +194,90 @@ private fun MarkdownTable(node: TableBlock) {
     }
 }
 
+/** iOS CodeBlockView: a rounded card with the language, a Copy action, and scrolling code. */
 @Composable
 private fun MarkdownCode(code: String, language: String) {
     val tokens = remember(code, language) { codeTokens(code, language) }
     val colors = MaterialTheme.colorScheme
-    Surface(color = colors.surfaceVariant, modifier = Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(12.dp)) {
-            if (language.isNotEmpty()) Text(language, style = MaterialTheme.typography.labelSmall)
+    Column(
+        Modifier.fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(colors.surfaceVariant)
+    ) {
+        DisableSelection { CodeHeader(code, language) }
+        Text(
+            buildAnnotatedString {
+                tokens.forEach { token ->
+                    withStyle(
+                        SpanStyle(
+                            color = when (token.kind) {
+                                "keyword" -> colors.onSurface
+                                "string" -> colors.onTertiaryContainer
+                                "number" -> colors.secondary
+                                "comment" -> colors.onSurfaceVariant
+                                else -> colors.onSurface
+                            }
+                        )
+                    ) { append(token.text) }
+                }
+            },
+            Modifier.horizontalScroll(rememberScrollState())
+                .padding(start = 12.dp, end = 12.dp, bottom = 12.dp),
+            style = MaterialTheme.typography.bodyMedium,
+            fontFamily = FontFamily.Monospace,
+            softWrap = false
+        )
+    }
+}
+
+@Composable
+private fun CodeHeader(code: String, language: String) {
+    val clipboard = LocalClipboardManager.current
+    var copied by remember(code) { mutableStateOf(false) }
+    LaunchedEffect(copied) {
+        if (copied) {
+            delay(COPY_CONFIRMATION_MILLIS)
+            copied = false
+        }
+    }
+    Row(
+        Modifier.fillMaxWidth().padding(start = 12.dp, end = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            language,
+            Modifier.weight(1f),
+            style = MaterialTheme.typography.labelSmall,
+            fontFamily = FontFamily.Monospace,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Row(
+            Modifier.heightIn(min = 36.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .clickable {
+                    clipboard.setText(AnnotatedString(code))
+                    copied = true
+                }
+                .padding(horizontal = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                painterResource(if (copied) R.drawable.ic_check else R.drawable.ic_copy),
+                null,
+                Modifier.size(12.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
             Text(
-                buildAnnotatedString {
-                    tokens.forEach { token ->
-                        withStyle(
-                            SpanStyle(
-                                color = when (token.kind) {
-                                    "keyword" -> colors.onSurface
-                                    "string" -> colors.onTertiaryContainer
-                                    "number" -> colors.secondary
-                                    "comment" -> colors.onSurfaceVariant
-                                    else -> colors.onSurface
-                                }
-                            )
-                        ) { append(token.text) }
-                    }
-                },
-                Modifier.horizontalScroll(rememberScrollState()),
-                fontFamily = FontFamily.Monospace
+                if (copied) "Copied" else "Copy",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
 }
+
+private const val COPY_CONFIRMATION_MILLIS = 2_000L
 
 private val BLOCK_SPACING = 16.dp
 
