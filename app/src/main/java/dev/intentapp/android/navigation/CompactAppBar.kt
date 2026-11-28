@@ -58,7 +58,7 @@ fun CompactAppBar(
                     contentDescription = "Back"
                 }
             ) {
-                Icon(painterResource(R.drawable.ic_chevron_left), contentDescription = null)
+                Icon(painterResource(R.drawable.ic_arrow_left), contentDescription = null)
             }
         } else {
             Spacer(Modifier.size(48.dp))
