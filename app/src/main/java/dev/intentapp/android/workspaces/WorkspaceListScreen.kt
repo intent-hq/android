@@ -78,7 +78,7 @@ fun WorkspaceListRoute(
     }
     WorkspaceListScreen(
         state,
-        store::refresh,
+        store::pull,
         onWorkspaceSelected,
         modifier,
         onOpenRecent,

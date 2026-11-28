@@ -19,9 +19,15 @@ interface WorkspaceSession {
         onSubscribed: () -> Unit,
         onError: (Throwable) -> Unit
     ): Closeable
+
+    fun recover() {}
 }
 
 class RpcWorkspaceSession(private val session: RpcSession) : WorkspaceSession {
+    override fun recover() {
+        session.recoverNow()
+    }
+
     override fun list(): CompletableFuture<List<Workspace>> = session.request(
         "workspace.list",
         buildJsonObject { put("includeArchived", true) },

@@ -26,6 +26,7 @@ class WorkspaceStore(
     private var dataVersion = 0L
     private var revision = 0L
     private var subscriptionGeneration = 0L
+    private var pushesDuringRead: MutableList<SubscriptionPush<Workspace>>? = null
 
     @Synchronized
     fun start() {
@@ -56,16 +57,32 @@ class WorkspaceStore(
         if (!closed && generation == subscriptionGeneration) action()
     }
 
+    /** A pull also wakes a silent or waiting connection, like returning to the foreground. */
+    fun pull() {
+        session.recover()
+        refresh()
+    }
+
     @Synchronized
     fun refresh() {
         if (closed) return
         val readRevision = ++revision
+        val pushes = mutableListOf<SubscriptionPush<Workspace>>()
+        pushesDuringRead = pushes
         mutableState.value = state.value.copy(isLoading = true, error = null)
         session.list().whenComplete { rows, error ->
             synchronized(this) {
-                // A newer read, live push, reconnect, or close supersedes this response.
+                // A newer read, reconnect, mutation, or close supersedes this response. Live pushes
+                // do not: they replay on top of it so busy workspaces cannot discard every pull.
                 if (!closed && revision == readRevision) {
-                    if (error != null) fail(error) else publish(rows)
+                    pushesDuringRead = null
+                    if (error != null) {
+                        fail(error)
+                    } else {
+                        var merged: List<Workspace>? = rows
+                        pushes.forEach { push -> merged = merged?.let { merge(it, push) } }
+                        merged?.let(::publish) ?: fail(MalformedPush())
+                    }
                 }
             }
         }
@@ -74,22 +91,16 @@ class WorkspaceStore(
     @Synchronized
     private fun applyPush(push: SubscriptionPush<Workspace>) {
         if (closed) return
-        revision++
-        val snapshot = push.snapshot
-        val delta = push.delta
-        when {
-            snapshot != null -> publish(snapshot)
-            delta != null -> {
-                val rows = state.value.workspaces.associateBy { it.id }.toMutableMap()
-                (delta.added + delta.updated).forEach { rows[it.id] = it }
-                delta.removedIds.forEach(rows::remove)
-                publish(rows.values.toList())
-            }
-            else -> fail(IllegalArgumentException("Workspace update has no data"))
-        }
+        pushesDuringRead?.add(push)
+        val rows = merge(state.value.workspaces, push) ?: return fail(MalformedPush())
+        publish(rows, keepLoading = pushesDuringRead != null)
     }
 
-    private fun publish(rows: List<Workspace>, fromCache: Boolean = false) {
+    private fun publish(
+        rows: List<Workspace>,
+        fromCache: Boolean = false,
+        keepLoading: Boolean = false
+    ) {
         if (!fromCache) dataVersion++
         mutableState.value = WorkspaceListState(
             workspaces = rows.distinctBy { it.id }.filter {
@@ -101,7 +112,7 @@ class WorkspaceStore(
                         it.lastActivity ?: it.updatedAt
                     }.thenBy { it.id }
                 ),
-            isLoading = false,
+            isLoading = keepLoading,
             error = if (fromCache) state.value.error else null
         )
         if (!fromCache) cache?.replaceWorkspaces(state.value.workspaces)
@@ -111,6 +122,7 @@ class WorkspaceStore(
     private fun fail(error: Throwable) {
         if (!closed) {
             revision++
+            pushesDuringRead = null
             mutableState.value =
                 state.value.copy(
                     isLoading = false,
@@ -125,6 +137,7 @@ class WorkspaceStore(
     internal fun confirmChange(id: String, title: String? = null, archived: Boolean = false) {
         if (closed) return
         revision++
+        pushesDuringRead = null
         val rows = state.value.workspaces.mapNotNull {
             when {
                 it.id != id -> it
@@ -140,6 +153,7 @@ class WorkspaceStore(
     fun stop() {
         subscriptionGeneration++
         revision++
+        pushesDuringRead = null
         lease?.close()
         lease = null
     }
@@ -150,3 +164,19 @@ class WorkspaceStore(
         stop()
     }
 }
+
+private fun merge(rows: List<Workspace>, push: SubscriptionPush<Workspace>): List<Workspace>? {
+    val delta = push.delta
+    return when {
+        push.snapshot != null -> push.snapshot
+        delta == null -> null
+        else -> {
+            val byId = rows.associateBy { it.id }.toMutableMap()
+            (delta.added + delta.updated).forEach { byId[it.id] = it }
+            delta.removedIds.forEach(byId::remove)
+            byId.values.toList()
+        }
+    }
+}
+
+private class MalformedPush : IllegalArgumentException("Workspace update has no data")
