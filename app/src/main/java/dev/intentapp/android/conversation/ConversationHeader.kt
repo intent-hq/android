@@ -43,7 +43,7 @@ internal fun ConversationHeader(
             onClick = onBack,
             modifier = Modifier.size(CONTROL_SIZE).semantics { contentDescription = "Back" }
         ) {
-            Icon(painterResource(R.drawable.ic_chevron_left), contentDescription = null)
+            Icon(painterResource(R.drawable.ic_arrow_left), contentDescription = null)
         }
         Column(
             Modifier.weight(1f).padding(horizontal = IntentSpacing.small),
@@ -67,7 +67,7 @@ internal fun ConversationHeader(
         if (actions.isEmpty()) {
             Spacer(Modifier.size(CONTROL_SIZE))
         } else {
-            ChromeActionsMenu(actions, surface = false)
+            ChromeActionsMenu(actions)
         }
     }
 }

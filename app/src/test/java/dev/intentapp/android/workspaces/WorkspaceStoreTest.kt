@@ -56,6 +56,64 @@ class WorkspaceStoreTest {
     }
 
     @Test
+    fun pullKeepsReadWhenLivePushArrivesDuringIt() {
+        val session = FakeWorkspaceSession()
+        val store = WorkspaceStore(session)
+        store.start()
+        session.admit()
+        session.reads.last().complete(listOf(Workspace("old", "Stale")))
+        store.pull()
+        session.push(
+            SubscriptionPush(
+                "lease",
+                "workspace",
+                1,
+                delta = EntityDelta(updated = listOf(Workspace("busy", "Busy v2")))
+            )
+        )
+        assertTrue(store.state.value.isLoading)
+        session.reads.last().complete(
+            listOf(Workspace("busy", "Busy v1"), Workspace("fresh", "Created elsewhere"))
+        )
+        assertEquals(1, session.recovered)
+        assertFalse(store.state.value.isLoading)
+        assertEquals(
+            setOf("busy" to "Busy v2", "fresh" to "Created elsewhere"),
+            store.state.value.workspaces.map { it.id to it.title }.toSet()
+        )
+    }
+
+    @Test
+    fun pagedSnapshotKeepsNewerRowsAndReadsEveryPage() {
+        val session = FakeWorkspaceSession()
+        val store = WorkspaceStore(session)
+        store.start()
+        session.admit()
+        session.reads.last().complete(listOf(Workspace("old", "Old"), Workspace("new", "New")))
+        session.push(
+            SubscriptionPush(
+                "lease",
+                "workspace",
+                0,
+                snapshot = listOf(Workspace("old", "Old v2")),
+                nextToken = "page-2"
+            )
+        )
+        assertEquals(
+            setOf("old" to "Old v2", "new" to "New"),
+            store.state.value.workspaces.map { it.id to it.title }.toSet()
+        )
+        assertEquals(2, session.reads.size)
+        session.reads.last().complete(
+            listOf(Workspace("old", "Old v2"), Workspace("newest", "Newest"))
+        )
+        assertEquals(
+            setOf("old", "newest"),
+            store.state.value.workspaces.map { it.id }.toSet()
+        )
+    }
+
+    @Test
     fun reconnectRefreshFencesPreviousRead() {
         val session = FakeWorkspaceSession()
         val store = WorkspaceStore(session)
@@ -119,6 +177,10 @@ class WorkspaceStoreTest {
 
 private class FakeWorkspaceSession : WorkspaceSession {
     val reads = mutableListOf<CompletableFuture<List<Workspace>>>()
+    var recovered = 0
+    override fun recover() {
+        recovered++
+    }
     lateinit var admit: () -> Unit
     lateinit var push: (SubscriptionPush<Workspace>) -> Unit
     var subscriptions = 0

@@ -80,7 +80,7 @@ data class WorkspaceListParams(
 data class WorkspaceParams(val workspaceId: String)
 
 @Serializable
-data class WorkspaceListResult(val workspaces: List<Workspace>)
+data class WorkspaceListResult(val workspaces: List<Workspace>, val nextToken: String? = null)
 
 @Serializable
 data class WorkspaceResult(val workspace: Workspace)

@@ -268,7 +268,7 @@ private fun BrowsersHeader(onBack: () -> Unit, onNew: () -> Unit, enabled: Boole
         verticalAlignment = Alignment.CenterVertically
     ) {
         IconButton(onClick = onBack, modifier = Modifier.size(CONTROL_SIZE)) {
-            Icon(painterResource(R.drawable.ic_chevron_left), "Back")
+            Icon(painterResource(R.drawable.ic_arrow_left), "Back")
         }
         Text(
             "Browsers",

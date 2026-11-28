@@ -132,28 +132,31 @@ class WorkspaceSectionsTest {
         screenshot("workspaces-header")
         menu(
             listOf("Show archived"),
-            listOf("Settings", "Connections", "Disconnect", "Create workspace")
+            listOf("Settings", "Connections", "Disconnect", "Create workspace"),
+            "workspaces-menu"
         )
         openWorkspace()
         screenshot("agents-header")
         menu(
-            listOf("New agent", "Transfer workspace", "Rename workspace"),
-            listOf("Settings", "Connections", "Disconnect")
+            listOf("Create New Agent", "Transfer workspace", "Rename", "Archive", "Delete"),
+            listOf("Settings", "Connections", "Disconnect"),
+            "agents-menu"
         )
         compose.onNodeWithText("Agent 1").performClick()
         waitForVisibleText("Linked plan")
         screenshot("conversation-header")
         menu(
-            listOf("Model settings", "Rename agent", "Delete agent"),
-            listOf("Transfer workspace", "Settings", "Connections", "Terminals")
+            listOf("Select Model", "Rename", "Delete Agent"),
+            listOf("Transfer workspace", "Settings", "Connections", "Terminals"),
+            "conversation-menu"
         )
         back()
         compose.onNodeWithText("Context").performClick()
         waitForVisibleText("Plan 1")
         screenshot("context-header")
         menu(
-            listOf("Transfer workspace", "Rename workspace"),
-            listOf("Settings", "Disconnect", "Model settings")
+            listOf("Transfer workspace", "Rename"),
+            listOf("Settings", "Disconnect", "Select Model")
         )
         waitForVisibleText("Plan 1")
         compose.onNodeWithText("Plan 1").performClick()
@@ -165,8 +168,8 @@ class WorkspaceSectionsTest {
         waitForVisibleText("app.kt")
         screenshot("changes-header")
         menu(
-            listOf("Transfer workspace", "Rename workspace"),
-            listOf("Settings", "Disconnect", "Model settings")
+            listOf("Transfer workspace", "Rename"),
+            listOf("Settings", "Disconnect", "Select Model")
         )
         waitForVisibleText("app.kt")
         compose.onNodeWithText("app.kt").performClick()
@@ -208,9 +211,22 @@ class WorkspaceSectionsTest {
         )
     }
 
-    private fun menu(present: List<String>, absent: List<String>) {
+    private fun menu(present: List<String>, absent: List<String>, shot: String? = null) {
         compose.onNodeWithContentDescription("More actions").performClick()
         present.forEach { compose.onNodeWithText(it).assertIsDisplayed() }
+        shot?.let { name ->
+            compose.waitForIdle()
+            val instrumentation = InstrumentationRegistry.getInstrumentation()
+            val directory = InstrumentationRegistry.getArguments()
+                .getString("additionalTestOutputDir")?.let { java.io.File(it) }
+                ?: java.io.File(instrumentation.targetContext.cacheDir, "screenshots")
+            directory.mkdirs()
+            val bitmap = instrumentation.uiAutomation.takeScreenshot()
+            java.io.File(directory, "$name.png").outputStream().use {
+                bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
+            }
+            bitmap.recycle()
+        }
         absent.forEach { compose.onNodeWithText(it).assertDoesNotExist() }
         InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
     }

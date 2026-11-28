@@ -1,0 +1,14 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- iOS Assets.xcassets/TruckOne.imageset/TruckOne.svg -->
+    <path
+        android:pathData="M1.5 15.943C1.5 17.079 2.44 18 3.6 18s2.1-0.921 2.1-2.057-0.94-2.057-2.1-2.057-2.1 0.92-2.1 2.057Zm0 0v-5.72l2.45-1.137L6.452 6h2.281v10.057m9.567-0.114c0 1.136 0.94 2.057 2.1 2.057s2.1-0.921 2.1-2.057m-4.2 0c0-1.136 0.94-2.057 2.1-2.057s2.1 0.92 2.1 2.057m-4.2 0h-2.275m6.475 0V7.657a0.46 0.46 0 0 0-0.467-0.457h-9.741a0.46 0.46 0 0 0-0.467 0.457v8.286m0 0c0 1.136 0.94 2.057 2.1 2.057s2.1-0.921 2.1-2.057m-4.2 0c0-1.136 0.94-2.057 2.1-2.057s2.1 0.92 2.1 2.057m-7.775 0.114h3.578"
+        android:fillColor="#00000000"
+        android:strokeColor="#080808"
+        android:strokeWidth="1.995"
+        android:strokeLineCap="square"
+        android:strokeLineJoin="round" />
+</vector>

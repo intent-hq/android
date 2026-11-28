@@ -37,11 +37,11 @@ class WorkspaceActionsTest {
     @Test
     fun renameCancelAndSaveFromHeader() = connected {
         openWorkspace()
-        menu("Rename workspace")
+        menu("Rename")
         compose.onNodeWithText("Workspace name").performTextReplacement("Discarded")
         compose.onNodeWithText("Cancel").performClick()
         assertTrue(server.requests.none { it.method == "workspace.update" })
-        menu("Rename workspace")
+        menu("Rename")
         compose.onNodeWithText("Workspace name").performTextReplacement(" Renamed ")
         fixtureResponses["workspace.list"] =
             """{"workspaces":[{"id":"workspace","title":"Renamed"}]}"""
@@ -58,10 +58,10 @@ class WorkspaceActionsTest {
     @Test
     fun archiveCancelThenConfirmReturnsToListAndShowArchivedRestoresRow() = connected {
         openWorkspace()
-        menu("Archive workspace")
+        menu("Archive")
         compose.onNodeWithText("Cancel").performClick()
         assertTrue(server.requests.none { it.method == "workspace.archive" })
-        menu("Archive workspace")
+        menu("Archive")
         fixtureResponses["workspace.list"] =
             """{"workspaces":[{"id":"workspace","title":"$TITLE","status":"Archived"}]}"""
         compose.onNodeWithText("Archive", substring = false).performClick()

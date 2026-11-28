@@ -117,3 +117,9 @@ fun newRepositoryPath(name: String, parent: String): String? {
 }
 
 private const val MAX_REPOSITORY_NAME_BYTES = 255
+
+internal data class CreationMenuChoice(
+    val id: String,
+    val label: String,
+    val enabled: Boolean = true
+)
