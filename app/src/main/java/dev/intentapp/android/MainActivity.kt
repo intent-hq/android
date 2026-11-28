@@ -105,6 +105,11 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onStart() {
+        super.onStart()
+        model.controller.recoverNow()
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         pendingIntent = intent

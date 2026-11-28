@@ -116,6 +116,9 @@ class ConnectionController(
         stopSession()
     }
 
+    /** Reconnect without backoff when the app returns or the network changes. */
+    fun recoverNow() = submit { current?.recoverNow() }
+
     fun forget(id: String) = submit {
         if (state.value.activeId == id) stopSession()
         repository.remove(id)

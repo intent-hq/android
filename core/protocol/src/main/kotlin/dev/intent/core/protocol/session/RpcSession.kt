@@ -13,6 +13,7 @@ import java.net.HttpURLConnection
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledExecutorService
+import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
 import java.util.concurrent.atomic.AtomicBoolean
@@ -67,6 +68,7 @@ class RpcSession(
     private var generation = 0L
     private var nextId = 0L
     private var reconnectAttempt = 0
+    private var retry: ScheduledFuture<*>? = null
     private var readyAt: Long? = null
     private val browsers = mutableSetOf<BrowserTunnel>()
     private val pending = mutableMapOf<JsonElement, CompletableFuture<JsonElement>>()
@@ -78,6 +80,35 @@ class RpcSession(
 
     fun connect() = execute {
         if (state == SessionState.DISCONNECTED) open()
+    }
+
+    /**
+     * Call when the app returns to the foreground or the network changes. A waiting retry runs
+     * now, an attempt started on the old network restarts, and a ready connection must answer a
+     * short probe; a silent socket reconnects at once.
+     */
+    fun recoverNow() = execute {
+        reconnectAttempt = 0
+        when (state) {
+            SessionState.DISCONNECTED -> {
+                retry?.cancel(false)
+                open()
+            }
+            SessionState.CONNECTING, SessionState.HANDSHAKING -> disconnected()
+            SessionState.READY -> probe()
+            SessionState.CLOSED -> Unit
+        }
+    }
+
+    private fun probe() {
+        val current = generation
+        val reply = CompletableFuture<JsonElement>()
+        reply.whenComplete { _, error ->
+            if (error is TimeoutException && current == generation) {
+                disconnected()
+            }
+        }
+        send("system.status", null, PROBE_TIMEOUT_MILLIS, reply)
     }
 
     @Synchronized
@@ -331,7 +362,7 @@ class RpcSession(
         failPending(SessionDisconnectedException())
         changeState(SessionState.DISCONNECTED)
         val current = generation
-        executor.schedule({
+        retry = executor.schedule({
             if (!closed.get() && current == generation) open()
         }, reconnectDelay(reconnectAttempt++), TimeUnit.MILLISECONDS)
     }
@@ -439,3 +470,5 @@ private fun JsonElement.string(key: String): String? =
         it.isString &&
             it.content.isNotEmpty()
     }?.content
+
+private const val PROBE_TIMEOUT_MILLIS = 5_000L
