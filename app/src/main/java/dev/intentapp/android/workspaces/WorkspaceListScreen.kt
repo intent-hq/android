@@ -58,7 +58,6 @@ import dev.intentapp.android.design.IntentSpacing
 import dev.intentapp.android.design.IntentTabs
 import dev.intentapp.android.design.IntentTheme
 import dev.intentapp.android.lists.RefreshableList
-import dev.intentapp.android.navigation.ChromeAction
 import dev.intentapp.android.navigation.ChromeActionsMenu
 
 @Suppress("LongParameterList", "LongMethod")
@@ -138,12 +137,10 @@ fun WorkspaceListScreen(
                 }
             )
             ChromeActionsMenu(
-                listOf(
-                    ChromeAction(if (showArchived) "Hide archived" else "Show archived") {
-                        showArchived = !showArchived
-                        revealedId = null
-                    }
-                )
+                workspaceListMenu(showArchived, drawerButtons) {
+                    showArchived = !showArchived
+                    revealedId = null
+                }
             )
         }
         dev.intentapp.android.lists.SearchableList(

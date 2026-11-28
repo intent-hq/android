@@ -7,8 +7,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -84,11 +86,31 @@ internal fun ChromeActionsMenu(actions: List<ChromeAction>) {
                     contentDescription = "More actions"
                 }
             ) { Icon(painterResource(R.drawable.ic_more), contentDescription = null) }
-            DropdownMenu(expanded, onDismissRequest = { expanded = false }) {
-                actions.forEach { action ->
+            DropdownMenu(
+                expanded,
+                onDismissRequest = { expanded = false },
+                shape = RoundedCornerShape(20.dp),
+                containerColor = MaterialTheme.colorScheme.surface
+            ) {
+                actions.forEachIndexed { index, action ->
+                    if (action.group &&
+                        index > 0
+                    ) {
+                        HorizontalDivider(Modifier.padding(vertical = 4.dp))
+                    }
                     DropdownMenuItem(
                         text = { ActionLabel(action) },
                         enabled = action.enabled,
+                        trailingIcon = action.icon?.let { icon ->
+                            {
+                                Icon(
+                                    painterResource(icon),
+                                    null,
+                                    Modifier.size(20.dp),
+                                    tint = actionColor(action)
+                                )
+                            }
+                        },
                         onClick = {
                             expanded = false
                             action.run()
@@ -101,13 +123,13 @@ internal fun ChromeActionsMenu(actions: List<ChromeAction>) {
 }
 
 @Composable
+private fun actionColor(action: ChromeAction) = (
+    if (action.destructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+    ).copy(alpha = if (action.enabled) 1f else DISABLED_ALPHA)
+
+private const val DISABLED_ALPHA = 0.38f
+
+@Composable
 private fun ActionLabel(action: ChromeAction) {
-    Text(
-        action.label,
-        color = if (action.destructive) {
-            MaterialTheme.colorScheme.error
-        } else {
-            MaterialTheme.colorScheme.onSurface
-        }
-    )
+    Text(action.label, style = MaterialTheme.typography.bodyLarge, color = actionColor(action))
 }

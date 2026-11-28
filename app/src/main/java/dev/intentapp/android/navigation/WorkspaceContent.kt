@@ -15,6 +15,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import dev.intent.core.protocol.session.RpcSession
+import dev.intentapp.android.R
 import dev.intentapp.android.browser.WorkspaceBrowserLinks
 import dev.intentapp.android.browser.WorkspaceBrowsersRoute
 import dev.intentapp.android.cache.OfflineCache
@@ -92,10 +93,16 @@ fun WorkspaceContent(
         },
         LocalChromeActions provides (
             listOf(
-                ChromeAction("Browser preview") { destination = WorkspaceDestination.Browser },
-                ChromeAction("Terminals") { destination = WorkspaceDestination.Terminals },
-                ChromeAction("Scripts") { destination = WorkspaceDestination.Scripts },
-                ChromeAction("New terminal", run = newTerminal)
+                ChromeAction("New terminal", icon = R.drawable.ic_terminal, run = newTerminal),
+                ChromeAction("Terminals", icon = R.drawable.ic_terminal) {
+                    destination = WorkspaceDestination.Terminals
+                },
+                ChromeAction("Browsers", icon = R.drawable.ic_globe) {
+                    destination = WorkspaceDestination.Browser
+                },
+                ChromeAction("Scripts", icon = R.drawable.ic_play) {
+                    destination = WorkspaceDestination.Scripts
+                }
             ) + LocalChromeActions.current
             ),
         LocalMarkdownNoteLink provides { id ->

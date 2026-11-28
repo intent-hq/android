@@ -20,6 +20,7 @@ import androidx.compose.ui.platform.LocalContext
 import dev.intent.core.protocol.attachments.AttachmentUploadService
 import dev.intent.core.protocol.attachments.RpcAttachmentClient
 import dev.intent.core.protocol.session.RpcSession
+import dev.intentapp.android.R
 import dev.intentapp.android.agents.AgentActionDialog
 import dev.intentapp.android.agents.AgentControls
 import dev.intentapp.android.agents.AgentListResources
@@ -127,7 +128,12 @@ fun WorkspaceConversations(
                 LocalChromeBack provides onBack,
                 LocalChromeActions provides
                     (
-                        listOf(ChromeAction("New agent") { creating = true }) +
+                        listOf(
+                            ChromeAction("Create New Agent", icon = R.drawable.ic_add) {
+                                creating =
+                                    true
+                            }
+                        ) +
                             LocalChromeActions.current
                         )
             ) {
@@ -265,15 +271,32 @@ fun WorkspaceConversations(
                             onBack = { selected = null },
                             actions = listOfNotNull(
                                 LocalDrawerButtons.current?.let { buttons ->
-                                    ChromeAction("Agent history") { buttons.history() }
-                                }
-                            ) + listOf(
-                                "Model settings",
-                                "Rename agent",
-                                "Delete agent"
-                            ).map { label ->
-                                ChromeAction(label, enabled = agent != null) { action = label }
-                            }
+                                    ChromeAction(
+                                        "Agent history",
+                                        icon = R.drawable.ic_message_list
+                                    ) {
+                                        buttons.history()
+                                    }
+                                },
+                                ChromeAction(
+                                    "Select Model",
+                                    enabled = agent != null,
+                                    icon = R.drawable.ic_settings,
+                                    group = true
+                                ) { action = "Model settings" },
+                                ChromeAction(
+                                    "Rename",
+                                    enabled = agent != null,
+                                    icon = R.drawable.ic_edit
+                                ) { action = "Rename agent" },
+                                ChromeAction(
+                                    "Delete Agent",
+                                    enabled = agent != null,
+                                    destructive = true,
+                                    icon = R.drawable.ic_delete,
+                                    group = true
+                                ) { action = "Delete agent" }
+                            )
                         )
                         ConversationRoute(
                             conversation,

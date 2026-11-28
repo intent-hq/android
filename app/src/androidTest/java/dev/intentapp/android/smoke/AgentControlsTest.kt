@@ -80,20 +80,20 @@ class AgentControlsTest {
 
     @Test fun renameAndDeleteConfirmOrCancel() = connected {
         openConversation()
-        menu("Rename agent")
+        menu("Rename")
         compose.onNodeWithText("Agent name").performTextReplacement("Renamed agent")
         compose.onNodeWithText("Cancel").performClick()
         assertFalse(server.requests.any { it.method == "agent.rename" })
-        menu("Rename agent")
+        menu("Rename")
         compose.onNodeWithText("Agent name").performTextReplacement("Renamed agent")
         compose.onNodeWithText("Save").performClick()
         waitFor("Renamed agent")
         assertEquals("Renamed agent", request("agent.rename")["name"]?.jsonPrimitive?.content)
-        menu("Delete agent")
+        menu("Delete Agent")
         compose.onNodeWithText("Cancel").performClick()
         compose.onNodeWithContentDescription("Message").assertIsDisplayed()
         assertFalse(server.requests.any { it.method == "agent.delete" })
-        menu("Delete agent")
+        menu("Delete Agent")
         compose.onNodeWithText("Delete").performClick()
         waitFor("No agents yet")
         compose.onNodeWithContentDescription("Message").assertDoesNotExist()
@@ -125,7 +125,7 @@ class AgentControlsTest {
 
     @Test fun changesProviderModelAndReasoning() = connected {
         openConversation()
-        menu("Model settings")
+        menu("Select Model")
         waitFor("Other provider")
         compose.onNodeWithText("Other provider").performClick()
         compose.onNodeWithText("Show models").performClick()
@@ -148,7 +148,7 @@ class AgentControlsTest {
                 "agent.update"
             )["changes"]?.jsonObject?.get("reasoningEffort")?.jsonPrimitive?.content
         )
-        menu("Model settings")
+        menu("Select Model")
         waitFor("New model")
         compose.onNodeWithText("Show models").performClick()
         compose.onNodeWithText("Provider default").performScrollTo().performClick()
@@ -169,7 +169,7 @@ class AgentControlsTest {
         )
     ) {
         openConversation()
-        menu("Model settings")
+        menu("Select Model")
         waitFor("Other provider")
         compose.onNodeWithText("Other provider").performClick()
         compose.onNodeWithText("Reasoning").assertIsDisplayed()

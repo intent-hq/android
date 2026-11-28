@@ -17,6 +17,7 @@ import androidx.compose.ui.platform.LocalContext
 import dev.intent.core.protocol.attachments.AttachmentUploadService
 import dev.intent.core.protocol.attachments.RpcAttachmentClient
 import dev.intent.core.protocol.session.RpcSession
+import dev.intentapp.android.R
 import dev.intentapp.android.assistant.AssistantRoute
 import dev.intentapp.android.attachments.PhotoAttachmentStore
 import dev.intentapp.android.cache.OfflineCache
@@ -130,17 +131,26 @@ fun IntentNavigation(
     }
     BackHandler(selected != null || creating || assistant || transferring, onBack = back)
     val canTransfer = connectionReady && assistantOwner
-    val workspaceAction = ChromeAction("Transfer workspace", !operationBusy && canTransfer) {
+    val workspaceAction = ChromeAction(
+        "Transfer workspace",
+        !operationBusy && canTransfer,
+        icon = R.drawable.ic_truck,
+        group = true
+    ) {
         transferring = true
     }
     val selectedRow = workspaceState.workspaces.firstOrNull { it.id == selected }
     val lifecycleActions = selectedRow?.let { workspace ->
         WorkspaceAction.entries.map { action ->
             ChromeAction(
-                "${action.label} workspace",
+                action.label,
                 !lifecycleState.busy,
-                destructive =
-                action == WorkspaceAction.Delete
+                destructive = action == WorkspaceAction.Delete,
+                icon = when (action) {
+                    WorkspaceAction.Rename -> R.drawable.ic_edit
+                    WorkspaceAction.Archive -> R.drawable.ic_archive
+                    WorkspaceAction.Delete -> R.drawable.ic_delete
+                }
             ) {
                 lifecycle.begin(workspace, action)
             }
@@ -175,7 +185,7 @@ fun IntentNavigation(
             },
             onAssistant = if (assistantOwner) ({ assistant = true }) else null
         ),
-        LocalChromeActions provides (lifecycleActions + listOf(workspaceAction)),
+        LocalChromeActions provides (listOf(workspaceAction) + lifecycleActions),
         LocalWorkspaceRepository provides
             repositoryLabel(workspaceState.workspaces.firstOrNull { it.id == selected }),
         LocalWorkspaceDetails provides workspaceState.workspaces.firstOrNull { it.id == selected },
