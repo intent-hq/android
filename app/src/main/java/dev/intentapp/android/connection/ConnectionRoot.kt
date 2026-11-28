@@ -1,7 +1,9 @@
 package dev.intentapp.android.connection
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -16,8 +18,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import dev.intent.core.protocol.attachments.RpcAttachmentClient
 import dev.intentapp.android.attachments.AttachmentMedia
 import dev.intentapp.android.attachments.LocalAttachmentMedia
@@ -169,11 +173,16 @@ fun ConnectionRoot(
                 )
                 else -> key(state.session, state.cacheScope) {
                     contentState.SaveableStateProvider(state.cacheScope ?: "connected") {
-                        Column(Modifier.weight(1f)) {
-                            ConnectionRecoveryBanner(state) {
-                                utilities = utilities.openUtility("Connections")
-                            }
-                            ConnectedContent(state, Modifier.weight(1f), notificationWorkspace)
+                        Box(Modifier.weight(1f)) {
+                            ConnectedContent(state, Modifier.fillMaxSize(), notificationWorkspace)
+                            // Clears the 80dp Intent launcher and its 16dp inset, like iOS chrome clearance.
+                            ConnectionRecoveryBanner(
+                                state,
+                                onHome = { utilities = utilities.openUtility("Connections") },
+                                modifier = Modifier.align(
+                                    Alignment.BottomCenter
+                                ).padding(bottom = 104.dp)
+                            )
                         }
                     }
                 }
