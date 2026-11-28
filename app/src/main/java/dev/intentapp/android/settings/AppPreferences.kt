@@ -18,6 +18,9 @@ class AppPreferences(context: Context) {
     val appearance = appearanceState.asStateFlow()
     private val notificationState = MutableStateFlow(preferences.getBoolean("notifications", false))
     val notifications = notificationState.asStateFlow()
+    private val lockOrientationState =
+        MutableStateFlow(preferences.getBoolean("lock-orientation", true))
+    val lockOrientation = lockOrientationState.asStateFlow()
 
     fun setAppearance(value: Appearance) {
         preferences.edit().putString("appearance", value.name).apply()
@@ -27,5 +30,10 @@ class AppPreferences(context: Context) {
     fun setNotifications(value: Boolean) {
         preferences.edit().putBoolean("notifications", value).apply()
         notificationState.value = value
+    }
+
+    fun setLockOrientation(value: Boolean) {
+        preferences.edit().putBoolean("lock-orientation", value).apply()
+        lockOrientationState.value = value
     }
 }
