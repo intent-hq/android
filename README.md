@@ -179,6 +179,7 @@ The release owner must still complete these steps in Play Console:
 
 The library builds the shared `packages/ios/TailcatKit` Go wrapper. The connection manager races direct hosts against the tunnel and closes losing routes. Browser traffic uses the winning route with the same pinned TLS and bearer authentication.
 The generated AAR contains `arm64-v8a`, `armeabi-v7a`, and `x86_64` libraries. The AAR and license copy stay in gitignored `tailcat/libs/`.
+To skip the Go build, copy `tailcat/libs/` from another checkout whose `tailcat/source.ref` matches.
 Gradle requires the AAR by default. Build it once before the first build:
 
 1. Initialize the iOS submodule from the monorepo with `make ensure-ios-submodule`.
